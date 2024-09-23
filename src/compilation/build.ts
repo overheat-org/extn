@@ -4,9 +4,9 @@
 
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { createRsbuild, defineConfig } from '@rsbuild/core';
-import LoaderPlugin from './loader';
-import { join as j } from 'path';
 import { pluginBabel } from '@rsbuild/plugin-babel';
+import { join as j } from 'path';
+import LoaderPlugin from './loader';
 import execute from './execute';
 
 async function build(cwd: string, dev = false) {
