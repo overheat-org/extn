@@ -8,14 +8,15 @@ import LoaderPlugin from './loader';
 import { join as j } from 'path';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import execute from './execute';
+import Config from '../config';
 
-async function build(cwd: string, dev = false) {
+async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
         source: {
             entry: { main: require.resolve('../index') },
             define: {
-                COMMANDS_PATH: JSON.stringify(j(cwd, 'commands')),
-                MANAGERS_PATH: JSON.stringify(j(cwd, 'managers'))
+                COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
+                MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers'))
             },
             decorators: {
                 version: '2022-03'
@@ -23,11 +24,11 @@ async function build(cwd: string, dev = false) {
         },
         output: {
             target: 'node',
-            distPath: { root: j(cwd, '.flame') }
+            distPath: { root: coreConfig.buildPath }
         },
         tools: {
             rspack: {
-                context: cwd,
+                context: coreConfig.entryPath,
                 plugins: [
                     LoaderPlugin()
                 ],
@@ -60,13 +61,13 @@ async function build(cwd: string, dev = false) {
         ]
     })
 
-    const instance = await createRsbuild({ rsbuildConfig: config, cwd });
+    const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.entryPath });
 
     if (dev) {
         await instance.startDevServer();
         await instance.build();
 
-        execute(cwd, dev);
+        execute(coreConfig, dev);
     } else {
         await instance.build();
     }

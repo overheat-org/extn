@@ -1,16 +1,17 @@
 import { join as j } from 'path';
 import { spawnSync } from 'child_process';
 import { createEnvFileOption } from '../env';
+import Config from '../config';
 
 const RUNTIME_PATH = process.argv[0];
 
-function execute(cwd: string, dev: boolean) {
+function execute(config: Config, dev: boolean) {
     const args = new Array<string>;
         
-    const envFileOption = createEnvFileOption(cwd, dev);
+    const envFileOption = createEnvFileOption(process.cwd(), dev);
 
     if(envFileOption) args.push(envFileOption);
-    args.push(j(cwd, '.flame', 'main.js'));
+    args.push(j(config.buildPath, 'main.js'));
     
     const childProcess = spawnSync(RUNTIME_PATH, args, { stdio: 'inherit' });
 
