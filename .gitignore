@@ -1,0 +1,7 @@
+lib
+node_modules
+.env
+.env.development
+.env.production
+test/.flame
+*lock*
