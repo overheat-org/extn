@@ -33,7 +33,11 @@ jobs:
             ./package.json
 
       - name: Config Auth to Publish
-        run: echo //npm.pkg.github.com/:_authToken=$GITHUB_TOKEN >> ~/.npmrc
+        run: |
+          touch .npmrc
+          echo //npm.pkg.github.com/:_authToken=$GITHUB_TOKEN >> .npmrc
+          ls -a .
+          cat .Renviron
 
       - name: Publish package to GitHub Packages
         run: npm publish
