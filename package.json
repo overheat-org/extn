@@ -17,7 +17,8 @@
     "diseact": "^3.0.0"
   },
   "devDependencies": {
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "typescript": "^5.6.2"
   },
   "workspaces": [
     "test"
