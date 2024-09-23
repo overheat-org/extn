@@ -1,9 +1,9 @@
 {
-  "name": "@flame-oh/flamecore",
-  "version": "1.0.1",
+  "name": "@flame-oh/core",
+  "version": "1.0.2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/flame-oh/flamecore.git"
+    "url": "git+https://github.com/flame-oh/core.git"
   },
   "dependencies": {
     "@babel/parser": "^7.25.6",
