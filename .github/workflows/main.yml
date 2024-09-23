@@ -37,7 +37,7 @@ jobs:
           touch .npmrc
           echo //npm.pkg.github.com/:_authToken=$GITHUB_TOKEN >> .npmrc
           ls -a .
-          cat .Renviron
+          cat .npmrc
 
       - name: Publish package to GitHub Packages
         run: npm publish
