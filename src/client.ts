@@ -3,6 +3,8 @@ import Discord from 'discord.js';
 
 declare const MANAGERS_PATH: string;
 declare const COMMANDS_PATH: string;
+declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, number>
+
 const { TOKEN, TEST_GUILD_ID, TEST_CHANNEL_ID, NODE_ENV } = process.env;
 const DEV = NODE_ENV == 'development';
 
@@ -50,7 +52,7 @@ class Client extends Discord.Client {
     }
 }
 
-global.client = new Client({ intents: [] });
+global.client = new Client({ intents: INTENTS });
 
 {
     const ctx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
