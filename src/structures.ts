@@ -38,7 +38,7 @@ function event<This extends { client: Client, _injected_?: true }>(target: (...a
             throw new Error('The class should be injectable to use this Decorator');
         }
         
-        this.client[once ? 'once' : 'on'](name as keyof ClientEvents, target);
+        this.client[once ? 'once' : 'on'](name as keyof ClientEvents, target.bind(this));
     })
 }
 
