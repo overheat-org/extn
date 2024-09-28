@@ -54,7 +54,7 @@ function isInjection(source: string) {
 
     const ast = parser.parse(source, {
         sourceType: 'module',
-        plugins: ['typescript', 'decorators']
+        plugins: ['typescript', 'decorators', 'jsx' ]
     });
 
     const classes = new Array<any>;
