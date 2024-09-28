@@ -10,6 +10,15 @@ import { pluginBabel } from '@rsbuild/plugin-babel';
 import execute from './execute';
 import Config from '../config';
 import { createDevServer } from '@rsbuild/core/dist-types/internal';
+import { BannerPlugin } from 'webpack';
+
+const declarations = `
+Object.assign(global, {
+    DISEACT_COMMAND_MAP: new Map(),
+    DISEACT_COLLECTOR_STATE: { listeners: new Map() },
+    DISEACT_HOOK_STATE: { component: undefined, index: 0 }
+});
+`
 
 async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
@@ -32,7 +41,13 @@ async function build(coreConfig: Config, dev = false) {
             rspack: {
                 context: coreConfig.entryPath,
                 plugins: [
-                    LoaderPlugin()
+                    LoaderPlugin(),
+                    new BannerPlugin({
+                        banner: declarations,
+                        raw: true,
+                        entryOnly: true,
+                        test: 'main.js'
+                    })
                 ],
                 externals: [
                     'discord.js',
@@ -53,7 +68,7 @@ async function build(coreConfig: Config, dev = false) {
                     plugins: [
                         ["@babel/plugin-proposal-decorators", { version: "2023-05" }],
                         "@babel/plugin-proposal-class-properties",
-                        "@babel/plugin-transform-class-static-block",
+                        "@babel/plugin-transform-class-static-block"
                     ],
                     presets: [
                         ["@babel/preset-react", { runtime: 'automatic', importSource: 'diseact' }],
