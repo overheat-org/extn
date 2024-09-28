@@ -1,4 +1,5 @@
 import '@rsbuild/core/types';
+import { Client } from 'discord.js';
 
 declare module "*.zig" {}
 
@@ -17,7 +18,7 @@ declare global {
      * }
      * ```
      */
-    function inject(constructor: new (...args: unknown[]) => unknown, context: ClassDecoratorContext): void
+    function inject(constructor: new (client: Client) => unknown, context: ClassDecoratorContext): void
 
     /**
      * @kind Decorator
