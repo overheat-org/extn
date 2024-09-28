@@ -9,6 +9,7 @@ import { join as j } from 'path';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import execute from './execute';
 import Config from '../config';
+import { createDevServer } from '@rsbuild/core/dist-types/internal';
 
 async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
@@ -65,10 +66,10 @@ async function build(coreConfig: Config, dev = false) {
     const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.entryPath });
 
     if (dev) {
+        instance.onAfterBuild({ handler: () => execute(coreConfig, dev), order: 'default' })
+        
         await instance.startDevServer();
-        await instance.build();
-
-        execute(coreConfig, dev);
+        await instance.build({ watch: true });
     } else {
         await instance.build();
     }
