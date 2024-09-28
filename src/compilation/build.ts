@@ -34,7 +34,8 @@ async function build(coreConfig: Config, dev = false) {
                 ],
                 externals: [
                     'discord.js',
-                    'diseact'
+                    'diseact',
+                    'canva'
                 ],
                 optimization: {
                     splitChunks: {

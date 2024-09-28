@@ -1,10 +1,12 @@
 {
   "name": "@flame-oh/core",
-  "version": "1.0.3",
+  "version": "1.2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/flame-oh/core.git"
   },
+  "main": "./lib/index.js",
+  "typings": "./typings.d.ts",
   "dependencies": {
     "@babel/parser": "^7.25.6",
     "@babel/plugin-proposal-class-properties": "^7.18.6",
@@ -17,7 +19,7 @@
     "@rsbuild/plugin-babel": "^1.0.1",
     "@rsbuild/plugin-node-polyfill": "^1.0.4",
     "discord.js": "^14.16.2",
-    "diseact": "^3.0.0"
+    "diseact": "^3.5.3"
   },
   "devDependencies": {
     "commander": "^12.1.0",

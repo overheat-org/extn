@@ -1,8 +1,5 @@
 import { Client } from "discord.js";
 
-declare const inject: any;
-declare const event: any;
-
 @inject
 class Init {
     @event

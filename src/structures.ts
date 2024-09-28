@@ -1,4 +1,4 @@
-import { Client } from "discord.js";
+import { Client, ClientEvents } from "discord.js";
 
 function inject(constructor: new (...args: unknown[]) => unknown, context: ClassDecoratorContext) {
     if (context.kind != 'class') {
@@ -12,7 +12,7 @@ function inject(constructor: new (...args: unknown[]) => unknown, context: Class
 
 global.inject = inject;
 
-function event(target: (...args: unknown[]) => unknown, context: ClassMethodDecoratorContext<{ client: Client, _injected_?: true }>) {
+function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>) {
     if (context.kind != 'method') {
         throw new Error('This Decorator only can be used on Methods')
     }
@@ -33,12 +33,12 @@ function event(target: (...args: unknown[]) => unknown, context: ClassMethodDeco
         throw new Error(`Invalid name: The method name should starts with "On" or "Once" and continue with a event name`)
     }
 
-    context.addInitializer(function (this) {
+    context.addInitializer(function (this: This) {
         if(!this._injected_) {
             throw new Error('The class should be injectable to use this Decorator');
         }
-
-        this.client[once ? 'once' : 'on'](name, target);
+        
+        this.client[once ? 'once' : 'on'](name as keyof ClientEvents, target);
     })
 }
 

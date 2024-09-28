@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "lib": ["ESNext"],
+        "jsx": "preserve",
+        "jsxImportSource": "diseact",
+    },
+    "include": [
+        "src/**/*",
+        "../typings.d.ts"
+    ]
+}
