@@ -67,7 +67,7 @@ async function build(coreConfig: Config, dev = false) {
     const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.entryPath });
 
     if (dev) {
-        instance.onAfterBuild({ handler: () => execute(coreConfig, dev), order: 'default' })
+        instance.onAfterBuild({ handler: () => execute(coreConfig, dev), order: 'post' })
         
         await instance.startDevServer();
         await instance.build({ watch: true });

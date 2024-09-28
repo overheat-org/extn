@@ -4,7 +4,7 @@ import { Client } from "discord.js";
 class Init {
     @event
     OnceReady() {
-        console.log('READY')    
+        console.log('READY')
     }
 
     constructor(private client: Client) {}

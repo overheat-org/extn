@@ -1,8 +1,6 @@
 import { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
 import { join as j } from 'path';
 
-const ALL_INTENTS = 0b11111111111111111111111111;
-
 class Config {
     buildPath!: string;
     entryPath!: string;
@@ -28,7 +26,7 @@ class Config {
         const defaultConfig = new Config({
             entryPath: j(cwd, 'src'),
             buildPath: j(cwd, '.flame'),
-            intents: ALL_INTENTS, 
+            intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent'], 
         });
 
         const config = (() => {
