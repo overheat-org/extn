@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "1.2.0",
+  "version": "1.2.6",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/flame-oh/core.git"
@@ -19,7 +19,7 @@
     "@rsbuild/plugin-babel": "^1.0.1",
     "@rsbuild/plugin-node-polyfill": "^1.0.4",
     "discord.js": "^14.16.2",
-    "diseact": "^3.5.3"
+    "diseact": "^3.5.4"
   },
   "devDependencies": {
     "commander": "^12.1.0",
@@ -30,5 +30,8 @@
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
+  },
+  "bin": {
+    "flamecore": "./lib/cli.js"
   }
 }

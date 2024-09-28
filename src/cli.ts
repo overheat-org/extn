@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { join as j } from 'path';
 import { program } from 'commander';
 import build from './compilation/build';
