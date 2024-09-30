@@ -1,11 +1,13 @@
 import { Client, TextChannel } from "discord.js";
 import { render, useState } from "diseact";
+import { plus } from '../utils/math';
 
 @inject
 class Init {
     @event
     OnceReady() {
         console.log('READY')
+        console.log(plus(5, 5))
 
         const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
 

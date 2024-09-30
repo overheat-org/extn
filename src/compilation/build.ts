@@ -11,7 +11,7 @@ import execute from './execute';
 import Config from '../config';
 import { createDevServer } from '@rsbuild/core/dist-types/internal';
 import { BannerPlugin } from 'webpack';
-
+ 
 const declarations = `
 Object.assign(global, {
     DISEACT_COMMAND_MAP: new Map(),
@@ -49,6 +49,17 @@ async function build(coreConfig: Config, dev = false) {
                         test: 'main.js'
                     })
                 ],
+                module: {
+                    rules: [
+                        {
+                            test: /\.zig$/,
+                            loader: 'zig-loader'
+                        }
+                    ]
+                },
+                resolve: {
+                    extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx'],
+                },
                 externals: [
                     'discord.js',
                     'diseact',

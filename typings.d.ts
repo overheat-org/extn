@@ -1,9 +1,9 @@
 import '@rsbuild/core/types';
 import { Client } from 'discord.js';
 
-declare module "*.zig" {}
-
 declare global {
+    declare module "*.zig" {}
+
     /**
      * @kind Decorator
      * @description Mark a Manager to be instantiate on core to get Discord Client
