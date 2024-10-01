@@ -9,7 +9,7 @@ import { join as j } from 'path';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import execute from './execute';
 import Config from '../config';
-import { BannerPlugin } from 'webpack';
+import { BannerPlugin } from '@rspack/core';
  
 const declarations = `
 Object.assign(global, {
