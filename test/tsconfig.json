@@ -3,9 +3,12 @@
         "lib": ["ESNext"],
         "jsx": "preserve",
         "jsxImportSource": "diseact",
+        "paths": {
+            "@utils/*": ["./src/utils/*"]
+        }
     },
     "include": [
         "src/**/*",
-        "../typings.d.ts"
+        "../types"
     ]
 }

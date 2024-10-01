@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import { render, useState } from "diseact";
-import { plus } from '../utils/math';
+import { plus } from '@utils/math';
 
 @inject
 class Init {

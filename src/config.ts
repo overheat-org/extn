@@ -2,6 +2,7 @@ import { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
 import { join as j } from 'path';
 
 class Config {
+    cwd!: string;
     buildPath!: string;
     entryPath!: string;
     intents!: BitFieldResolvable<GatewayIntentsString, number>
@@ -24,6 +25,7 @@ class Config {
     
     static getInstance(path: string, cwd = process.cwd()) {
         const defaultConfig = new Config({
+            cwd,
             entryPath: j(cwd, 'src'),
             buildPath: j(cwd, '.flame'),
             intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent'], 

@@ -9,7 +9,6 @@ import { join as j } from 'path';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import execute from './execute';
 import Config from '../config';
-import { createDevServer } from '@rsbuild/core/dist-types/internal';
 import { BannerPlugin } from 'webpack';
  
 const declarations = `
@@ -32,6 +31,7 @@ async function build(coreConfig: Config, dev = false) {
             decorators: {
                 version: '2022-03'
             },
+            tsconfigPath: j(coreConfig.cwd, 'tsconfig.json')
         },
         output: {
             target: 'node',
@@ -90,7 +90,7 @@ async function build(coreConfig: Config, dev = false) {
         ]
     })
 
-    const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.entryPath });
+    const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.cwd });
 
     if (dev) {
         instance.onAfterBuild({ handler: () => execute(coreConfig, dev), order: 'post' })
