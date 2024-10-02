@@ -15,11 +15,28 @@ export default (): RspackPluginInstance => ({
         compiler.hooks.beforeCompile.tap(PLUGIN_NAME, (params) => {
             const managersPath = j(context, 'managers');
 
-            for (const filename of fs.readdirSync(managersPath)) {
-                const source = fs.readFileSync(j(managersPath, filename), 'utf-8');
-
-                if(isInjection(source)) {
-                    injections.push(j(managersPath, filename));
+            for (const dirent of fs.readdirSync(managersPath, { withFileTypes: true })) {
+                const filePath = j(managersPath, dirent.name);
+            
+                if (dirent.isDirectory()) {
+                    const extensions = ['ts', 'tsx', 'js', 'jsx'];
+                    
+                    const indexPathPossibilities = extensions.map(e => j(filePath, `index.${e}`));
+                    const indexPath = indexPathPossibilities.find(p => fs.existsSync(p));
+            
+                    if (indexPath) {
+                        const source = fs.readFileSync(indexPath, 'utf-8');
+                        
+                        if (isInjection(source)) {
+                            injections.push(indexPath);
+                        }
+                    }
+                } else {
+                    const source = fs.readFileSync(filePath, 'utf-8');
+                    
+                    if (isInjection(source)) {
+                        injections.push(filePath);
+                    }
                 }
             }
         });
@@ -37,7 +54,7 @@ function isInjection(source: string) {
 
     const ast = parser.parse(source, {
         sourceType: 'module',
-        plugins: ['typescript', 'decorators']
+        plugins: ['typescript', 'decorators', 'jsx' ]
     });
 
     const classes = new Array<any>;
@@ -55,7 +72,7 @@ function isInjection(source: string) {
 
             const selectedClass = classes.find(c => declaration.name == c.id.name);
 
-            hasInjected = !!selectedClass.decorators?.find((d: any) => d.expression.type == 'Identifier' && d.expression.name == 'Inject');
+            hasInjected = !!selectedClass.decorators?.find((d: any) => d.expression.type == 'Identifier' && d.expression.name == 'inject');
         }
     })
 

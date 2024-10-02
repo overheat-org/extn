@@ -1,6 +1,7 @@
-import '@rsbuild/core/types';
+import './extensions'
+import { Client } from 'discord.js';
 
-declare module "*.zig" {}
+import '@rsbuild/core/types';
 
 declare global {
     /**
@@ -17,7 +18,7 @@ declare global {
      * }
      * ```
      */
-    function inject(constructor: new (...args: unknown[]) => unknown, context: ClassDecoratorContext): void
+    function inject(constructor: new (client: Client) => unknown, context: ClassDecoratorContext): void
 
     /**
      * @kind Decorator
@@ -34,7 +35,7 @@ declare global {
      * }
      * ```
      */
-    function event(constructor: (...args: unknown[]) => unknown, context: ClassMethodDecoratorContext<{ client: Client, _injected_?: true }>): void 
+    function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>): void 
 
     namespace NodeJS {
         interface ProcessEnv {

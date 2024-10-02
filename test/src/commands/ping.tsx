@@ -1,7 +1,5 @@
-// @ts-nocheck
-
 export default (
     <command name="ping" description="Returns pong">
-        {(i) => interaction.reply('Pong!')}
+        {(interaction) => interaction.reply('Pong!')}
     </command>
 )
