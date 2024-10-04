@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "2.1.0",
+  "version": "2.2.2",
   "scripts": {
     "build": "sh ./scripts/build.sh",
     "test": "sh ./scripts/test.sh"
@@ -10,7 +10,7 @@
     "url": "git+https://github.com/flame-oh/core.git"
   },
   "main": "./lib/index.js",
-  "typings": "./typings.d.ts",
+  "typings": "./types/index.d.ts",
   "dependencies": {
     "@babel/cli": "^7.25.6",
     "@babel/core": "^7.25.2",

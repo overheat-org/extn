@@ -1,5 +1,5 @@
 import './extensions'
-import { Client } from 'discord.js';
+import { ApplicationCommand, ApplicationCommandManager, Client, GuildApplicationCommandManager, GuildResolvable } from 'discord.js';
 
 import '@rsbuild/core/types';
 
@@ -35,7 +35,7 @@ declare global {
      * }
      * ```
      */
-    function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>): void 
+    function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>): void
 
     namespace NodeJS {
         interface ProcessEnv {
@@ -48,3 +48,7 @@ declare global {
 
     var client: any
 }
+
+export const getCommandManager: (client: Client) => 
+    | GuildApplicationCommandManager
+    | ApplicationCommandManager<ApplicationCommand<{ guild: GuildResolvable }>, { guild: GuildResolvable }, null> | undefined

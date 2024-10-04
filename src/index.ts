@@ -1,2 +1,2 @@
-import './structures';
+export * from './structures';
 import './client';

@@ -1,11 +1,12 @@
 import Diseact from 'diseact';
 import Discord from 'discord.js';
+import { getCommandManager } from './structures';
 
 declare const MANAGERS_PATH: string;
 declare const COMMANDS_PATH: string;
 declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, number>
 
-const { TOKEN, TEST_GUILD_ID, TEST_CHANNEL_ID, NODE_ENV } = process.env;
+const { TOKEN, TEST_GUILD_ID, NODE_ENV } = process.env;
 const DEV = NODE_ENV == 'development';
 
 class CommandManager {
@@ -16,9 +17,7 @@ class CommandManager {
             throw new Error('TEST_GUILD_ID is not defined on Environment');
         }
         
-        const applications = DEV ? this.client.guilds.cache.get(TEST_GUILD_ID!)!.commands : this.client.application!.commands; 
-        
-        applications.set(ctx.keys().map(k => (ctx(k) as any).default));
+        getCommandManager(client)!.set(ctx.keys().map(k => (ctx(k) as any).default));
     }
 
     listen() {
