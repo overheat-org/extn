@@ -26,7 +26,8 @@ async function build(coreConfig: Config, dev = false) {
             define: {
                 COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
                 MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
-                INTENTS: JSON.stringify(coreConfig.intents)
+                INTENTS: JSON.stringify(coreConfig.intents),
+                "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
             },
             decorators: {
                 version: '2022-03'

@@ -43,12 +43,17 @@ declare global {
             TOKEN: string
             TEST_GUILD_ID?: string
             TEST_CHANNEL_ID?: string
+            BUILD_PATH: string
         }
     }
 
     var client: any
 }
 
-export const getCommandManager: (client: Client) => 
-    | GuildApplicationCommandManager
-    | ApplicationCommandManager<ApplicationCommand<{ guild: GuildResolvable }>, { guild: GuildResolvable }, null> | undefined
+declare class ExtendedApplicationCommandManager extends ApplicationCommandManager {
+    upsert(command: any): Promise<ApplicationCommand<{
+        guild: GuildResolvable;
+    }>>
+}
+
+export const getCommandManager: (client: Client) => ExtendedApplicationCommandManager;

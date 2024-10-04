@@ -1,4 +1,4 @@
-import { ApplicationCommand, ApplicationCommandManager, Client, ClientEvents, GuildResolvable } from "discord.js";
+import { ApplicationCommandManager, Client, ClientEvents } from "discord.js";
 
 function inject(constructor: new (client: Client) => unknown, context: ClassDecoratorContext) {
     if (context.kind != 'class') {
@@ -46,13 +46,7 @@ global.event = event;
 
 const { TEST_GUILD_ID, NODE_ENV } = process.env;
 
-declare class ExtendedApplicationCommandManager extends ApplicationCommandManager {
-    upsert(command: any): Promise<ApplicationCommand<{
-        guild: GuildResolvable;
-    }>>
-}
-
-export const getCommandManager = (client: Client): ExtendedApplicationCommandManager => {
+export const getCommandManager = (client: Client) => {
     const commands = NODE_ENV == 'development'
         ? client.guilds.cache.get(TEST_GUILD_ID!)?.commands
         : client.application?.commands;
