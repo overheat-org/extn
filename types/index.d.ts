@@ -1,7 +1,13 @@
-import './extensions'
-import { ApplicationCommand, ApplicationCommandManager, Client, GuildApplicationCommandManager, GuildResolvable } from 'discord.js';
-
+import './env';
+import './extensions';
 import '@rsbuild/core/types';
+import { 
+    ApplicationCommand, 
+    ApplicationCommandManager, 
+    Client, 
+    GuildApplicationCommandManager, 
+    GuildResolvable 
+} from 'discord.js';
 
 declare global {
     /**
@@ -37,18 +43,42 @@ declare global {
      */
     function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>): void
 
-    namespace NodeJS {
-        interface ProcessEnv {
-            NODE_ENV: 'development' | 'production'
-            TOKEN: string
-            TEST_GUILD_ID?: string
-            TEST_CHANNEL_ID?: string
-            BUILD_PATH: string
-        }
+    type HttpDecorator = (
+        route: Href, 
+        { headers: unknown, body: unknown }
+    ) => (
+        target: Target, 
+        context: ClassMethodDecoratorContext<any>
+    ) => void;
+    
+    /**
+     * @kind Decorator
+     * @description Defines a class method as http server route
+     * 
+     * @example
+     * ```javascript
+     * class InitManager {
+     *      *@http.post('/api/init')*
+     *      onInitApi({ request, response, body }) {
+     *          
+     *      }
+     * }
+     */
+    var http: {
+        get: HttpDecorator,
+        head: HttpDecorator,
+        post: HttpDecorator,
+        put: HttpDecorator,
+        delete: HttpDecorator,
+        connect: HttpDecorator,
+        options: HttpDecorator,
+        trace: HttpDecorator, 
+        patch: HttpDecorator,
     }
-
-    var client: any
 }
+
+type Target = (...args: any []) => void;
+type Href = `/${string}`
 
 declare class ExtendedApplicationCommandManager extends ApplicationCommandManager {
     upsert(command: any): Promise<ApplicationCommand<{

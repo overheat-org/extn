@@ -109,6 +109,6 @@
   },
   "include": ["./src/**/*", "types"],
   "exclude": [
-    "src/cli.ts"
+    "src/comptime/cli.ts"
   ]
 }
