@@ -1,6 +1,6 @@
 import Diseact from 'diseact';
 import Discord from 'discord.js';
-import { getCommandManager } from './structures';
+import { getCommandManager } from './utils';
 
 declare const MANAGERS_PATH: string;
 declare const COMMANDS_PATH: string;
@@ -51,7 +51,7 @@ class Client extends Discord.Client {
     }
 }
 
-global.client = new Client({ intents: INTENTS });
+const client = new Client({ intents: INTENTS });
 
 {
     const ctx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
