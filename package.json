@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "2.3.4",
+  "version": "3.0.0",
   "scripts": {
     "prebuild": "sh ./scripts/build.sh",
     "build": "sh ./scripts/build.sh",
