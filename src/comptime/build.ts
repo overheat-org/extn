@@ -1,12 +1,8 @@
-/**
- * @comptime This file will be executed on compilation.
- */
-
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { createRsbuild, defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
 import { join as j } from 'path';
-import LoaderPlugin from './loader';
+import LoaderPlugin from './loader.plugin';
 import execute from './execute';
 import Config from '../config';
 import { BannerPlugin } from '@rspack/core';

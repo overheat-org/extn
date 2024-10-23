@@ -3,7 +3,8 @@ const { BannerPlugin } = require('webpack');
 
 /** @type {import('webpack').Configuration} */
 const config = {
-    entry: j(__dirname, 'src', 'cli.ts'),
+    mode: 'production',
+    entry: j(__dirname, 'src', 'comptime', 'cli.ts'),
     output: {
         path: j(__dirname, 'lib'),
         filename: 'cli.js',
