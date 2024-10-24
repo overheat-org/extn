@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "scripts": {
     "prebuild": "sh ./scripts/build.sh",
     "build": "sh ./scripts/build.sh",
@@ -27,7 +27,7 @@
     "@rsbuild/plugin-node-polyfill": "^1.0.4",
     "@rspack/core": "^1.0.8",
     "discord.js": "^14.16.2",
-    "diseact": "^3.5.11",
+    "diseact": "^3.8.0",
     "zig-loader": "^1.1.0"
   },
   "devDependencies": {
@@ -37,6 +37,7 @@
     "babel-loader": "^9.2.1",
     "commander": "^12.1.0",
     "node-loader": "^2.0.0",
+    "ts-loader": "^9.5.1",
     "typescript": "^5.6.2",
     "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4",

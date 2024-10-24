@@ -45,7 +45,7 @@ declare global {
 
     type HttpDecorator = (
         route: Href, 
-        { headers: unknown, body: unknown }
+        options?: {}
     ) => (
         target: Target, 
         context: ClassMethodDecoratorContext<any>

@@ -1,4 +1,4 @@
-import { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
+import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
 import { join as j } from 'path';
 
 class Config {

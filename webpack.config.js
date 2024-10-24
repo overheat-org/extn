@@ -9,12 +9,27 @@ const config = {
         path: j(__dirname, 'lib'),
         filename: 'cli.js',
     },
-    target: 'node',
-    externals: {
-        './compilation/build': 'commonjs ./compilation/build',
-        './compilation/execute': 'commonjs ./compilation/execute',
-        './config': 'commonjs ./config',
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: 'ts-loader'
+            }
+        ]
     },
+    target: 'node',
+    resolve: {
+        extensions: ['.ts', '.js']
+    },
+    externals: [
+        'discord.js',
+        '@rsbuild/core',
+        '@rsbuild/plugin-babel',
+        '@rspack/core',
+        '@babel/traverse',
+        'diseact'
+    ],
+    externalsType: 'commonjs',
     plugins: [
         new BannerPlugin({
             banner: '#!/usr/bin/env node',
