@@ -1,5 +1,5 @@
 import { join as j } from 'path';
-import { existsSync, readdirSync } from 'fs';
+import { readdirSync } from 'fs';
 
 export const EnvName = {
     COMMON: '.env',
