@@ -4,7 +4,7 @@ const { BannerPlugin } = require('webpack');
 /** @type {import('webpack').Configuration} */
 const config = {
     mode: 'production',
-    entry: j(__dirname, 'src', 'comptime', 'cli.ts'),
+    entry: j(__dirname, 'src', 'cli.ts'),
     output: {
         path: j(__dirname, 'lib'),
         filename: 'cli.js',
@@ -22,12 +22,9 @@ const config = {
         extensions: ['.ts', '.js']
     },
     externals: [
-        'discord.js',
-        '@rsbuild/core',
-        '@rsbuild/plugin-babel',
-        '@rspack/core',
-        '@babel/traverse',
-        'diseact'
+        './comptime/build',
+        './comptime/execute',
+        './config',
     ],
     externalsType: 'commonjs',
     plugins: [

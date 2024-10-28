@@ -1,8 +1,8 @@
 import { join as j } from 'path';
 import { program } from 'commander';
-import build from './build';
-import execute from './execute';
-import Config from '../config';
+import build from './comptime/build';
+import execute from './comptime/execute';
+import Config from './config';
 
 const config = Config.getInstance(j(process.cwd(), 'flamecore.config.js'))
 
