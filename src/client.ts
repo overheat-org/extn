@@ -55,7 +55,18 @@ const client = new Client({ intents: INTENTS });
 
 {
     const ctx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
-    ctx.keys().forEach(ctx);
+    ctx.keys().forEach(k => {
+        const isRootFile = /^\.\/[^/]+\.(t|j)sx?$/.test(k);
+        const isIndexFile = /^\.\/[^/]+\/index\.(t|j)sx?$/.test(k);
+    
+        if (!isRootFile && !isIndexFile) return;
+
+        const manager = (ctx(k) as any).default;
+
+        if(typeof manager != 'function') return;
+
+        manager(client);
+    });
 }
 
 client.login(TOKEN);
