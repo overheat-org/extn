@@ -8,6 +8,8 @@ import {
     GuildApplicationCommandManager, 
     GuildResolvable 
 } from 'discord.js';
+import _Keyv from 'keyv';
+import KeyvSqlite from '@keyv/sqlite';
 
 declare global {
     /**
@@ -87,3 +89,12 @@ declare class ExtendedApplicationCommandManager extends ApplicationCommandManage
 }
 
 export const getCommandManager: (client: Client) => ExtendedApplicationCommandManager;
+
+export declare class Keyv extends _Keyv {
+    constructor(namespace: string);
+}
+
+export const autoincrement: (type: string) => Promise<{
+    num: number;
+    str: string;
+}>
