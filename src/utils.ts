@@ -1,4 +1,6 @@
 import { ApplicationCommandManager, Client } from "discord.js";
+import _Keyv from 'keyv';
+import KeyvSqlite from '@keyv/sqlite';
 
 const { TEST_GUILD_ID, NODE_ENV } = process.env;
 
@@ -21,4 +23,19 @@ export const getCommandManager = (client: Client) => {
             }
         }
     });
+};
+
+export class Keyv extends _Keyv {
+    constructor(namespace: string) {
+        super(new KeyvSqlite(`sqlite://${process.cwd()}/database/data.sqlite`), { namespace });
+    }
+}
+
+const _incremental = new Keyv('increment');
+
+export const autoincrement = async (type: string) => {
+    const curr = ((await _incremental.get<number>(type)) ?? 0) + 1;
+    await _incremental.set(type, curr);
+
+    return { num: curr, str: curr.toString() }
 };

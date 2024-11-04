@@ -60,7 +60,8 @@ async function build(coreConfig: Config, dev = false) {
                 externals: [
                     'discord.js',
                     'diseact',
-                    'canva'
+                    'canva',
+                    '@keyv/sqlite'
                 ],
                 optimization: {
                     splitChunks: {
