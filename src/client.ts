@@ -9,15 +9,20 @@ declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, 
 const { TOKEN, TEST_GUILD_ID, NODE_ENV } = process.env;
 const DEV = NODE_ENV == 'development';
 
+const commands = new Array;
+
+{
+    const ctx = require.context(COMMANDS_PATH, true, /\.(t|j)sx?$/);
+    for(const key of ctx.keys()) commands.push((ctx(key) as any).default);
+}
+
 class CommandManager {
     async init() {
-        const ctx = require.context(COMMANDS_PATH, true, /\.(t|j)sx?$/);
-        
         if(DEV && !TEST_GUILD_ID) {
             throw new Error('TEST_GUILD_ID is not defined on Environment');
         }
         
-        getCommandManager(client)!.set(ctx.keys().map(k => (ctx(k) as any).default));
+        getCommandManager(client)!.set(commands);
     }
 
     listen() {
@@ -55,18 +60,27 @@ const client = new Client({ intents: INTENTS });
 
 {
     const ctx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
-    ctx.keys().forEach(k => {
-        const isRootFile = /^\.\/[^/]+\.(t|j)sx?$/.test(k);
-        const isIndexFile = /^\.\/[^/]+\/index\.(t|j)sx?$/.test(k);
+    for(const key of ctx.keys()) {
+        const isCommandFile = /^\.\/.+\/commands?\.(t|j)sx?$/.test(key);
+
+        if(isCommandFile) {
+            const context = ctx(key) as any;
+            commands.push(context.default ? context.default : context);
+
+            continue;
+        }
+
+        const isRootFile = /^\.\/[^/]+\.(t|j)sx?$/.test(key);
+        const isIndexFile = /^\.\/[^/]+\/index\.(t|j)sx?$/.test(key);
     
-        if (!isRootFile && !isIndexFile) return;
+        if (!isRootFile && !isIndexFile) continue;
 
-        const manager = (ctx(k) as any).default;
+        const manager = (ctx(key) as any).default;
 
-        if(typeof manager != 'function') return;
+        if(typeof manager != 'function' || !manager.__injector__) continue;
 
         manager(client);
-    });
+    }
 }
 
 client.login(TOKEN);
