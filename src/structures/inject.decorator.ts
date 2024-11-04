@@ -7,9 +7,13 @@ function inject(constructor: new (client: Client) => unknown, context: ClassDeco
 
     Object.assign(constructor.prototype, { _injected_: true });
 
-    return (client: Client) => {
+    const fn = (client: Client) => {
         new constructor(client) as object;
     }
+
+    fn.__injector__ = true;
+
+    return fn;
 }
 
 global.inject = inject;
