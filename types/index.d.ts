@@ -88,13 +88,13 @@ declare class ExtendedApplicationCommandManager extends ApplicationCommandManage
     }>>
 }
 
-export const getCommandManager: (client: Client) => ExtendedApplicationCommandManager;
+export var getCommandManager: (client: Client) => ExtendedApplicationCommandManager;
 
 export declare class Keyv extends _Keyv {
     constructor(namespace: string);
 }
 
-export const autoincrement: (type: string) => Promise<{
+export var autoincrement: (type: string) => Promise<{
     num: number;
     str: string;
 }>
