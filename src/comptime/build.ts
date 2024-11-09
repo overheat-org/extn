@@ -1,11 +1,12 @@
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { createRsbuild, defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
-import { join as j } from 'path';
+import { dirname, join as j } from 'path';
 import LoaderPlugin from './loader.plugin';
 import execute from './execute';
 import Config from '../config';
 import { BannerPlugin } from '@rspack/core';
+import { findNodeModulesDir } from '../utils';
  
 const declarations = `
 Object.assign(global, {
@@ -22,6 +23,7 @@ async function build(coreConfig: Config, dev = false) {
             define: {
                 COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
                 MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
+                FLAME_PATH: JSON.stringify(findNodeModulesDir(coreConfig.cwd, '@flame-oh')),
                 INTENTS: JSON.stringify(coreConfig.intents),
                 "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
             },
@@ -61,7 +63,7 @@ async function build(coreConfig: Config, dev = false) {
                     'discord.js',
                     'diseact',
                     'canva',
-                    '@keyv/sqlite'
+                    '@keyv/sqlite',
                 ],
                 optimization: {
                     splitChunks: {

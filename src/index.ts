@@ -1,3 +1,3 @@
 export * from './structures';
-export * from './utils';
+export { getCommandManager, Keyv, autoincrement } from './utils';
 import './client';

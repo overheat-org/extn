@@ -3,40 +3,28 @@ import { join as j } from 'path';
 import fs from 'fs';
 import * as parser from '@babel/parser';
 import traverse from '@babel/traverse';
+import { REGEX } from '../constants';
 
 const PLUGIN_NAME = 'FlamecoreLoader';
 
 export default (): RspackPluginInstance => ({
     apply(compiler) {
         const context = compiler.context;
-
-        const injections = new Array<string>
+        const injections = new Array<string>();
 
         compiler.hooks.beforeCompile.tap(PLUGIN_NAME, (params) => {
             const managersPath = j(context, 'managers');
+            if (fs.existsSync(managersPath)) {
+                processDirectory(managersPath);
+            }
 
-            for (const dirent of fs.readdirSync(managersPath, { withFileTypes: true })) {
-                const filePath = j(managersPath, dirent.name);
-            
-                if (dirent.isDirectory()) {
-                    const extensions = ['ts', 'tsx', 'js', 'jsx'];
-                    
-                    const indexPathPossibilities = extensions.map(e => j(filePath, `index.${e}`));
-                    const indexPath = indexPathPossibilities.find(p => fs.existsSync(p));
-            
-                    if (indexPath) {
-                        const source = fs.readFileSync(indexPath, 'utf-8');
-                        
-                        if (isInjection(source)) {
-                            injections.push(indexPath);
-                        }
-                    }
-                } else {
-                    const source = fs.readFileSync(filePath, 'utf-8');
-                    
-                    if (isInjection(source)) {
-                        injections.push(filePath);
-                    }
+            const flameOhPath = j(context, 'node_modules/@flame-oh');
+            if (fs.existsSync(flameOhPath)) {
+                for (const dirent of fs.readdirSync(flameOhPath, { withFileTypes: true })) {
+                    if (!dirent.isDirectory()) continue;
+                    if (!REGEX.EXTERN_MANAGERS.test(`@flame-oh/${dirent.name}`)) continue;
+
+                    processDirectory(j(flameOhPath, dirent.name));
                 }
             }
         });
@@ -46,6 +34,30 @@ export default (): RspackPluginInstance => ({
                 compilation.fileDependencies.add(i);
             }
         });
+
+        function processDirectory(dirPath: string) {
+            for (const dirent of fs.readdirSync(dirPath, { withFileTypes: true })) {
+                const filePath = j(dirPath, dirent.name);
+                
+                if (dirent.isDirectory()) {
+                    const extensions = ['ts', 'tsx', 'js', 'jsx'];
+                    const indexPathPossibilities = extensions.map(e => j(filePath, `index.${e}`));
+                    const indexPath = indexPathPossibilities.find(p => fs.existsSync(p));
+                    
+                    if (indexPath) {
+                        const source = fs.readFileSync(indexPath, 'utf-8');
+                        if (isInjection(source)) {
+                            injections.push(indexPath);
+                        }
+                    }
+                } else {
+                    const source = fs.readFileSync(filePath, 'utf-8');
+                    if (isInjection(source)) {
+                        injections.push(filePath);
+                    }
+                }
+            }
+        }
     }
 });
 

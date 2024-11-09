@@ -1,9 +1,11 @@
 import Diseact from 'diseact';
 import Discord from 'discord.js';
 import { getCommandManager } from './utils';
+import { REGEX } from './constants';
 
 declare const MANAGERS_PATH: string;
 declare const COMMANDS_PATH: string;
+declare const FLAME_PATH: string;
 declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, number>
 
 const { TOKEN, TEST_GUILD_ID, NODE_ENV } = process.env;
@@ -59,22 +61,30 @@ class Client extends Discord.Client {
 const client = new Client({ intents: INTENTS });
 
 {
-    const ctx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
-    for(const key of ctx.keys()) {
-        const isCommandFile = /^\.\/.+\/commands?\.(t|j)sx?$/.test(key);
+    const localManagersCtx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
+    const externManagersCtx = require.context(FLAME_PATH, true, /\.(t|j)sx?$/);
 
+    const localKeys = localManagersCtx.keys();
+    const externKeys = externManagersCtx.keys().map(k => `@flame-oh${k.slice(1)}`);
+
+    for(const key of [...localKeys, ...externKeys]) {
+        if(key.includes('@flame-oh') && !REGEX.EXTERN_MANAGERS.test(key)) continue;
+        
+        const isCommandFile = /^\.\/.+\/commands?\.(t|j)sx?$/.test(key);
+        const ctx = key.includes('@flame-oh') ? externManagersCtx : localManagersCtx;
+        
         if(isCommandFile) {
             const context = ctx(key) as any;
-            commands.push(context.default ? context.default : context);
-
+            commands.push(context.default ?? context);
+            
             continue;
         }
-
+        
         const isRootFile = /^\.\/[^/]+\.(t|j)sx?$/.test(key);
         const isIndexFile = /^\.\/[^/]+\/index\.(t|j)sx?$/.test(key);
-    
+        
         if (!isRootFile && !isIndexFile) continue;
-
+        
         const manager = (ctx(key) as any).default;
 
         if(typeof manager != 'function' || !manager.__injector__) continue;

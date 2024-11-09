@@ -1,13 +1,21 @@
 import { Client, TextChannel } from "discord.js";
 import { render, useState } from "diseact";
+import { Keyv, autoincrement } from '../../../';
 import { plus } from '@utils/math';
+
+const db = new Keyv('meta');
 
 @inject
 class Init {
     @event
-    OnceReady() {
-        console.log('READY')
-        console.log(plus(5, 5))
+    async OnceReady() {
+        console.log('READY');
+
+        const r = plus(5, await db.get('meta') ?? 0);
+        
+        await db.set('meta', r);
+        
+        console.log(r);
 
         const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
 
