@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import { render, useState } from "diseact";
-import { Keyv, autoincrement } from '../../../';
+import { Keyv, autoincrement } from '@flame-oh/core';
 import { plus } from '@utils/math';
 
 const db = new Keyv('meta');
