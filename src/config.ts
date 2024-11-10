@@ -33,7 +33,8 @@ class Config {
 
         const config = (() => {
             try {
-                return require(path) as Config;
+                // This string template is required to webpack
+                return require(`${path}`) as Config;
             }
             catch {
                 return null;

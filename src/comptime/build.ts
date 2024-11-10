@@ -63,7 +63,13 @@ async function build(coreConfig: Config, dev = false) {
                     'discord.js',
                     'diseact',
                     'canva',
-                    '@keyv/sqlite',
+                    'keyv',
+                    '@flame-oh/core',
+                    'webpack',
+                    /^@rspack\//,
+                    /^@rsbuild\//,
+                    /^@swc\//,
+                    /^@keyv\//,
                 ],
                 optimization: {
                     splitChunks: {
