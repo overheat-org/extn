@@ -5,7 +5,7 @@ import { dirname, join as j } from 'path';
 import LoaderPlugin from './loader.plugin';
 import execute from './execute';
 import Config from '../config';
-import { BannerPlugin } from '@rspack/core';
+import { BannerPlugin, DefinePlugin } from '@rspack/core';
 import { findNodeModulesDir } from '../utils';
  
 const declarations = `
@@ -20,13 +20,6 @@ async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
         source: {
             entry: { main: require.resolve('../index') },
-            define: {
-                COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
-                MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
-                FLAME_PATH: JSON.stringify(findNodeModulesDir(coreConfig.cwd, '@flame-oh')),
-                INTENTS: JSON.stringify(coreConfig.intents),
-                "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
-            },
             decorators: {
                 version: '2022-03'
             },
@@ -46,6 +39,13 @@ async function build(coreConfig: Config, dev = false) {
                         raw: true,
                         entryOnly: true,
                         test: 'main.js'
+                    }),
+                    new DefinePlugin({
+                        COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
+                        MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
+                        FLAME_PATH: JSON.stringify(findNodeModulesDir(coreConfig.cwd, '@flame-oh')),
+                        INTENTS: JSON.stringify(coreConfig.intents),
+                        "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
                     })
                 ],
                 module: {
@@ -57,7 +57,7 @@ async function build(coreConfig: Config, dev = false) {
                     ]
                 },
                 resolve: {
-                    extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx'],
+                    extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx', '.d.ts'],
                 },
                 externals: [
                     'discord.js',
