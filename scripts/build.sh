@@ -1,4 +1,6 @@
 #!/usr/bin/sh
 
-npx tsc
-npx webpack
+export PATH=$PATH:./node_modules/.bin
+
+tsc --project tsconfig.lib.json
+webpack

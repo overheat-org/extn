@@ -35,7 +35,20 @@ function _http_decorator(method: HttpMethod, route: Href) {
     }
 }
 
-const http = {
+/**
+ * @kind Decorator
+ * @description Defines a class method as http server route
+ * 
+ * @example
+ * ```javascript
+ * class InitManager {
+ *      *@http.post('/api/init')*
+ *      onInitApi({ request, response, body }) {
+ *          
+ *      }
+ * }
+ */
+export const http = {
     get:     (route: Href) => _http_decorator('get', route),
     head:    (route: Href) => _http_decorator('head', route),
     post:    (route: Href) => _http_decorator('post', route),

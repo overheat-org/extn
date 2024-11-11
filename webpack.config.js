@@ -6,7 +6,7 @@ const config = {
     mode: 'production',
     entry: j(__dirname, 'src', 'cli.ts'),
     output: {
-        path: j(__dirname, 'lib'),
+        path: j(__dirname, 'dist'),
         filename: 'cli.js',
     },
     module: {
@@ -22,9 +22,10 @@ const config = {
         extensions: ['.ts', '.js']
     },
     externals: [
-        './comptime/build',
-        './comptime/execute',
-        './config',
+        'discord.js',
+        /^@rspack\//,
+        /^@rsbuild\//,
+        /^@babel\//,
     ],
     externalsType: 'commonjs',
     plugins: [

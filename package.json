@@ -10,8 +10,7 @@
     "type": "git",
     "url": "git+https://github.com/flame-oh/core.git"
   },
-  "main": "./lib/index.js",
-  "typings": "./types/index.d.ts",
+  "main": "./dist/index.js",
   "dependencies": {
     "@babel/cli": "^7.25.6",
     "@babel/core": "^7.25.2",
@@ -22,7 +21,6 @@
     "@babel/preset-react": "^7.24.7",
     "@babel/preset-typescript": "^7.24.7",
     "@babel/traverse": "^7.25.6",
-    "@flame-oh/manager-ticket": "^1.0.2",
     "@keyv/sqlite": "^4.0.1",
     "@rsbuild/core": "^1.0.5",
     "@rsbuild/plugin-babel": "^1.0.1",
@@ -36,9 +34,13 @@
   "devDependencies": {
     "@babel/helper-plugin-utils": "^7.24.8",
     "@babel/preset-env": "^7.25.4",
+    "@flame-oh/manager-ticket": "^1.0.2",
+    "@rspack/cli": "^1.1.0",
     "@types/babel__helper-plugin-utils": "^7.10.3",
+    "@types/webpack-env": "^1.18.5",
     "babel-loader": "^9.2.1",
     "commander": "^12.1.0",
+    "esbuild": "0.24.0",
     "node-loader": "^2.0.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.2",

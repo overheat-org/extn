@@ -1,7 +1,7 @@
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { createRsbuild, defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
-import { dirname, join as j } from 'path';
+import { join as j } from 'path';
 import LoaderPlugin from './loader.plugin';
 import execute from './execute';
 import Config from '../config';
@@ -16,10 +16,12 @@ Object.assign(global, {
 });
 `
 
+console.log(__dirname)
+
 async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
         source: {
-            entry: { main: require.resolve('../index') },
+            entry: { main: j(__dirname, 'index') },
             decorators: {
                 version: '2022-03'
             },

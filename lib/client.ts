@@ -1,12 +1,14 @@
 import Diseact from 'diseact';
 import Discord from 'discord.js';
 import { getCommandManager } from './utils';
-import { REGEX } from './constants';
+import { REGEX } from './consts';
 
 declare const MANAGERS_PATH: string;
 declare const COMMANDS_PATH: string;
 declare const FLAME_PATH: string;
 declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, number>
+
+console.log({MANAGERS_PATH, COMMANDS_PATH, FLAME_PATH, INTENTS})
 
 const { TOKEN, TEST_GUILD_ID, NODE_ENV } = process.env;
 const DEV = NODE_ENV == 'development';
