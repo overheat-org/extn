@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "3.3.3",
+  "version": "3.4.0",
   "scripts": {
     "prebuild": "sh ./scripts/build.sh",
     "build": "sh ./scripts/build.sh",
@@ -55,6 +55,6 @@
     "registry": "https://npm.pkg.github.com"
   },
   "bin": {
-    "flamecore": "./lib/cli.js"
+    "flamecore": "./dist/cli.js"
   }
 }
