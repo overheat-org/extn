@@ -6,3 +6,5 @@ lib
 test
 node_modules
 .github
+webpack.config.js
+tsconfig*
