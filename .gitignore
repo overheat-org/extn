@@ -3,4 +3,5 @@ node_modules
 *.env*
 test/.flame
 *lock*
-types
+types/*
+!types/globals.d.ts
