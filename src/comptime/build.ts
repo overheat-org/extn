@@ -64,7 +64,7 @@ async function build(coreConfig: Config, dev = false) {
                 externals: [
                     'discord.js',
                     'diseact',
-                    'canva',
+                    'canvas',
                     'keyv',
                     '@flame-oh/core',
                     'webpack',
