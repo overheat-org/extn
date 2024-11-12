@@ -14,4 +14,4 @@ export function findNodeModulesDir(startDir = process.cwd(), expectedPackage?: s
     }
   
     throw new Error('node_modules not encontered');
-  }
+}
