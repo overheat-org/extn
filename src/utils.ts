@@ -12,6 +12,4 @@ export function findNodeModulesDir(startDir = process.cwd(), expectedPackage?: s
         if (fs.existsSync(nodeModulesPath)) return nodeModulesPath;
         currentDir = path.dirname(currentDir);
     }
-  
-    throw new Error('node_modules not encontered');
 }

@@ -21,7 +21,7 @@ console.log(__dirname)
 async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
         source: {
-            entry: { main: j(__dirname, 'index') },
+            entry: { main: j(__dirname, 'client') },
             decorators: {
                 version: '2022-03'
             },
@@ -55,6 +55,10 @@ async function build(coreConfig: Config, dev = false) {
                         {
                             test: /\.zig$/,
                             loader: 'zig-loader'
+                        },
+                        {
+                            test: /\.(t|j)sx?$/,
+                            exclude: [/\.d\.ts$/]
                         }
                     ]
                 },

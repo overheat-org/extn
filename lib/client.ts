@@ -8,8 +8,6 @@ declare const COMMANDS_PATH: string;
 declare const FLAME_PATH: string;
 declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, number>
 
-console.log({MANAGERS_PATH, COMMANDS_PATH, FLAME_PATH, INTENTS})
-
 const { TOKEN, TEST_GUILD_ID, NODE_ENV } = process.env;
 const DEV = NODE_ENV == 'development';
 
@@ -64,16 +62,16 @@ const client = new Client({ intents: INTENTS });
 
 {
     const localManagersCtx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
-    const externManagersCtx = require.context(FLAME_PATH, true, /\.(t|j)sx?$/);
+    const externManagersCtx = FLAME_PATH ? require.context(FLAME_PATH, true, /\.(t|j)sx?$/) : undefined;
 
     const localKeys = localManagersCtx.keys();
-    const externKeys = externManagersCtx.keys().map(k => `@flame-oh${k.slice(1)}`);
+    const externKeys = externManagersCtx ? externManagersCtx.keys().map(k => `@flame-oh${k.slice(1)}`) : [];
 
     for(const key of [...localKeys, ...externKeys]) {
         if(key.includes('@flame-oh') && !REGEX.EXTERN_MANAGERS.test(key)) continue;
         
         const isCommandFile = /^\.\/.+\/commands?\.(t|j)sx?$/.test(key);
-        const ctx = key.includes('@flame-oh') ? externManagersCtx : localManagersCtx;
+        const ctx = key.includes('@flame-oh') ? externManagersCtx! : localManagersCtx;
         
         if(isCommandFile) {
             const context = ctx(key) as any;

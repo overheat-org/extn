@@ -1,6 +1,6 @@
-import { http as _http } from '../lib/structures/http.decorator';
-import { event as _event } from '../lib/structures/event.decorator';
-import { inject as _inject } from '../lib/structures/inject.decorator';
+import { http as _http } from './structures/http.decorator';
+import { event as _event } from './structures/event.decorator';
+import { inject as _inject } from './structures/inject.decorator';
 
 declare global {
     var inject: typeof _inject
