@@ -59,7 +59,7 @@ async function build(coreConfig: Config, dev = false) {
                     ]
                 },
                 resolve: {
-                    extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx', '.d.ts'],
+                    extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx'],
                 },
                 externals: [
                     'discord.js',
