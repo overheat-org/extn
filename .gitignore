@@ -1,7 +1,7 @@
-lib
+dist
 node_modules
-.env
-.env.development
-.env.production
+*.env*
 test/.flame
 *lock*
+types/*
+!types/globals.d.ts

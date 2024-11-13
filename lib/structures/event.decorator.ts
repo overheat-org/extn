@@ -1,6 +1,21 @@
 import { Client, ClientEvents } from "discord.js";
 
-function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>) {
+/**
+ * @kind Decorator
+ * @description Use function to handle a function. The first work determines if event will be once or on, respectively Once and Or. The rest of name, is about the type of event 
+ * 
+ * @example
+ * ```javascript
+ * *@inject*
+ * class InitManager {
+ *     *@event*
+ *     OnceReady() {
+ *          console.log('Ready')
+ *     }
+ * }
+ * ```
+ */
+export function event<This extends { client: Client, _injected_?: true }>(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>) {
     if (context.kind != 'method') {
         throw new Error('This Decorator only can be used on Methods')
     }

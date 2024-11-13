@@ -3,7 +3,7 @@ import { join as j } from 'path';
 import fs from 'fs';
 import * as parser from '@babel/parser';
 import traverse from '@babel/traverse';
-import { REGEX } from '../constants';
+import { REGEX } from '../../lib/consts';
 
 const PLUGIN_NAME = 'FlamecoreLoader';
 
@@ -40,7 +40,7 @@ export default (): RspackPluginInstance => ({
                 const filePath = j(dirPath, dirent.name);
                 
                 if (dirent.isDirectory()) {
-                    const extensions = ['ts', 'tsx', 'js', 'jsx'];
+                    const extensions = ['ts', 'tsx', 'zig', 'js', 'jsx'];
                     const indexPathPossibilities = extensions.map(e => j(filePath, `index.${e}`));
                     const indexPath = indexPathPossibilities.find(p => fs.existsSync(p));
                     

@@ -2,6 +2,9 @@ package-lock.json
 .gitignore
 scripts
 src
+lib
 test
 node_modules
 .github
+webpack.config.js
+tsconfig*

@@ -1,268 +1,194 @@
-import { basename, dirname, extname, isAbsolute, join, normalize, resolve } from 'path';
+import { join as j, basename, extname } from 'path';
 import fs from 'fs/promises';
-import { Client } from 'discord.js';
-import babel from '@babel/parser';
-import traverse, { Node } from '@babel/traverse';
-import Config from '../config';
+import Config from "../config";
+import traverse from "@babel/traverse";
+import { parse } from "@babel/core";
+import * as Types from '@babel/types';
 import generate from '@babel/generator';
+import helperContent from '!!raw-loader!../helper';
 
-type ImportPath = string;
-
-interface ProcessedAST {
-    imports: Set<string>;
-    body: Node[];
-}
-
-interface FileData {
+interface ParsedCommand {
     path: string;
-    imports: Map<string, Node | Node[]>;
-    exports: Node[];
-    default: Node | undefined;
-    hasInjected: boolean;
+    default: Types.Expression | undefined;
+    rest: Types.Statement[];
+    imports: ImportInfo[];
 }
 
+interface ImportInfo {
+    source: string;
+    specifiers: {
+        local: string;
+        imported?: string;
+    }[];
+}
 
-class ManagersLoader {
-    async readFile(filePath: string) {
-        const imports = new Map<ImportPath, Node | Node[]>();
-        const exports = new Array<Node>();
+class CommandsLoader {
+    async parseFile(filePath: string): Promise<ParsedCommand> {
+        const imports: ImportInfo[] = [];
+        const rest: Types.Statement[] = [];
+        let defaultExport: Types.Expression | undefined;
+
         const buf = await fs.readFile(filePath);
-
-        const ast = babel.parse(buf.toString('utf-8'), {
+        const ast = parse(buf.toString('utf-8'), {
             sourceType: 'module',
-            plugins: ['typescript', 'decorators']
+            plugins: ['typescript', 'jsx'],
         });
-        let hasInjected = false;
-        const classes = new Array<any>();
-        let export_default: Node | undefined = undefined;
 
-        traverse(ast, {
-            ImportDeclaration: (importPath) => {
-                const source = importPath.node.source.value;
-                const absoluteSource = (() => {
-                    try {
-                        return isAbsolute(source)
-                            ? source
-                            : resolve(dirname(filePath), source);
-                    }
-                    catch {
-                        // repass responsibility to webpack
-                        return source;
-                    }
-                })();
+        traverse(ast!, {
+            ImportDeclaration(path) {
+                const source = path.node.source.value;
+                const specifiers = path.node.specifiers.map(spec => ({
+                    local: spec.local.name,
+                    imported: Types.isImportSpecifier(spec) ? (spec.imported as Types.StringLiteral).value : undefined
+                }));
 
-                if (!imports.has(absoluteSource)) {
-                    const nodeResolve = imports.get(absoluteSource);
-
-                    if (Array.isArray(nodeResolve)) {
-                        const combinedSpecifiers = [...nodeResolve, importPath.node].reduce((acc: any[], curr: any) => {
-                            return [...acc, ...curr.specifiers];
-                        }, []);
-
-                        const combinedImport = {
-                            ...importPath.node,
-                            specifiers: combinedSpecifiers
-                        };
-                        imports.set(absoluteSource, combinedImport);
-                    } else {
-                        if (nodeResolve?.type === 'ImportDeclaration') {
-                            const combinedSpecifiers = [
-                                ...(nodeResolve.specifiers || []),
-                                ...(importPath.node.specifiers || [])
-                            ];
-
-                            const combinedImport = {
-                                ...importPath.node,
-                                specifiers: combinedSpecifiers
-                            };
-                            imports.set(absoluteSource, combinedImport);
-                        } else {
-                            imports.set(absoluteSource, importPath.node);
-                        }
-                    }
-                } else {
-                    imports.set(absoluteSource, importPath.node);
-                }
-            },
-
-            ImportExpression: (path) => {
-                const source = path.node.source;
-                if (source.type === 'StringLiteral') {
-                    const absoluteSource = isAbsolute(source.value)
-                        ? source.value
-                        : resolve(dirname(filePath), source.value);
-
-                    imports.set(absoluteSource, path.node);
-                }
-            },
-
-            ClassDeclaration(path) {
-                classes.push(path.node);
+                imports.push({ source, specifiers });
+                path.remove();
             },
 
             ExportDefaultDeclaration(path) {
-                const declaration = path.node.declaration;
-
-                if (declaration.type !== 'Identifier') {
-                    throw new Error(`Expected class declaration, found "${declaration.type}"`);
-                }
-
-                const selectedClass = classes.find(c => declaration.name === c.id.name);
-                export_default = selectedClass as Node;
-
-                if (selectedClass && selectedClass.decorators) {
-                    selectedClass.decorators = selectedClass.decorators.filter(
-                        (d: any) => !(d.expression.type === 'Identifier' && d.expression.name === 'inject')
-                    );
-                }
-
-                hasInjected = !!selectedClass?.decorators?.find(
-                    (d: any) => d.expression.type === 'Identifier' && d.expression.name === 'inject'
-                );
+                defaultExport = Types.isExpression(path.node.declaration)
+                    ? path.node.declaration
+                    : Types.identifier('undefined');
+                path.remove();
             },
 
-            ExportSpecifier(path) {
-                exports.push(path.node);
-            },
-
-            ExportAllDeclaration(path) {
-                const source = path.node.source.value;
-                const absoluteSource = isAbsolute(source)
-                    ? source
-                    : resolve(dirname(filePath), source);
-
-                exports.push({
-                    type: 'ExportAllDeclaration',
-                    source: {
-                        type: 'StringLiteral',
-                        value: absoluteSource
-                    }
-                });
+            Program: {
+                exit(path) {
+                    rest.push(...path.node.body);
+                }
             }
         });
 
         return {
             path: filePath,
-            imports,
-            exports,
-            default: export_default,
-            hasInjected
+            default: defaultExport,
+            rest,
+            imports
         };
     }
 
-    async readContext(dirPath: string) {
-        const files = await readFilesRecursively(dirPath);
+    async loadCommand(filePath: string, uniqueImports: Map<string, ImportInfo>): Promise<{
+        commandName: string;
+        commandProperty: Types.ObjectProperty;
+        statements: Types.Statement[];
+    }> {
+        const parsed = await this.parseFile(filePath);
+        
+        // Add imports to uniqueImports map
+        for (const imp of parsed.imports) {
+            const key = imp.source;
+            if (!uniqueImports.has(key)) {
+                uniqueImports.set(key, imp);
+            }
+        }
 
-        const fileDataPromises = files.map(file => this.readFile(file));
-        const filesData = await Promise.all(fileDataPromises);
+        let commandName = basename(parsed.path, extname(parsed.path));
+        if (parsed.default && Types.isObjectExpression(parsed.default)) {
+            const nameProperty = parsed.default.properties.find(
+                prop => 
+                    Types.isObjectProperty(prop) && 
+                    Types.isIdentifier(prop.key) && 
+                    prop.key.name === 'name'
+            ) as Types.ObjectProperty | undefined;
+    
+            if (nameProperty && Types.isStringLiteral(nameProperty.value)) {
+                commandName = nameProperty.value.value;
+            }
+        }
 
-        const injectedFiles = filesData.filter(f => f.hasInjected);
-        const normalFiles = filesData.filter(f => !f.hasInjected);
-
-        const injectedAST = processFiles(injectedFiles);
-        const normalAST = processFiles(normalFiles);
-
-        const injectedCode = generateCode(injectedAST);
-        const normalCode = generateCode(normalAST);
+        const commandProperty = Types.objectProperty(
+            Types.stringLiteral(commandName),
+            parsed.default || Types.identifier('undefined')
+        );
 
         return {
-            injected: injectedCode,
-            normal: normalCode
+            commandName,
+            commandProperty,
+            statements: parsed.rest
         };
-
-        async function readFilesRecursively(dir: string): Promise<string[]> {
-            const files: string[] = [];
-
-            async function scan(currentDir: string) {
-                const entries = await fs.readdir(currentDir, { withFileTypes: true });
-
-                for (const entry of entries) {
-                    const fullPath = join(currentDir, entry.name);
-
-                    if (entry.isDirectory()) {
-                        await scan(fullPath);
-                    } else if (entry.isFile() && /\.(ts|js)x?$/.test(entry.name)) {
-                        files.push(fullPath);
-                    }
-                }
-            }
-
-            await scan(dir);
-            return files;
-        }
-
-        function processFiles(files: FileData[]): ProcessedAST {
-            const imports = new Set<string>();
-            const body: Node[] = [];
-
-            files.forEach(file => {
-                file.imports.forEach((importNode, importPath) => {
-                    const normalizedPath = normalize(importPath);
-                    imports.add(normalizedPath);
-                });
-            });
-
-            files.forEach(file => {
-                if (file.default) {
-                    body.push(file.default);
-                }
-
-                file.exports.forEach(exportNode => {
-                    body.push(exportNode);
-                });
-            });
-
-            return {
-                imports,
-                body
-            };
-        }
-
-        function generateCode(ast: ProcessedAST): string {
-            const importStatements = Array.from(ast.imports).map(importPath => {
-                return {
-                    type: 'ImportDeclaration',
-                    specifiers: [
-                        {
-                            type: 'ImportDefaultSpecifier',
-                            local: {
-                                type: 'Identifier',
-                                name: basename(importPath, extname(importPath))
-                            }
-                        }
-                    ],
-                    source: {
-                        type: 'StringLiteral',
-                        value: importPath
-                    }
-                };
-            });
-
-            const fullAST = {
-                type: 'Program',
-                body: [...importStatements, ...ast.body],
-                sourceType: 'module' as const
-            } as Node;
-
-            const { code } = generate(fullAST, {
-                comments: true,
-                retainLines: true
-            });
-
-            return code;
-        }
     }
 
-    constructor(private config: Config) {}
+    async loadCommandsDir() {
+        const commandsDir = j(this.config.entryPath, 'commands');
+        const files = await fs.readdir(commandsDir);
+        
+        const uniqueImports = new Map<string, ImportInfo>();
+        const programBody: Types.Statement[] = [];
+        const commandProperties: Types.ObjectProperty[] = [];
+
+        // Add helper content first
+        programBody.push(
+            ...parse(
+                helperContent,
+                {
+                    sourceType: 'module',
+                    plugins: ['typescript'],
+                }
+            )!.program.body
+        );
+
+        // Process each command file
+        for (const file of files) {
+            if (file.endsWith('.ts') || file.endsWith('.js')) {
+                const filePath = j(commandsDir, file);
+                const { commandProperty, statements } = await this.loadCommand(filePath, uniqueImports);
+                commandProperties.push(commandProperty);
+                programBody.push(...statements);
+            }
+        }
+
+        // Add lazy imports
+        for (const [source, info] of uniqueImports) {
+            programBody.push(this.createLazyImport(source, info.specifiers));
+        }
+
+        // Create and add the commands object
+        const commandsObject = Types.objectExpression(commandProperties);
+        programBody.push(Types.exportDefaultDeclaration(commandsObject));
+
+        // Generate final code
+        const output = generate(Types.program(programBody), {
+            comments: false
+        });
+
+        await fs.writeFile(j(this.config.buildPath, 'commands.js'), output.code);
+    }
+
+    private createLazyImport(importPath: string, specifiers: ImportInfo['specifiers']) {
+        const lazyIdentifier = Types.identifier('LazyImport');
+
+        return Types.variableDeclaration('const', [
+            Types.variableDeclarator(
+                Types.identifier(specifiers[0].local),
+                Types.callExpression(lazyIdentifier, [
+                    Types.stringLiteral(importPath)
+                ])
+            )
+        ]);
+    }
+
+    constructor(private config: Config) { }
+}
+
+class ManagersLoader {
+    async parseFile(filePath: string) {
+        // TODO: checar se é um manager injetado ou nao
+        
+    }
+
 }
 
 class Loader {
-    run(client: Client) {}
+    async run() {
+        await this.commands.loadCommandsDir();
+    }
 
+    commands: CommandsLoader;
     managers: ManagersLoader;
-    
+
     constructor(config: Config) {
-        this.managers = new ManagersLoader(config);
+        this.commands = new CommandsLoader(config);
     }
 }
 

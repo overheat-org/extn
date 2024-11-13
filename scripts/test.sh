@@ -1,3 +1,4 @@
 #!/usr/bin/sh
 
-cd test; node ../lib/cli.js $1
+cd test
+node ../dist/cli.js $1

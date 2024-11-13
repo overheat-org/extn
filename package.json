@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "3.3.0",
+  "version": "3.4.7",
   "scripts": {
     "prebuild": "sh ./scripts/build.sh",
     "build": "sh ./scripts/build.sh",
@@ -10,8 +10,8 @@
     "type": "git",
     "url": "git+https://github.com/flame-oh/core.git"
   },
-  "main": "./lib/index.js",
-  "typings": "./types/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./types/index.d.ts",
   "dependencies": {
     "@babel/cli": "^7.25.6",
     "@babel/core": "^7.25.2",
@@ -40,9 +40,12 @@
     "@babel/preset-env": "^7.25.4",
     "@flame-oh/core": "^3.3.0",
     "@flame-oh/manager-ticket": "^1.0.2",
+    "@rspack/cli": "^1.1.0",
     "@types/babel__helper-plugin-utils": "^7.10.3",
+    "@types/webpack-env": "^1.18.5",
     "babel-loader": "^9.2.1",
     "commander": "^12.1.0",
+    "esbuild": "0.24.0",
     "node-loader": "^2.0.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.2",
@@ -57,6 +60,6 @@
     "registry": "https://npm.pkg.github.com"
   },
   "bin": {
-    "flamecore": "./lib/cli.js"
+    "flamecore": "./dist/cli.js"
   }
 }

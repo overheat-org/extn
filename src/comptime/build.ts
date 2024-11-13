@@ -1,11 +1,11 @@
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { createRsbuild, defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
-import { dirname, join as j } from 'path';
+import { join as j } from 'path';
 import LoaderPlugin from './loader.plugin';
 import execute from './execute';
 import Config from '../config';
-import { BannerPlugin } from '@rspack/core';
+import { BannerPlugin, DefinePlugin } from '@rspack/core';
 import { findNodeModulesDir } from '../utils';
  
 const declarations = `
@@ -16,16 +16,14 @@ Object.assign(global, {
 });
 `
 
+console.log(__dirname);
+
 async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
         source: {
-            entry: { main: require.resolve('../index') },
-            define: {
-                COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
-                MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
-                FLAME_PATH: JSON.stringify(findNodeModulesDir(coreConfig.cwd, '@flame-oh')),
-                INTENTS: JSON.stringify(coreConfig.intents),
-                "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
+            entry: { 
+                main: j(__dirname, 'client'), 
+                commands: j(coreConfig.buildPath, 'commands'),
             },
             decorators: {
                 version: '2022-03'
@@ -46,6 +44,13 @@ async function build(coreConfig: Config, dev = false) {
                         raw: true,
                         entryOnly: true,
                         test: 'main.js'
+                    }),
+                    new DefinePlugin({
+                        COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
+                        MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
+                        FLAME_PATH: JSON.stringify(findNodeModulesDir(coreConfig.cwd, '@flame-oh')),
+                        INTENTS: JSON.stringify(coreConfig.intents),
+                        "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
                     })
                 ],
                 module: {
@@ -53,6 +58,10 @@ async function build(coreConfig: Config, dev = false) {
                         {
                             test: /\.zig$/,
                             loader: 'zig-loader'
+                        },
+                        {
+                            test: /\.(t|j)sx?$/,
+                            exclude: [/\.d\.ts$/]
                         }
                     ]
                 },
@@ -62,8 +71,14 @@ async function build(coreConfig: Config, dev = false) {
                 externals: [
                     'discord.js',
                     'diseact',
-                    'canva',
-                    '@keyv/sqlite',
+                    'canvas',
+                    'keyv',
+                    '@flame-oh/core',
+                    'webpack',
+                    /^@rspack\//,
+                    /^@rsbuild\//,
+                    /^@swc\//,
+                    /^@keyv\//,
                 ],
                 optimization: {
                     splitChunks: {
