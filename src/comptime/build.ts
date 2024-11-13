@@ -16,12 +16,15 @@ Object.assign(global, {
 });
 `
 
-console.log(__dirname)
+console.log(__dirname);
 
 async function build(coreConfig: Config, dev = false) {
     const config = defineConfig({
         source: {
-            entry: { main: j(__dirname, 'client') },
+            entry: { 
+                main: j(__dirname, 'client'), 
+                commands: j(coreConfig.buildPath, 'commands'),
+            },
             decorators: {
                 version: '2022-03'
             },
