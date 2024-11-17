@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
   },
   "include": ["./src/**/*", "./lib/**/*", "types/globals.d.ts"]
 }

@@ -1,6 +1,6 @@
 import { join as j } from 'path';
 import { spawnSync } from 'child_process';
-import { createEnvFileOption } from '../../lib/env';
+import { createEnvFileOption } from '../env';
 import Config from '../config';
 
 const RUNTIME_PATH = process.argv[0];

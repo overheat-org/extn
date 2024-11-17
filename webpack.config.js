@@ -13,8 +13,16 @@ const config = {
         rules: [
             {
                 test: /\.ts$/,
-                use: 'ts-loader'
-            }
+                exclude: [/\.d\.ts$/],
+                loader: 'ts-loader',
+                options: {
+                    transpileOnly: true
+                }
+            },
+            {
+                test: /\.d\.ts$/,
+                loader: 'ignore-loader'
+            },
         ]
     },
     target: 'node',
@@ -23,6 +31,7 @@ const config = {
     },
     externals: [
         'discord.js',
+        'diseact',
         /^@rspack\//,
         /^@rsbuild\//,
         /^@babel\//,

@@ -1,31 +1,21 @@
 import Diseact from 'diseact';
 import Discord from 'discord.js';
 import { getCommandManager } from './utils';
-import { REGEX } from './consts';
+import Commands from './commands';
 
-declare const MANAGERS_PATH: string;
-declare const COMMANDS_PATH: string;
-declare const FLAME_PATH: string;
 declare const INTENTS: Discord.BitFieldResolvable<Discord.GatewayIntentsString, number>
 
 const { TOKEN, TEST_GUILD_ID, NODE_ENV } = process.env;
 const DEV = NODE_ENV == 'development';
 
-const commands = new Array;
-
-{
-    const ctx = require.context(COMMANDS_PATH, true, /\.(t|j)sx?$/);
-    for(const key of ctx.keys()) commands.push((ctx(key) as any).default);
-}
-
 class CommandManager {
-    async init() {
-        if(DEV && !TEST_GUILD_ID) {
-            throw new Error('TEST_GUILD_ID is not defined on Environment');
-        }
+    // async init() {
+    //     if(DEV && !TEST_GUILD_ID) {
+    //         throw new Error('TEST_GUILD_ID is not defined on Environment');
+    //     }
         
-        getCommandManager(client)!.set(commands);
-    }
+    //     getCommandManager(client)!.set(commands);
+    // }
 
     listen() {
         this.client.on('interactionCreate', interaction => {
@@ -46,7 +36,7 @@ class Client extends Discord.Client {
         super(options);
 
         this.commands.listen();
-        this.onReady().then(() => this.commands.init());
+        // this.onReady().then(() => this.commands.init());
     }
 
     async onReady() {
@@ -60,37 +50,6 @@ class Client extends Discord.Client {
 
 const client = new Client({ intents: INTENTS });
 
-{
-    const localManagersCtx = require.context(MANAGERS_PATH, true, /\.(t|j)sx?$/);
-    const externManagersCtx = FLAME_PATH ? require.context(FLAME_PATH, true, /\.(t|j)sx?$/) : undefined;
-
-    const localKeys = localManagersCtx.keys();
-    const externKeys = externManagersCtx ? externManagersCtx.keys().map(k => `@flame-oh${k.slice(1)}`) : [];
-
-    for(const key of [...localKeys, ...externKeys]) {
-        if(key.includes('@flame-oh') && !REGEX.EXTERN_MANAGERS.test(key)) continue;
-        
-        const isCommandFile = /^\.\/.+\/commands?\.(t|j)sx?$/.test(key);
-        const ctx = key.includes('@flame-oh') ? externManagersCtx! : localManagersCtx;
-        
-        if(isCommandFile) {
-            const context = ctx(key) as any;
-            commands.push(context.default ?? context);
-            
-            continue;
-        }
-        
-        const isRootFile = /^\.\/[^/]+\.(t|j)sx?$/.test(key);
-        const isIndexFile = /^\.\/[^/]+\/index\.(t|j)sx?$/.test(key);
-        
-        if (!isRootFile && !isIndexFile) continue;
-        
-        const manager = (ctx(key) as any).default;
-
-        if(typeof manager != 'function' || !manager.__injector__) continue;
-
-        manager(client);
-    }
-}
+// MANAGERS;
 
 client.login(TOKEN);
