@@ -1,5 +1,5 @@
 import fs from 'fs';
-import path from 'path';
+import path from 'path/posix';
 
 export function findNodeModulesDir(startDir = process.cwd(), expectedPackage?: string) {
     let currentDir = startDir;

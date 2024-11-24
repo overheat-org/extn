@@ -1,4 +1,4 @@
-import { join as j } from 'path';
+import { join as j } from 'path/posix';
 import { readdirSync } from 'fs';
 
 export const EnvName = {

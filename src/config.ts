@@ -1,10 +1,31 @@
 import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
-import { join as j } from 'path';
+import { join as j } from 'path/posix';
 
 class Config {
-    cwd!: string;
-    buildPath!: string;
-    entryPath!: string;
+    #cwd!: string;
+    get cwd() {
+        return this.#cwd;
+    }
+    set cwd(value: string) {
+        this.#cwd = value.replace(/\\/g, '/');
+    }
+
+    #buildPath!: string;
+    get buildPath() {
+        return this.#buildPath;
+    }
+    set buildPath(value) {
+        this.#buildPath = j(this.cwd.replace(/\\/g, '/'), value);
+    };
+    
+    #entryPath!: string;
+    get entryPath() {
+        return this.#entryPath;
+    }
+    set entryPath(value) {
+        this.#entryPath = j(this.cwd.replace(/\\/g, '/'), value);
+    };
+    
     intents!: BitFieldResolvable<GatewayIntentsString, number>
 
     constructor(obj: Partial<Config>) {
@@ -26,8 +47,8 @@ class Config {
     static getInstance(path: string, cwd = process.cwd()) {
         const defaultConfig = new Config({
             cwd,
-            entryPath: j(cwd, 'src'),
-            buildPath: j(cwd, '.flame'),
+            entryPath: 'src',
+            buildPath: '.flame',
             intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent'], 
         });
 
@@ -39,10 +60,9 @@ class Config {
             catch {
                 return null;
             }
-        })()
+        })();
 
-        if(config) return defaultConfig.merge(config);
-        else return defaultConfig;
+        return config ? defaultConfig.merge(config) : defaultConfig;
     }
 }
 

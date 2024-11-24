@@ -1,4 +1,4 @@
-import { join as j } from 'path';
+import { join as j } from 'path/posix';
 import { program } from 'commander';
 import build from './compilation/build';
 import execute from './compilation/execute';
