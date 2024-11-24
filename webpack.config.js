@@ -13,14 +13,14 @@ const config = {
         rules: [
             {
                 test: /\.ts$/,
-                exclude: [/\.d\.ts$/],
+                exclude: [/\.d\.ts$/, /helpers/],
                 loader: 'ts-loader',
                 options: {
                     transpileOnly: true
                 }
             },
             {
-                test: /\.d\.ts$/,
+                test: [/\.d\.ts$/, /helpers/],
                 loader: 'ignore-loader'
             },
         ]
