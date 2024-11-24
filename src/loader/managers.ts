@@ -4,7 +4,7 @@ import * as T from '@babel/types';
 import generate from '@babel/generator';
 import fs from 'fs/promises';
 import Config from "../config";
-import { join as j } from 'path';
+import { join as j } from 'path/posix';
 
 interface ParsedManager {
     path: string;
@@ -21,17 +21,21 @@ class ManagersLoader {
         });
         
         let hasInjected = false;
-        const classes = new Array<any>();
+        const classes = new Array<T.ClassDeclaration>();
         
         traverse(ast!, {
             ExportDefaultDeclaration(path) {
                 const declaration = path.node.declaration;
-
+                
                 if (declaration.type !== 'Identifier') {
                     throw new Error(`Expected class declaration, found "${declaration.type}"`);
                 }
-
-                const selectedClass = classes.find(c => declaration.name === c.id.name);
+                
+                const selectedClass = classes.find(c => declaration.name === c.id?.name);
+                
+                hasInjected = !!selectedClass?.decorators?.find(
+                    (d: T.Decorator) => d.expression.type === 'Identifier' && d.expression.name === 'inject'
+                );
 
                 // Remove decorator from ast
                 if (selectedClass && selectedClass.decorators) {
@@ -39,11 +43,10 @@ class ManagersLoader {
                         (d: any) => !(d.expression.type === 'Identifier' && d.expression.name === 'inject')
                     );
                 }
-
-                hasInjected = !!selectedClass?.decorators?.find(
-                    (d: any) => d.expression.type === 'Identifier' && d.expression.name === 'inject'
-                );
             },
+            ClassDeclaration(path) {
+                classes.push(path.node);
+            }
         });
 
         return {
@@ -56,7 +59,7 @@ class ManagersLoader {
     async loadManagersDir() {
         const commandsDir = j(this.config.entryPath, 'managers');
         const files = await fs.readdir(commandsDir, { withFileTypes: true });
-        const injectedManagers = new Array<string>;
+        const internalManagers = new Array<T.Statement>;
         const managersPath = new Array<string>;
         
         for (const file of files) {
@@ -73,16 +76,12 @@ class ManagersLoader {
             else parsed = await this.parseFile(j(commandsDir, file.name));
             
             if(parsed.hasInjected) {
-                const output = generate(T.program(parsed.content), {
-                    comments: false
-                });
-                
-                injectedManagers.push(output.code);
+                internalManagers.push(...parsed.content);
             }
             else managersPath.push(parsed.path);
         }
 
-        return { injectedManagers, managersPath }
+        return { internalManagers, managersPath }
     }
 
     constructor(private config: Config) {}
