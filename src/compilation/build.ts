@@ -1,13 +1,11 @@
 import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
 import { createRsbuild, defineConfig } from '@rsbuild/core';
 import { pluginBabel } from '@rsbuild/plugin-babel';
-import path, { basename, join as j, resolve as r } from 'path';
+import { join as j } from 'path/posix';
 import execute from './execute';
 import Config from '../config';
 import { BannerPlugin, DefinePlugin } from '@rspack/core';
-import { findNodeModulesDir } from '../utils';
 import Loader from '../loader';
-import crypto from 'crypto';
 import fs from 'fs/promises';
 
 const declarations = `
@@ -16,14 +14,13 @@ Object.assign(global, {
     DISEACT_COLLECTOR_STATE: { listeners: new Map() },
     DISEACT_HOOK_STATE: { component: undefined, index: 0 }
 });
-`
+`;
 
-async function build(coreConfig: Config, dev = false) {
+async function build(coreConfig: Config, dev = false, ...args) {
     await prepareFlameDirectory(coreConfig.buildPath);
     
     const loader = new Loader(coreConfig);
-
-    const { injectedManagers, managersPath } = await loader.run() ?? { injectedManagers: [], managersPath: [] };
+    await loader.run();
 
     const config = defineConfig({
         output: {
@@ -37,15 +34,11 @@ async function build(coreConfig: Config, dev = false) {
         },
         tools: {
             rspack: {
+                target: 'node2022',
                 entry: {
-                    main: {
-                        import: j(__dirname, 'client'),
-                        dependOn: 'commands',
-                    },
-                    commands: j(coreConfig.buildPath, 'commands'),
-                    ...Object.assign({}, ...managersPath.map(p => ({ [`managers/${basename(p, path.extname(p))}`]: p })))
+                    index: j(coreConfig.buildPath, 'index'),
+                    commands: j(coreConfig.buildPath, 'commands')
                 },
-                target: 'node',
                 plugins: [
                     new BannerPlugin({
                         banner: declarations,
@@ -54,14 +47,11 @@ async function build(coreConfig: Config, dev = false) {
                         test: 'main.js'
                     }),
                     new DefinePlugin({
-                        COMMANDS_PATH: JSON.stringify(j(coreConfig.entryPath, 'commands')),
-                        MANAGERS_PATH: JSON.stringify(j(coreConfig.entryPath, 'managers')),
-                        FLAME_PATH: JSON.stringify(findNodeModulesDir(coreConfig.cwd, '@flame-oh')),
                         INTENTS: JSON.stringify(coreConfig.intents),
                         // TODO: isso nao funciona, temos que separar o index 
-                        MANAGERS: injectedManagers.join('\n\n'),
-                        "process.env.BUILD_PATH": JSON.stringify(coreConfig.buildPath)
-                    })
+                        // MANAGERS: injectedManagers.join('\n\n'),
+                        "BUILD_PATH": JSON.stringify(coreConfig.buildPath)
+                    }),
                 ],
                 module: {
                     rules: [
@@ -69,39 +59,49 @@ async function build(coreConfig: Config, dev = false) {
                             test: /\.zig$/,
                             loader: 'zig-loader'
                         },
-                        {
-                            test: /\.(t|j)sx?$/,
-                            exclude: [/\.d\.ts$/]
-                        }
                     ]
                 },
                 resolve: {
                     extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx'],
-                    tsConfig: r(coreConfig.cwd, 'tsconfig.json')
+                    tsConfig: j(coreConfig.cwd, 'tsconfig.json')
                 },
                 externals: [
                     'discord.js',
-                    'diseact',
                     'canvas',
                     'keyv',
                     '@flame-oh/core',
                     'webpack',
+                    /^diseact(\/.*)?$/,
                     /^@rspack\//,
                     /^@rsbuild\//,
                     /^@swc\//,
                     /^@keyv\//,
+                    {
+                        './commands': j(coreConfig.buildPath, 'commands.js') 
+                    },
                 ],
                 output: {
                     path: coreConfig.buildPath,
                     filename: "[name].js",
-                    libraryTarget: 'commonjs2',
+                    libraryTarget: 'module',
+                    chunkFormat: 'module',
+                    chunkFilename(arg) {
+                        if(arg.chunk?.id?.includes('managers')) {
+                            const splitted = arg.chunk.id.split('_');
+                            const name = splitted[splitted.length - 2];
+
+                            return `managers/${name}.js`;
+                        }
+
+                        return '[name].js';
+                    }
+                },
+                experiments: {
+                    outputModule: true,
                 },
                 optimization: {
-                    splitChunks: {
-                        chunks: 'all',
-                        name: `chunks/${crypto.randomBytes(8 / 2).toString('hex')}`
-                    },
-                    runtimeChunk: 'single',
+                    runtimeChunk: false,
+                    splitChunks: false,
                     minimize: true,
                 },
             }
@@ -109,6 +109,8 @@ async function build(coreConfig: Config, dev = false) {
         plugins: [
             pluginNodePolyfill(),
             pluginBabel({
+                include: /\.(t|j)sx?$/,
+                exclude: [/\.d\.ts$/],
                 babelLoaderOptions: {
                     plugins: [
                         ["@babel/plugin-proposal-decorators", { version: "2023-05" }],
@@ -119,15 +121,15 @@ async function build(coreConfig: Config, dev = false) {
                         ["@babel/preset-react", { runtime: 'automatic', importSource: 'diseact' }],
                         ["@babel/preset-typescript"]
                     ]
-                }
+                },
             })
-        ]
+        ],
     });
-
+    
     const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.cwd });
 
     if (dev) {
-        instance.onAfterBuild({ handler: () => execute(coreConfig, dev), order: 'post' })
+        instance.onAfterBuild({ handler: () => execute(coreConfig, dev, ...args), order: 'post' });
 
         await instance.startDevServer();
         await instance.build();
@@ -140,7 +142,6 @@ async function prepareFlameDirectory(buildPath) {
     try {
         const flameDir = buildPath;
 
-        // Verifica se o diretório existe
         try {
             const files = await fs.readdir(flameDir);
 
@@ -149,13 +150,12 @@ async function prepareFlameDirectory(buildPath) {
                 const stat = await fs.stat(filePath);
     
                 if (stat.isDirectory()) {
-                    await fs.rmdir(filePath, { recursive: true });
+                    await fs.rm(filePath, { recursive: true });
                 } else {
                     await fs.unlink(filePath);
                 }
             }
         } catch {
-            // Diretório não existe, cria
             await fs.mkdir(flameDir, { recursive: true });
         }
     } catch (error: any) {
