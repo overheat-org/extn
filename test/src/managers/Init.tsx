@@ -5,6 +5,7 @@ import { Keyv } from '@flame-oh/core';
 
 const db = new Keyv('meta');
 
+@inject
 class Init {
     async OnceReady() {
         console.log('READY');
