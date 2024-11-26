@@ -13,7 +13,7 @@ export interface ImportInfo {
 
 class Loader {
     async run() {
-        const { internalManagers } = await this.managers.loadManagersDir();
+        const internalManagers = await this.managers.load();
         await this.client.load(internalManagers);
         await this.commands.loadCommandsDir();
     }
@@ -22,9 +22,9 @@ class Loader {
     commands: CommandsLoader;
     managers: ManagersLoader;
 
-    constructor(config: Config) {
+    constructor(config: Config, dev: boolean) {
         this.client = new ClientLoader(config);
-        this.commands = new CommandsLoader(config);
+        this.commands = new CommandsLoader(config, dev);
         this.managers = new ManagersLoader(config);
     }
 }

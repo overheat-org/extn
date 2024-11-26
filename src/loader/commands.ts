@@ -5,16 +5,14 @@ import { parse } from "@babel/parser";
 import * as T from '@babel/types';
 import generate from '@babel/generator';
 import fs from 'fs/promises';
-import { join as j, basename, extname } from 'path';
-import helperContent from '!!raw-loader!../lazy.helper';
+import path, { join as j, basename, extname, resolve as r, relative, resolve, dirname } from 'path/posix';
+import helperContent from '!!raw-loader!../helpers/lazy';
 import Config from "../config";
 import { getEnvFilePath } from "../env";
 import { readFileSync } from "fs";
 import dotenv from 'dotenv';
 import { transformFromAstSync } from "@babel/core";
 import Diseact from 'diseact';
-
-const DEV = process.env.NODE_ENV == 'development';
 
 interface ParsedCommand {
     path: string;
@@ -39,8 +37,15 @@ class CommandsLoader {
         });
 
         traverse(ast!, {
-            ImportDeclaration(path) {
-                const source = path.node.source.value;
+            ImportDeclaration: (path) => {
+                let source; 
+                
+                console.log(path.node.source.value)
+                
+                // if(path.node.source.value.startsWith('../managers')) source = path.node.source.value.slice(1);
+                // else 
+                source = relative(this.config.buildPath, resolve(dirname(filePath), path.node.source.value));
+                
                 const specifiers = path.node.specifiers.map(spec => ({
                     local: spec.local.name,
                     imported: T.isImportSpecifier(spec) ? (spec.imported as T.StringLiteral).value : undefined
@@ -101,7 +106,7 @@ class CommandsLoader {
                     T.isIdentifier(prop.key) && 
                     prop.key.name === 'name'
             ) as T.ObjectProperty | undefined;
-    
+
             if (nameProperty && T.isStringLiteral(nameProperty.value)) {
                 commandName = nameProperty.value.value;
             }
@@ -152,7 +157,7 @@ class CommandsLoader {
     async registryCommands() {
         const { CLIENT_ID, TEST_GUILD_ID } = this.env;
 
-        const route = DEV 
+        const route = this.isDev 
             ? Routes.applicationGuildCommands(CLIENT_ID, TEST_GUILD_ID!)
             : Routes.applicationCommands(CLIENT_ID);
 
@@ -163,6 +168,11 @@ class CommandsLoader {
                 if (T.isFunctionExpression(path.node.expression) || T.isArrowFunctionExpression(path.node.expression)) {
                     path.node.expression.body = T.blockStatement([]);
                     path.node.expression.params = [];
+                }
+            },
+            JSXAttribute(path) {
+                if(path.node.name.name == 'autocomplete') {
+                    path.node.value = T.jSXExpressionContainer(T.booleanLiteral(true));
                 }
             }
         });
@@ -220,7 +230,7 @@ class CommandsLoader {
         for (const file of files) {
             if (!/\.(j|t)sx?$/.test(file)) continue;
 
-            const filePath = j(commandsDir, file);
+            const filePath = j(commandsDir, path.win32.normalize(file));
             const { commandProperty, statements } = await this.loadCommand(filePath, uniqueImports);
 
             commandProperties.push(commandProperty);
@@ -230,8 +240,8 @@ class CommandsLoader {
         await this.registryCommands();
 
         // Add lazy imports
-        for (const [source, info] of uniqueImports) {
-            context.push(this.createLazyImport(source, info.specifiers));
+        for (const [_, info] of uniqueImports) {
+            context.push(this.createLazyImport(info.source, info.specifiers));
         }
 
         context.push(T.expressionStatement(T.assignmentExpression('=', T.identifier('usingLazy'), T.booleanLiteral(false))));
@@ -258,7 +268,8 @@ class CommandsLoader {
             comments: false
         });
         
-        await fs.writeFile(j(this.config.buildPath, 'commands.js'), output.code);
+        await fs.mkdir(j(this.config.buildPath, 'tmp'), { recursive: true });
+        await fs.writeFile(j(this.config.buildPath, 'tmp', 'commands.tsx'), output.code);
     }
 
     private createLazyImport(importPath: string, specifiers: ImportInfo['specifiers']) {
@@ -279,8 +290,8 @@ class CommandsLoader {
         ]);
     }
 
-    constructor(private config: Config) {
-        const envPath = getEnvFilePath(config.cwd, DEV);
+    constructor(private config: Config, private isDev: boolean) {
+        const envPath = getEnvFilePath(config.cwd, isDev);
         if(!envPath) throw new Error('Env File not found')
 
         const data = readFileSync(envPath);
