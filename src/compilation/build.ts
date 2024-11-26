@@ -4,7 +4,7 @@ import { pluginBabel } from '@rsbuild/plugin-babel';
 import { join as j } from 'path/posix';
 import execute from './execute';
 import Config from '../config';
-import { BannerPlugin, DefinePlugin } from '@rspack/core';
+import { BannerPlugin, DefinePlugin, Compiler } from '@rspack/core';
 import Loader from '../loader';
 import fs from 'fs/promises';
 
@@ -19,7 +19,7 @@ Object.assign(global, {
 async function build(coreConfig: Config, dev = false, ...args) {
     await prepareFlameDirectory(coreConfig.buildPath);
     
-    const loader = new Loader(coreConfig);
+    const loader = new Loader(coreConfig, dev);
     await loader.run();
 
     const config = defineConfig({
@@ -36,8 +36,8 @@ async function build(coreConfig: Config, dev = false, ...args) {
             rspack: {
                 target: 'node2022',
                 entry: {
-                    index: j(coreConfig.buildPath, 'index'),
-                    commands: j(coreConfig.buildPath, 'commands')
+                    index: j(coreConfig.buildPath, 'tmp/index'),
+                    commands: j(coreConfig.buildPath, 'tmp/commands')
                 },
                 plugins: [
                     new BannerPlugin({
@@ -48,10 +48,15 @@ async function build(coreConfig: Config, dev = false, ...args) {
                     }),
                     new DefinePlugin({
                         INTENTS: JSON.stringify(coreConfig.intents),
-                        // TODO: isso nao funciona, temos que separar o index 
-                        // MANAGERS: injectedManagers.join('\n\n'),
                         "BUILD_PATH": JSON.stringify(coreConfig.buildPath)
                     }),
+                    {
+                        apply(compiler: Compiler) {
+                            compiler.hooks.done.tap('CleanupTmp', async stats => {
+                                await fs.rm(j(coreConfig.buildPath, 'tmp'), { recursive: true, force: true });
+                            })
+                        }
+                    }
                 ],
                 module: {
                     rules: [
@@ -63,6 +68,7 @@ async function build(coreConfig: Config, dev = false, ...args) {
                 },
                 resolve: {
                     extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx'],
+                    mainFiles: ['index'],
                     tsConfig: j(coreConfig.cwd, 'tsconfig.json')
                 },
                 externals: [
@@ -77,7 +83,7 @@ async function build(coreConfig: Config, dev = false, ...args) {
                     /^@swc\//,
                     /^@keyv\//,
                     {
-                        './commands': j(coreConfig.buildPath, 'commands.js') 
+                        './commands': `file://${j(coreConfig.buildPath, 'commands.js')}`,
                     },
                 ],
                 output: {
@@ -93,15 +99,16 @@ async function build(coreConfig: Config, dev = false, ...args) {
                             return `managers/${name}.js`;
                         }
 
-                        return '[name].js';
+                        return 'chunks/[name].js';
                     }
                 },
                 experiments: {
                     outputModule: true,
                 },
                 optimization: {
-                    runtimeChunk: false,
-                    splitChunks: false,
+                    splitChunks: {
+                        chunks: 'all'
+                    },
                     minimize: true,
                 },
             }
