@@ -1,10 +1,10 @@
 import * as T from '@babel/types';
 
 class ImportManager {
-    imports = new Map<string, Set<{ name: string, type: 'default' | '*' | 'named' }>>();
+    imports = new Map<string, Set<{ name: string, type: 'default' | '*' | 'named', lazy: boolean }>>();
     resolved = new Set<{ name: string; type: "default" | "*" | "named", path: string }>();
 
-    register(node: T.ImportDeclaration) {
+    register(node: T.ImportDeclaration, lazy = false) {
         const path = node.source.value;
         if (!this.imports.has(path)) {
             this.imports.set(path, new Set());
@@ -14,23 +14,22 @@ class ImportManager {
 
         node.specifiers.forEach(specifier => {
             if (T.isImportSpecifier(specifier)) {
-                imported.add({ name: specifier.local.name, type: 'named' });
+                imported.add({ name: specifier.local.name, type: 'named', lazy });
             } else if (T.isImportDefaultSpecifier(specifier)) {
-                imported.add({ name: specifier.local.name, type: 'default' });
+                imported.add({ name: specifier.local.name, type: 'default', lazy });
             } else if (T.isImportNamespaceSpecifier(specifier)) {
-                imported.add({ name: specifier.local.name, type: '*' });
+                imported.add({ name: specifier.local.name, type: '*', lazy });
             }
         });
     }
 
-    resolve<T extends T.Program | T.Statement[]>(astOrBody: T, options = { clearImportsBefore: true }): T {
+    resolve<T extends T.Program | T.Statement[]>(astOrBody: T, options = { clearImportsBefore: true, register: true }): T {
         const body = Array.isArray(astOrBody) ? astOrBody : astOrBody.body;
 
         for (let i = body.length - 1; i >= 0; i--) {
             if (!T.isImportDeclaration(body[i])) continue;
 
-            this.register(body[i] as T.ImportDeclaration);
-
+            if(options.register) this.register(body[i] as T.ImportDeclaration);
             if (options.clearImportsBefore) body.splice(i, 1);
         }
         
@@ -121,6 +120,11 @@ class ImportManager {
         }
 
         return (Array.isArray(astOrBody) ? body : T.program(body)) as T;
+    }
+
+    constructor(options?: { from: string, to: string }) {
+        // resolve to
+        
     }
 }
 
