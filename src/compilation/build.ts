@@ -107,9 +107,14 @@ async function build(coreConfig: Config, dev = false, ...args) {
                 },
                 optimization: {
                     splitChunks: {
-                        chunks: 'all'
+                        chunks: 'all',
+                        name: 'chunks/[name].js'
                     },
-                    minimize: true,
+                    ...dev
+                        ? {}
+                        : {
+                            minimize: true
+                        }
                 },
             }
         },
