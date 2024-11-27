@@ -25,7 +25,6 @@ class ClientLoader {
         
         traverse(ast!, {
             Identifier(path) {
-                // TODO: Don't emit when manager aren't exported by default
                 if(path.node.name == 'MANAGERS') {
                     path.replaceWithMultiple(internalManagers);
                 }
@@ -70,10 +69,9 @@ class ClientLoader {
         return ast;
     }
 
-    async writeFile(ast) {
+    async emitFile(ast) {
         const out = generate(ast, {
             comments: false,
-            
         });
 
         await fs.mkdir(j(this.config.buildPath, 'tmp'), { recursive: true });
@@ -82,7 +80,7 @@ class ClientLoader {
     
     async load(internalManagers: T.Statement[]) {
         const ast = await this.mergeInternalManagers(internalManagers);
-        this.writeFile(ast);
+        this.emitFile(ast);
     }
     
     constructor(private config: Config) {}
