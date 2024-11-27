@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import Config from "../config";
 import { join as j } from 'path/posix';
 import { findNodeModulesDir } from "../utils";
+import CommandsLoader from "./commands";
 
 interface ParsedManager {
     path: string;
@@ -63,17 +64,24 @@ class ManagersLoader {
         for(const dirent of content) {
             if(!/\.(j|t)sx?$/.test(dirent.name)) continue;
 
-            let parsed: ParsedManager;
+            let parsed!: ParsedManager;
             
             if(dirent.isDirectory()) {
                 const files = await fs.readdir(j(dir, dirent.name));
-                if(!files.includes('index')) continue;
-
-                parsed = await this.parseFile(j(dir, dirent.name, 'index'));
+                
+                if(files.includes('index')) {
+                    parsed = await this.parseFile(j(dir, dirent.name, 'index'));
+                }
+                
+                const command = files.find(f => /commands?/.test(f));
+                
+                if(command) {
+                    await this.commandLoader.queueRead(j(dir, dirent.name, command));
+                }
             }
             else parsed = await this.parseFile(j(dir, dirent.name));
 
-            if(parsed.isInternal) {
+            if(parsed?.isInternal) {
                 internalManagers.push(...parsed.content);
             }
         }
@@ -92,7 +100,7 @@ class ManagersLoader {
         return [...localInternal, ...flameInternal];
     }
 
-    constructor(private config: Config) {}
+    constructor(private config: Config, private commandLoader: CommandsLoader) {}
 }
 
 export default ManagersLoader;

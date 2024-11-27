@@ -15,7 +15,7 @@ class Loader {
     async run() {
         const internalManagers = await this.managers.load();
         await this.client.load(internalManagers);
-        await this.commands.loadCommandsDir();
+        await this.commands.load();
     }
 
     client: ClientLoader;
@@ -25,7 +25,7 @@ class Loader {
     constructor(config: Config, dev: boolean) {
         this.client = new ClientLoader(config);
         this.commands = new CommandsLoader(config, dev);
-        this.managers = new ManagersLoader(config);
+        this.managers = new ManagersLoader(config, this.commands);
     }
 }
 
