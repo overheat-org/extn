@@ -79,7 +79,10 @@ class ImportManager {
 
                 const FLAME_MANAGER_REGEX = /^@flame-oh\/manager\-/;
                 if(FLAME_MANAGER_REGEX.test(importNode.source.value)) {
-                    importNode.source.value.replace(FLAME_MANAGER_REGEX, 'managers/')
+                    importNode.source.value = changeFileExtension(
+                        `./${importNode.source.value.replace(FLAME_MANAGER_REGEX, 'managers/')}`,
+                        'js'
+                    );
                 }
                 
                 this.register(importNode);

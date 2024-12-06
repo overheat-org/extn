@@ -10,6 +10,7 @@ import BaseLoader from "./base";
 import Loader from ".";
 import esbuild from "esbuild";
 import useComptimeDecorator from "../decorator-runtime";
+import { nodeExternals } from 'esbuild-plugin-node-externals';
 
 interface ParsedManager {
     path: string;
@@ -28,7 +29,6 @@ class ManagersLoader extends BaseLoader {
         });
         
         const meta = { isInternal: false };
-        const classes = new Array<T.ClassDeclaration>();
         
         traverse(ast!, {
             Decorator: (path) => useComptimeDecorator(path, meta)
@@ -50,6 +50,7 @@ class ManagersLoader extends BaseLoader {
             format: 'esm',
             write: false,
             plugins: [
+                nodeExternals(),
                 {
                     name: 'modify-index',
                     setup: (build) => {
@@ -82,14 +83,14 @@ class ManagersLoader extends BaseLoader {
         const internalManagers = new Array<ReadedManager>;
 
         for(const dirent of content) {
-            if(!/\.(j|t)sx?$/.test(dirent.name)) continue;
-
             let parsed!: ParsedManager;
             
-            if(dirent.isDirectory()) {
+            if(!dirent.isFile()) {
+                if(dir.includes('@flame-oh') && dirent.name == 'core') continue;
+                
                 const files = await fs.readdir(j(dir, dirent.name));
                 
-                if(files.includes('index')) {
+                if(files.some(f => f.startsWith('index'))) {
                     parsed = await this.parseDir(j(dir, dirent.name, 'index'));
                 }
 
@@ -102,8 +103,10 @@ class ManagersLoader extends BaseLoader {
             }
             else parsed = await this.parseFile(j(dir, dirent.name));
 
+            if(/manager-/.test(dirent.name)) dirent.name = dirent.name.replace(/manager-/, '') + '.js';
+
             const content = typeof parsed.content == 'string'
-                ? parse(parsed.content).program.body
+                ? parse(parsed.content, { sourceType: 'module' }).program.body
                 : parsed.content;
 
             (parsed.isInternal 
@@ -134,7 +137,6 @@ class ManagersLoader extends BaseLoader {
             
             (async () => {
                 const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh')!;
-                console.log({flameDir})
                 if(!flameDir) return;
                 const { managers, internalManagers } = await this.readDir(flameDir);
                 

@@ -33,9 +33,8 @@ const config = {
     externals: [
         'discord.js',
         'diseact',
-        /^@rspack\//,
-        /^@rsbuild\//,
         /^@babel\//,
+        'esbuild'
     ],
     optimization: {
         minimize: false,
