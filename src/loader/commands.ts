@@ -2,21 +2,21 @@ import fs from 'fs/promises';
 import Config from "../config";
 import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
-import generate from '@babel/generator';
 import * as T from '@babel/types';
-import { join as j } from 'path';
+import { join as j } from 'path/posix';
 import { getEnvFilePath } from '../env';
 import { readFileSync } from 'fs';
 import dotenv from 'dotenv';
 import { REST, Routes } from 'discord.js';
-import ImportManager from '../import-manager';
+import ImportManager from './import-manager';
 import { transformFromAstAsync } from '@babel/core';
-import Diseact from 'diseact';
+import * as Diseact from 'diseact';
+import BaseLoader from './base';
 
-class CommandsLoader {
-    commandsDir = j(this.config.entryPath, 'commands');
-    env: NodeJS.ProcessEnv
-    rest = new REST()
+class CommandsLoader extends BaseLoader {
+    commandsDir: string;
+    env: NodeJS.ProcessEnv;
+    rest = new REST();
 
     async parseFile(filePath: string) {
         const buf = await fs.readFile(filePath);
@@ -67,13 +67,13 @@ class CommandsLoader {
 
     async registryCommands() {
         const { CLIENT_ID, TEST_GUILD_ID } = this.env;
-
+        
         const route = this.isDev
-            ? Routes.applicationGuildCommands(CLIENT_ID, TEST_GUILD_ID!)
-            : Routes.applicationCommands(CLIENT_ID);
-
+        ? Routes.applicationGuildCommands(CLIENT_ID, TEST_GUILD_ID!)
+        : Routes.applicationCommands(CLIENT_ID);
+        
         const ast = T.file(T.program([T.expressionStatement(T.arrayExpression(this.queueRegistryCommands))]));
-
+        
         traverse(ast, {
             JSXExpressionContainer(path) {
                 if (T.isFunctionExpression(path.node.expression) || T.isArrowFunctionExpression(path.node.expression)) {
@@ -83,11 +83,11 @@ class CommandsLoader {
             },
             JSXAttribute(path) {
                 if (path.node.name.name == 'autocomplete') {
-                    path.node.value = T.jSXExpressionContainer(T.booleanLiteral(true));
+                    path.node.value = T.jsxExpressionContainer(T.booleanLiteral(true));
                 }
             }
         });
-
+        
         const { code } = await transformFromAstAsync(ast, undefined, {
             plugins: [
                 ["@babel/plugin-transform-react-jsx", {
@@ -96,26 +96,30 @@ class CommandsLoader {
                 }]
             ]
         }) ?? {};
-
+        
         if (!code) throw new Error('Cannot parse JSX command');
-
+        
         const execute = new Function('Diseact', `return ${code}`);
-
+        
         const evaluated = execute(Diseact);
 
-        await this.rest.put(route, { body: evaluated });
+        const r = this.rest.put(route, { body: evaluated });
 
         this.queueRegistryCommands.length = 0;
+
+        return await r;
     }
 
     async mergeFiles(files: typeof this.queueCommands) {
-        const imports = new ImportManager();
-        const context: T.Statement[] = [];
-        const commandProperties: T.ObjectProperty[] = [];
+        const imports = new ImportManager({ from: j(this.config.entryPath, 'commands'), to: this.config.buildPath });
+        const context = new Array<T.Statement>;
+        const commandProperties = new Array<T.ObjectProperty>;
 
         for (const file of files) {
             if (!/\.(j|t)sx?$/.test(file.path)) continue;
             if (!file.command || !T.isJSXElement(file.command)) continue;
+
+            imports.parse(file.rest, { clearImportsBefore: true, path: file.path });
 
             let commandName!: T.StringLiteral;
             {
@@ -187,28 +191,24 @@ class CommandsLoader {
         return Promise.all(parsedFiles);
     }
 
-    async emitFile(ast: T.Program) {
-        const out = generate(ast, {
-            comments: false,
-        });
-
-        await fs.mkdir(j(this.config.buildPath, 'tmp'), { recursive: true });
-        await fs.writeFile(j(this.config.buildPath, 'tmp', 'commands.tsx'), out.code);
-    }
-
     async load() {
-        const { promise: registeredCommands, resolve } = Promise.withResolvers();
+        const { promise: registeredCommands, resolve, reject } = Promise.withResolvers();
 
         const commands = await this.readDir();
-        this.registryCommands().then(resolve);
+        this.registryCommands().then(resolve).catch(reject);
 
         const ast = await this.mergeFiles([...commands, ...this.queueCommands]);
-        await this.emitFile(ast);
+        const result = await this.transformFile(ast, { filename: 'commands.tsx' });
+        await this.emitFile('commands.js', result);
 
         await registeredCommands;
     }
 
-    constructor(private config: Config, private isDev: boolean) {
+    constructor(protected config: Config, private isDev: boolean) {
+        super(config);
+
+        this.commandsDir = j(this.config.entryPath, 'commands');
+        
         const envPath = getEnvFilePath(config.cwd, isDev);
         if (!envPath) throw new Error('Env File not found');
 

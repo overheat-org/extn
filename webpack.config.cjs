@@ -7,7 +7,8 @@ const config = {
     entry: j(__dirname, 'src', 'cli.ts'),
     output: {
         path: j(__dirname, 'dist'),
-        filename: 'cli.js',
+        filename: 'cli.cjs',
+        libraryTarget: 'commonjs2'
     },
     module: {
         rules: [
@@ -36,7 +37,9 @@ const config = {
         /^@rsbuild\//,
         /^@babel\//,
     ],
-    externalsType: 'commonjs',
+    optimization: {
+        minimize: false,
+    },
     plugins: [
         new BannerPlugin({
             banner: '#!/usr/bin/env node',

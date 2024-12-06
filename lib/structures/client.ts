@@ -1,5 +1,5 @@
 import { Client } from "discord.js";
-import { CommandManager } from "./command.manager";
+import { CommandManager } from "./command.manager.js";
 
 export class FlameClient extends Client {
     commands = new CommandManager(this) 

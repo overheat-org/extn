@@ -1,153 +1,17 @@
-import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill';
-import { createRsbuild, defineConfig } from '@rsbuild/core';
-import { pluginBabel } from '@rsbuild/plugin-babel';
 import { join as j } from 'path/posix';
-import execute from './execute';
 import Config from '../config';
-import { BannerPlugin, DefinePlugin, Compiler } from '@rspack/core';
 import Loader from '../loader';
 import fs from 'fs/promises';
+import { readFileSync } from 'fs';
+import execute from './execute';
 
-const declarations = `
-Object.assign(global, {
-    DISEACT_COMMAND_MAP: new Map(),
-    DISEACT_COLLECTOR_STATE: { listeners: new Map() },
-    DISEACT_HOOK_STATE: { component: undefined, index: 0 }
-});
-`;
-
-async function build(coreConfig: Config, dev = false, ...args) {
+async function build(coreConfig: Config, dev = false, ...args: string[]) {
     await prepareFlameDirectory(coreConfig.buildPath);
     
     const loader = new Loader(coreConfig, dev);
     await loader.run();
 
-    const config = defineConfig({
-        output: {
-            target: 'node'
-        },
-        source: {
-            decorators: {
-                version: '2022-03'
-            },
-            tsconfigPath: j(coreConfig.cwd, 'tsconfig.json'),
-        },
-        tools: {
-            rspack: {
-                target: 'node2022',
-                entry: {
-                    index: j(coreConfig.buildPath, 'tmp/index'),
-                    commands: j(coreConfig.buildPath, 'tmp/commands')
-                },
-                plugins: [
-                    new BannerPlugin({
-                        banner: declarations,
-                        raw: true,
-                        entryOnly: true,
-                        test: 'main.js'
-                    }),
-                    new DefinePlugin({
-                        INTENTS: JSON.stringify(coreConfig.intents),
-                        "BUILD_PATH": JSON.stringify(coreConfig.buildPath)
-                    }),
-                    {
-                        apply(compiler: Compiler) {
-                            compiler.hooks.done.tap('CleanupTmp', async stats => {
-                                await fs.rm(j(coreConfig.buildPath, 'tmp'), { recursive: true, force: true });
-                            })
-                        }
-                    }
-                ],
-                module: {
-                    rules: [
-                        {
-                            test: /\.zig$/,
-                            loader: 'zig-loader'
-                        },
-                    ]
-                },
-                resolve: {
-                    extensions: ['.ts', '.tsx', '.zig', '.js', '.jsx'],
-                    mainFiles: ['index'],
-                    tsConfig: j(coreConfig.cwd, 'tsconfig.json')
-                },
-                externals: [
-                    'discord.js',
-                    'canvas',
-                    'keyv',
-                    '@flame-oh/core',
-                    'webpack',
-                    /^diseact(\/.*)?$/,
-                    /^@rspack\//,
-                    /^@rsbuild\//,
-                    /^@swc\//,
-                    /^@keyv\//,
-                    {
-                        './commands': `file://${j(coreConfig.buildPath, 'commands.js')}`,
-                    },
-                ],
-                output: {
-                    path: coreConfig.buildPath,
-                    filename: "[name].js",
-                    libraryTarget: 'module',
-                    chunkFormat: 'module',
-                    chunkFilename(arg) {
-                        if(arg.chunk?.id?.includes('managers')) {
-                            const splitted = arg.chunk.id.split('_');
-                            const name = splitted[splitted.length - 2];
-
-                            return `managers/${name}.js`;
-                        }
-
-                        return 'chunks/[name].js';
-                    }
-                },
-                experiments: {
-                    outputModule: true,
-                },
-                optimization: {
-                    splitChunks: {
-                        chunks: 'all',
-                        name: 'chunks/[name].js'
-                    },
-                    ...dev
-                        ? {}
-                        : {
-                            minimize: true
-                        }
-                },
-            }
-        },
-        plugins: [
-            pluginNodePolyfill(),
-            pluginBabel({
-                include: /\.(t|j)sx?$/,
-                exclude: [/\.d\.ts$/],
-                babelLoaderOptions: {
-                    plugins: [
-                        ["@babel/plugin-proposal-decorators", { version: "2023-05" }],
-                        "@babel/plugin-proposal-class-properties",
-                        "@babel/plugin-transform-class-static-block"
-                    ],
-                    presets: [
-                        ["@babel/preset-react", { runtime: 'automatic', importSource: 'diseact' }],
-                        ["@babel/preset-typescript"]
-                    ]
-                },
-            })
-        ],
-    });
-    
-    const instance = await createRsbuild({ rsbuildConfig: config, cwd: coreConfig.cwd });
-
-    if (dev) {
-        instance.onAfterBuild({ handler: () => execute(coreConfig, dev, ...args), order: 'post' });
-
-        await instance.startDevServer();
-        await instance.build();
-    } else {
-        await instance.build();
-    }
+    if(dev) execute(coreConfig, dev, ...args);
 }
 
 async function prepareFlameDirectory(buildPath) {
@@ -173,6 +37,28 @@ async function prepareFlameDirectory(buildPath) {
     } catch (error: any) {
         console.error(`Erro ao preparar o diretório .flame: ${error.message}`);
     }
+}
+
+function checkAlias(request, tsconfigPath) {
+    const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8'));
+    const paths = tsconfig.compilerOptions.paths || {};
+
+    // Iterar sobre os aliases definidos
+    for (const alias in paths) {
+        const pattern = paths[alias];
+
+        // Verificar se o alias contém um curinga (por exemplo, @/*)
+        if (alias.includes('*')) {
+            const aliasPrefix = alias.replace('*', ''); // Remover o '*' do alias
+            if (request.startsWith(aliasPrefix)) {
+                return true; // Encontrou o alias com curinga
+            }
+        }
+        else if (request === alias) {
+            return true; // Alias exato
+        }
+    }
+    return false;
 }
 
 export default build;

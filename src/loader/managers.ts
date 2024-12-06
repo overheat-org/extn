@@ -1,19 +1,25 @@
 import traverse from "@babel/traverse";
+import generate from '@babel/generator';
 import { parse } from "@babel/parser";
 import * as T from '@babel/types';
 import fs from 'fs/promises';
 import Config from "../config";
 import { join as j } from 'path/posix';
 import { findNodeModulesDir } from "../utils";
-import CommandsLoader from "./commands";
+import BaseLoader from "./base";
+import Loader from ".";
+import esbuild from "esbuild";
+import useComptimeDecorator from "../decorator-runtime";
 
 interface ParsedManager {
     path: string;
     isInternal: boolean;
-    content: T.Statement[];
+    content: T.Statement[] | string;
 }
 
-class ManagersLoader {
+export type ReadedManager = { name: string, content: T.Statement[] };
+
+class ManagersLoader extends BaseLoader {
     async parseFile(filePath: string) { 
         const buf = await fs.readFile(filePath);
         const ast = parse(buf.toString('utf-8'), {
@@ -21,45 +27,59 @@ class ManagersLoader {
             plugins: ['typescript', 'decorators', 'jsx'],
         });
         
-        let isInternal = false;
+        const meta = { isInternal: false };
         const classes = new Array<T.ClassDeclaration>();
         
         traverse(ast!, {
-            ExportDefaultDeclaration(path) {
-                const declaration = path.node.declaration;
-                
-                if (declaration.type !== 'Identifier') {
-                    throw new Error(`Expected class declaration, found "${declaration.type}"`);
-                }
-                
-                const selectedClass = classes.find(c => declaration.name === c.id?.name);
-                
-                isInternal = !!selectedClass?.decorators?.find(
-                    (d: T.Decorator) => d.expression.type === 'Identifier' && d.expression.name === 'inject'
-                );
-
-                // Remove decorator from ast
-                if (selectedClass && selectedClass.decorators) {
-                    selectedClass.decorators = selectedClass.decorators.filter(
-                        (d: any) => !(d.expression.type === 'Identifier' && d.expression.name === 'inject')
-                    );
-                }
-            },
-            ClassDeclaration(path) {
-                classes.push(path.node);
-            }
+            Decorator: (path) => useComptimeDecorator(path, meta)
         });
 
         return {
             path: filePath,
-            isInternal,
+            isInternal: meta.isInternal,
             content: ast?.program.body
         } as ParsedManager;
     }
 
+    async parseDir(path: string) {
+        let isInternal = false;
+
+        const result = await esbuild.build({
+            entryPoints: [path],
+            bundle: true,
+            format: 'esm',
+            write: false,
+            plugins: [
+                {
+                    name: 'modify-index',
+                    setup: (build) => {
+                        build.onLoad({ filter: /index/ }, async (args) => {
+                            const parsed = await this.parseFile(args.path);
+                            const contents = generate(T.program(parsed.content as T.Statement[])).code;
+                            
+                            isInternal = parsed.isInternal;
+                            
+                            return {
+                                contents,
+                                loader: 'tsx',
+                            }
+                        })
+                    },
+                }
+            ]
+        });
+
+        return {
+            isInternal,
+            path,
+            content: result.outputFiles[0].text,
+        } as ParsedManager;
+    }
+    
     async readDir(dir: string) {
         const content = await fs.readdir(dir, { withFileTypes: true });
-        const internalManagers = new Array<T.Statement>;
+        const managers = new Array<ReadedManager>;
+        const internalManagers = new Array<ReadedManager>;
 
         for(const dirent of content) {
             if(!/\.(j|t)sx?$/.test(dirent.name)) continue;
@@ -70,37 +90,63 @@ class ManagersLoader {
                 const files = await fs.readdir(j(dir, dirent.name));
                 
                 if(files.includes('index')) {
-                    parsed = await this.parseFile(j(dir, dirent.name, 'index'));
+                    parsed = await this.parseDir(j(dir, dirent.name, 'index'));
                 }
-                
+
                 const command = files.find(f => /commands?/.test(f));
                 
+                // TODO: os comandos aqui está com o path errado
                 if(command) {
-                    await this.commandLoader.queueRead(j(dir, dirent.name, command));
+                    await this.loader.commands.queueRead(j(dir, dirent.name, command));
                 }
             }
             else parsed = await this.parseFile(j(dir, dirent.name));
 
-            if(parsed?.isInternal) {
-                internalManagers.push(...parsed.content);
-            }
+            const content = typeof parsed.content == 'string'
+                ? parse(parsed.content).program.body
+                : parsed.content;
+
+            (parsed.isInternal 
+                ? internalManagers 
+                : managers
+            ).push({ name: dirent.name, content });
         }
 
-        return internalManagers;
+        return { managers, internalManagers };
+    }
+
+    async emitBulkFiles(managers: ReadedManager[]) {
+        for(const manager of managers) {
+            const result = await this.transformFile(T.program(manager.content), { filename: manager.name });
+            await this.emitFile(`managers/${manager.name.replace(/\.\w+$/, '.js')}`, result);
+        }
     }
 
     async load() {
-        const managersDir = j(this.config.entryPath, 'managers');
-        const localInternal = await this.readDir(managersDir);
-
-        const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh')!;
-        if(!flameDir) return localInternal;
-        const flameInternal = await this.readDir(flameDir);
-
-        return [...localInternal, ...flameInternal];
+        await Promise.all([
+            (async () => {
+                const managersDir = j(this.config.entryPath, 'managers'); 
+                const { managers, internalManagers } = await this.readDir(managersDir);
+    
+                this.loader.client.internalManagers.push(...internalManagers);
+                await this.emitBulkFiles(managers);
+            })(),
+            
+            (async () => {
+                const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh')!;
+                console.log({flameDir})
+                if(!flameDir) return;
+                const { managers, internalManagers } = await this.readDir(flameDir);
+                
+                this.loader.client.internalManagers.push(...internalManagers);
+                await this.emitBulkFiles(managers);
+            })()
+        ]);
     }
 
-    constructor(private config: Config, private commandLoader: CommandsLoader) {}
+    constructor(protected config: Config, private loader: Loader) {
+        super(config);
+    }
 }
 
 export default ManagersLoader;

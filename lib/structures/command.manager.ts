@@ -1,4 +1,4 @@
-import Diseact from 'diseact';
+import * as Diseact from 'diseact';
 import { Client } from "discord.js";
 
 export class CommandManager {

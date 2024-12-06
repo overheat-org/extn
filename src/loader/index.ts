@@ -13,8 +13,9 @@ export interface ImportInfo {
 
 class Loader {
     async run() {
-        const internalManagers = await this.managers.load();
-        await this.client.load(internalManagers);
+        // Don't reorder
+        await this.managers.load();
+        await this.client.load();
         await this.commands.load();
     }
 
@@ -25,7 +26,7 @@ class Loader {
     constructor(config: Config, dev: boolean) {
         this.client = new ClientLoader(config);
         this.commands = new CommandsLoader(config, dev);
-        this.managers = new ManagersLoader(config, this.commands);
+        this.managers = new ManagersLoader(config, this);
     }
 }
 

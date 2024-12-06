@@ -1,5 +1,34 @@
+import { TransformOptions } from '@babel/core';
 import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
 import { join as j } from 'path/posix';
+
+const DEFAULT_BABEL = (config: Config): TransformOptions => ({
+    sourceType: 'module',
+    presets: [
+        "@babel/preset-typescript",
+        ["@babel/preset-env", {
+            modules: false,
+            targets: {
+                esmodules: true
+            }
+        }],
+        ['@babel/preset-react', {
+            pragma: "Diseact.createElement",
+            pragmaFrag: "Diseact.Fragment",
+            runtime: "classic"
+        }],
+    ],
+    plugins: [
+        "@babel/plugin-transform-class-properties",
+        ["@babel/plugin-transform-runtime", {
+            useESModules: true,
+            helpers: false
+        }],
+        ["transform-define", {
+            INTENTS: config.intents,
+        }]
+    ]
+})
 
 class Config {
     #cwd!: string;
@@ -25,14 +54,27 @@ class Config {
     set entryPath(value) {
         this.#entryPath = j(this.cwd.replace(/\\/g, '/'), value);
     };
+
+    #babel: TransformOptions;
+
+    get babel() {
+        return this.#babel;
+    }
+
+    set babel(value) {
+        this.#babel = { ...DEFAULT_BABEL(this), ...value }
+    }
     
-    intents!: BitFieldResolvable<GatewayIntentsString, number>
+    intents: BitFieldResolvable<GatewayIntentsString, number> = ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
 
     constructor(obj: Partial<Config>) {
+        this.#babel = DEFAULT_BABEL(this);
+        
         for(const key of Object.keys(obj)) {
             // @ts-ignore
             this[key] = obj[key];
         }
+
     }
 
     merge(obj: Partial<Config>) {
@@ -48,8 +90,7 @@ class Config {
         const defaultConfig = new Config({
             cwd,
             entryPath: 'src',
-            buildPath: '.flame',
-            intents: ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent'], 
+            buildPath: '.flame', 
         });
 
         const config = (() => {

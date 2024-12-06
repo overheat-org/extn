@@ -17,5 +17,3 @@ import { Client } from "discord.js";
 export function inject(constructor: new (client: Client) => unknown, context: ClassDecoratorContext) {
     // The logic of this decorator is comptime
 }
-
-global.inject = inject;

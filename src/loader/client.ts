@@ -1,14 +1,14 @@
-import fs from 'fs/promises';
 import { parse } from "@babel/parser";
 import traverse from "@babel/traverse";
-import generate from '@babel/generator';
 import * as T from '@babel/types';
-import { join as j } from 'path';
-import Config from "../config";
 import client from '!!raw-loader!../helpers/client';
-import ImportManager from '../import-manager';
+import ImportManager from './import-manager';
+import BaseLoader from './base';
+import { ReadedManager } from "./managers";
 
-class ClientLoader {
+class ClientLoader extends BaseLoader {
+    internalManagers = new Array<ReadedManager>
+    
     parseFile() {
         return parse(client, {
             sourceType: 'module',
@@ -16,17 +16,52 @@ class ClientLoader {
         });
     }
 
-    async mergeInternalManagers(internalManagers: T.Statement[]) {
-        const importManager = new ImportManager;
+    async mergeWithInternalManagers() {
+        const { internalManagers } = this;
+        
+        const importManager = new ImportManager({ 
+            from: this.config.entryPath, 
+            to: this.config.buildPath 
+        });
         const ast = this.parseFile();
+        
+        ast.program.body.unshift(
+            T.importDeclaration(
+                [
+                    T.importNamespaceSpecifier(T.identifier('Diseact'))
+                ], 
+                T.stringLiteral('diseact')
+            ),
+            T.expressionStatement(
+                T.assignmentExpression(
+                    '=',
+                    T.memberExpression(
+                        T.identifier('global'),
+                        T.identifier('Diseact')
+                    ),
+                    T.identifier('Diseact')
+                )
+            )
+        )
+        importManager.parse(ast.program, { clearImportsBefore: true });
 
         const classes = new Array<T.ClassDeclaration>;
-        const exportedClasses = new Array<T.Identifier>;
         
         traverse(ast!, {
             Identifier(path) {
                 if(path.node.name == 'MANAGERS') {
-                    path.replaceWithMultiple(internalManagers);
+                    const managersContent = new Array<T.BlockStatement>;
+
+                    for(const managerContent of internalManagers.map(m => m.content)) {
+                        if(managerContent) {
+
+                        }
+                        
+                        importManager.parse(managerContent, { clearImportsBefore: true });
+                        managersContent.push(T.blockStatement(managerContent));
+                    }
+                    
+                    path.replaceWithMultiple(managersContent);
                 }
             },
             ExportDefaultDeclaration(path) {
@@ -41,6 +76,7 @@ class ClientLoader {
         
                         path.insertAfter(T.expressionStatement(instantiate));
                         path.replaceWith(declaration);
+                        
                         break;
                     }
                         
@@ -55,6 +91,7 @@ class ClientLoader {
 
                         path.insertBefore(T.expressionStatement(instantiate))
                         path.remove();
+                        
                         break;
                     }
                 }
@@ -65,25 +102,16 @@ class ClientLoader {
         });
         
         ast.program = importManager.resolve(ast.program);
+
         
-        return ast;
+        return ast.program;
     }
 
-    async emitFile(ast) {
-        const out = generate(ast, {
-            comments: false,
-        });
-
-        await fs.mkdir(j(this.config.buildPath, 'tmp'), { recursive: true });
-        await fs.writeFile(j(this.config.buildPath, 'tmp', 'index.tsx'), out.code);
+    async load() {
+        const ast = await this.mergeWithInternalManagers();
+        const result = await this.transformFile(ast, { filename: 'index.tsx' });
+        this.emitFile('index.js', result);
     }
-    
-    async load(internalManagers: T.Statement[]) {
-        const ast = await this.mergeInternalManagers(internalManagers);
-        this.emitFile(ast);
-    }
-    
-    constructor(private config: Config) {}
 }
 
 export default ClientLoader;
