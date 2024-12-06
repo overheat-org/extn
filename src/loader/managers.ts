@@ -93,6 +93,10 @@ class ManagersLoader extends BaseLoader {
                 if(files.some(f => f.startsWith('index'))) {
                     parsed = await this.parseDir(j(dir, dirent.name, 'index'));
                 }
+                else if(files.includes('package.json')) {
+                    const data = JSON.parse(await fs.readFile(j(dir, dirent.name, 'package.json'), 'utf-8'))
+                    parsed = await this.parseDir(j(dir, dirent.name, data.main));
+                }
 
                 const command = files.find(f => /commands?/.test(f));
                 

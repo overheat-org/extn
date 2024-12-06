@@ -4,7 +4,6 @@ import { useErrors } from '../utils';
 
 const errors = useErrors({
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
-    EXPECTED_EXPORT_DEFAULT: "This decorator only can be used on elements with 'export default'"
 })
 
 export default {
