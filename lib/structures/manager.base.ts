@@ -1,6 +1,23 @@
 import { Storage } from "../utils.js";
 
-export abstract class Manager {
+export abstract class Manager<T = any> {
+    /**
+     * A keyv instance for this class.
+     * All instances of this classes will use the same keyv instance.
+     * You can use `class MyManager extends Manager<Type>` to pass a specific type value
+     */
+    get storage() {
+        const storage = (this.constructor as typeof Manager).storage as Storage<T>;
+
+        Object.defineProperty(this, 'storage', {
+            value: storage,
+            writable: false,
+            configurable: false
+        });
+
+        return storage;
+    }
+    
     /**
      * A keyv instance for this class.
      * All instances of this classes will use the same keyv instance.
@@ -16,5 +33,20 @@ export abstract class Manager {
         });
 
         return storage;
+    }
+
+    constructor() {
+    }
+}
+
+class Product extends Manager {
+    static override storage: Storage<{ oi: 5 }>
+
+    oi() {
+        this.storage
+    }
+
+    static eita() {
+        this.storage
     }
 }
