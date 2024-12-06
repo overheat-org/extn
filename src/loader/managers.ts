@@ -22,7 +22,7 @@ export type ReadedManager = { name: string, content: T.Statement[] };
 class ManagersLoader extends BaseLoader {
     async parseFile(filePath: string) { 
         const buf = await fs.readFile(filePath);
-        const ast = this.parse(buf.toString('utf-8'));
+        const ast = this.parseFile(buf.toString('utf-8'));
         
         const meta = { isInternal: false };
         
@@ -107,7 +107,7 @@ class ManagersLoader extends BaseLoader {
             if(/manager-/.test(dirent.name)) dirent.name = dirent.name.replace(/manager-/, '') + '.js';
 
             const content = typeof parsed.content == 'string'
-                ? this.parse(parsed.content).program.body
+                ? this.parseFile(parsed.content).program.body
                 : parsed.content;
 
             (parsed.isInternal 

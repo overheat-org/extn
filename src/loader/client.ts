@@ -8,10 +8,6 @@ import { ReadedManager } from "./managers";
 class ClientLoader extends BaseLoader {
     internalManagers = new Array<ReadedManager>
     
-    parseFile() {
-        return this.parse(client);
-    }
-
     async mergeWithInternalManagers() {
         const { internalManagers } = this;
         
@@ -19,7 +15,7 @@ class ClientLoader extends BaseLoader {
             from: this.config.entryPath, 
             to: this.config.buildPath 
         });
-        const ast = this.parseFile();
+        const ast = this.parseFile(client);
         
         ast.program.body.unshift(
             T.importDeclaration(

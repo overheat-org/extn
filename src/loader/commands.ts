@@ -17,11 +17,11 @@ class CommandsLoader extends BaseLoader {
     env: NodeJS.ProcessEnv;
     rest = new REST();
 
-    async parseFile(filePath: string) {
+    async intermediateParseFile(filePath: string) {
         const buf = await fs.readFile(filePath);
         let command: T.Expression | undefined = undefined;
         let rest = new Array<T.Statement>;
-        const ast = this.parse(buf.toString('utf-8'));
+        const ast = this.parseFile(buf.toString('utf-8'));
 
         traverse(ast!, {
             ExportDefaultDeclaration: {
@@ -53,7 +53,7 @@ class CommandsLoader extends BaseLoader {
 
     private queueCommands = new Array<{ path: string, command: T.Expression | undefined, rest: T.Statement[] }>;
     async queueRead(filePath: string) {
-        this.queueCommands.push(await this.parseFile(filePath));
+        this.queueCommands.push(await this.intermediateParseFile(filePath));
     }
 
     private queueRegistryCommands = new Array<T.Expression>
@@ -183,7 +183,7 @@ class CommandsLoader extends BaseLoader {
 
     async readDir() {
         const files = await fs.readdir(this.commandsDir);
-        const parsedFiles = files.map(f => this.parseFile(j(this.commandsDir, f)));
+        const parsedFiles = files.map(f => this.intermediateParseFile(j(this.commandsDir, f)));
         return Promise.all(parsedFiles);
     }
 

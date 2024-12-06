@@ -31,7 +31,7 @@ class BaseLoader {
         await fs.writeFile(outputPath, result.code!);
     }
 
-    parse(content: string) {
+    parseFile(content: string) {
         return parse(content, {
             sourceType: 'module',
             plugins: ['typescript', 'jsx', 'decorators']
