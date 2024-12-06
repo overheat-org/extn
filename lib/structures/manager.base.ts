@@ -6,7 +6,7 @@ export abstract class Manager<T = any> {
      * All instances of this classes will use the same keyv instance.
      * You can use `class MyManager extends Manager<Type>` to pass a specific type value
      */
-    get storage() {
+    protected get storage() {
         const storage = (this.constructor as typeof Manager).storage as Storage<T>;
 
         Object.defineProperty(this, 'storage', {
@@ -23,7 +23,7 @@ export abstract class Manager<T = any> {
      * All instances of this classes will use the same keyv instance.
      * You can use `static override storage: Storage<Type>` to pass a specific type value
      */
-    static get storage() {
+    protected static get storage() {
         const storage = new Storage(this.name);
 
         Object.defineProperty(this, 'storage', {
@@ -33,20 +33,5 @@ export abstract class Manager<T = any> {
         });
 
         return storage;
-    }
-
-    constructor() {
-    }
-}
-
-class Product extends Manager {
-    static override storage: Storage<{ oi: 5 }>
-
-    oi() {
-        this.storage
-    }
-
-    static eita() {
-        this.storage
     }
 }
