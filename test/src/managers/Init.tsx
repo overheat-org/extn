@@ -1,28 +1,30 @@
 import { Client, TextChannel } from "discord.js";
 import { render, useState } from "diseact";
-import { Keyv, autoincrement } from '../../../';
-import { plus } from '@utils/math';
+import { Manager, Storage } from '@flame-oh/core';
+// import { plus } from '@utils/math';
 
-const db = new Keyv('meta');
+const meta = new Storage('meta');
 
 @inject
-class Init {
+class Init extends Manager {
     @event
     async OnceReady() {
         console.log('READY');
 
-        const r = plus(5, await db.get('meta') ?? 0);
+        // const r = plus(5, await meta.get('meta') ?? 0);
         
-        await db.set('meta', r);
+        // await meta.set('meta', r);
         
-        console.log(r);
+        // console.log(r);
 
-        const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
+        // const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
 
-        render(channel as TextChannel, <Counter />)
+        // render(channel as TextChannel, <Counter />)
     }
 
-    constructor(private client: Client) {}
+    constructor(private client: Client) {
+        super()
+    }
 }
 
 function Counter() {

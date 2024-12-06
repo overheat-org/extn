@@ -7,14 +7,23 @@ const config = {
     entry: j(__dirname, 'src', 'cli.ts'),
     output: {
         path: j(__dirname, 'dist'),
-        filename: 'cli.js',
+        filename: 'cli.cjs',
+        libraryTarget: 'commonjs2'
     },
     module: {
         rules: [
             {
                 test: /\.ts$/,
-                use: 'ts-loader'
-            }
+                exclude: [/\.d\.ts$/, /helpers/],
+                loader: 'ts-loader',
+                options: {
+                    transpileOnly: true
+                }
+            },
+            {
+                test: [/\.d\.ts$/, /helpers/],
+                loader: 'ignore-loader'
+            },
         ]
     },
     target: 'node',
@@ -23,11 +32,13 @@ const config = {
     },
     externals: [
         'discord.js',
-        /^@rspack\//,
-        /^@rsbuild\//,
+        'diseact',
         /^@babel\//,
+        'esbuild'
     ],
-    externalsType: 'commonjs',
+    optimization: {
+        minimize: false,
+    },
     plugins: [
         new BannerPlugin({
             banner: '#!/usr/bin/env node',

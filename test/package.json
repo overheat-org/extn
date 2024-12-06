@@ -1,7 +1,11 @@
 {
   "name": "test",
   "version": "1.0.0",
+  "type": "module",
   "devDependencies": {
-    "@flame-oh": "../"
+    "@flame-oh/core": "../"
+  },
+  "dependencies": {
+    "@flame-oh/manager-ticket": "^1.0.2"
   }
 }

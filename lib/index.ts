@@ -1,2 +1,2 @@
-export * from './structures';
-export { getCommandManager, Keyv, autoincrement } from './utils';
+export * from './structures/index.js';
+export { Storage, autoincrement } from './utils.js';

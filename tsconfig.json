@@ -1,16 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "target": "es2016",
+    "target": "ESNext",
     "lib": ["ESNext"],
-    "module": "commonjs",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "allowJs": true,
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
   },
   "include": ["./src/**/*", "./lib/**/*", "types/globals.d.ts"]
 }
