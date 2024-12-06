@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "4.1.1",
+  "version": "5.0.0",
   "type": "module",
   "scripts": {
     "prebuild": "sh ./scripts/build.sh",
@@ -37,22 +37,19 @@
     "@babel/preset-env": "^7.26.0",
     "@babel/preset-react": "^7.25.9",
     "@flame-oh/core": "^3.3.0",
-    "@flame-oh/manager-ticket": "^1.0.2",
     "@types/babel__helper-plugin-utils": "^7.10.3",
     "@types/webpack-env": "^1.18.5",
     "babel-loader": "^9.2.1",
     "babel-plugin-transform-define": "^2.1.4",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
+    "esbuild-plugin-node-externals": "^1.0.1",
     "ignore-loader": "^0.1.2",
     "ts-loader": "^9.5.1",
     "typescript": "^5.6.2",
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4"
   },
-  "workspaces": [
-    "test"
-  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
