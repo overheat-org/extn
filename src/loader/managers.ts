@@ -1,6 +1,5 @@
 import traverse from "@babel/traverse";
 import generate from '@babel/generator';
-import { parse } from "@babel/parser";
 import * as T from '@babel/types';
 import fs from 'fs/promises';
 import Config from "../config";
@@ -23,10 +22,7 @@ export type ReadedManager = { name: string, content: T.Statement[] };
 class ManagersLoader extends BaseLoader {
     async parseFile(filePath: string) { 
         const buf = await fs.readFile(filePath);
-        const ast = parse(buf.toString('utf-8'), {
-            sourceType: 'module',
-            plugins: ['typescript', 'decorators', 'jsx'],
-        });
+        const ast = this.parse(buf.toString('utf-8'));
         
         const meta = { isInternal: false };
         
@@ -49,6 +45,7 @@ class ManagersLoader extends BaseLoader {
             bundle: true,
             format: 'esm',
             write: false,
+            platform: 'node',
             plugins: [
                 nodeExternals(),
                 {
@@ -110,7 +107,7 @@ class ManagersLoader extends BaseLoader {
             if(/manager-/.test(dirent.name)) dirent.name = dirent.name.replace(/manager-/, '') + '.js';
 
             const content = typeof parsed.content == 'string'
-                ? parse(parsed.content, { sourceType: 'module' }).program.body
+                ? this.parse(parsed.content).program.body
                 : parsed.content;
 
             (parsed.isInternal 

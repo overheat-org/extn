@@ -3,6 +3,7 @@ import * as T from '@babel/types';
 import Config from '../config';
 import { BabelFileResult, transform, transformFromAst, TransformOptions } from '@babel/core';
 import path, { join as j } from 'path';
+import { parse } from '@babel/parser';
 
 class BaseLoader {
     async transformFile(ast: T.Program | string, options: TransformOptions = {}) {
@@ -28,6 +29,13 @@ class BaseLoader {
         }
     
         await fs.writeFile(outputPath, result.code!);
+    }
+
+    parse(content: string) {
+        return parse(content, {
+            sourceType: 'module',
+            plugins: ['typescript', 'jsx', 'decorators']
+        });
     }
 
     constructor(protected config: Config) {}

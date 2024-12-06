@@ -1,6 +1,5 @@
 import fs from 'fs/promises';
 import Config from "../config";
-import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
 import * as T from '@babel/types';
 import { join as j } from 'path/posix';
@@ -22,10 +21,7 @@ class CommandsLoader extends BaseLoader {
         const buf = await fs.readFile(filePath);
         let command: T.Expression | undefined = undefined;
         let rest = new Array<T.Statement>;
-        const ast = parse(buf.toString('utf-8'), {
-            sourceType: 'module',
-            plugins: ['typescript', 'jsx'],
-        });
+        const ast = this.parse(buf.toString('utf-8'));
 
         traverse(ast!, {
             ExportDefaultDeclaration: {

@@ -1,4 +1,3 @@
-import { parse } from "@babel/parser";
 import traverse from "@babel/traverse";
 import * as T from '@babel/types';
 import client from '!!raw-loader!../helpers/client';
@@ -10,10 +9,7 @@ class ClientLoader extends BaseLoader {
     internalManagers = new Array<ReadedManager>
     
     parseFile() {
-        return parse(client, {
-            sourceType: 'module',
-            plugins: ['typescript', 'jsx', 'decorators']
-        });
+        return this.parse(client);
     }
 
     async mergeWithInternalManagers() {
