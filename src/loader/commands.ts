@@ -7,10 +7,11 @@ import { getEnvFilePath } from '../env';
 import { readFileSync } from 'fs';
 import dotenv from 'dotenv';
 import { REST, Routes } from 'discord.js';
-import ImportRegistry from './import-registry';
 import { transformFromAstAsync } from '@babel/core';
 import * as Diseact from 'diseact';
 import BaseLoader from './base';
+import Loader from '.';
+import { Tree } from './scanner';
 
 class CommandsLoader extends BaseLoader {
     commandsDir: string;
@@ -107,7 +108,7 @@ class CommandsLoader extends BaseLoader {
     }
 
     async mergeFiles(files: typeof this.queueCommands) {
-        const imports = new ImportRegistry({ from: j(this.config.entryPath, 'commands'), to: this.config.buildPath });
+        const imports = this.loader.importResolver.createRegister('commands');
         const context = new Array<T.Statement>;
         const commandProperties = new Array<T.ObjectProperty>;
 
@@ -187,21 +188,21 @@ class CommandsLoader extends BaseLoader {
         return Promise.all(parsedFiles);
     }
 
-    async load() {
+    async load(tree: Tree) {
         const { promise: registeredCommands, resolve, reject } = Promise.withResolvers();
 
         const commands = await this.readDir();
         this.registryCommands().then(resolve).catch(reject);
 
-        const ast = await this.mergeFiles([...commands, ...this.queueCommands]);
+        const ast = await this.mergeFiles([ ...commands, ...this.queueCommands ]);
         const result = await this.transformFile(ast, { filename: 'commands.tsx' });
         await this.emitFile('commands.js', result);
 
         await registeredCommands;
     }
 
-    constructor(protected config: Config, private isDev: boolean) {
-        super(config);
+    constructor(protected config: Config, protected loader: Loader, private isDev: boolean) {
+        super(config, loader);
 
         this.commandsDir = j(this.config.entryPath, 'commands');
         

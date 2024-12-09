@@ -6,7 +6,7 @@ import { plus } from '@utils/math';
 const meta = new Storage('meta');
 
 @inject
-class Init extends Manager {
+export class Init extends Manager {
     @event
     async OnceReady() {
         console.log('READY');
@@ -57,5 +57,3 @@ function Counter() {
         />
     </message>
 }
-
-export default Init;

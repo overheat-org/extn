@@ -1,36 +1,60 @@
-import p from 'path/posix';
-import * as T from '@babel/types';
-import { parse } from '@babel/parser';
-import { loadConfig } from 'tsconfig-paths';
-import Config from '../config';
-import pathAll from 'path';
-
-const RELATIVE_PATH_REGEX = /^(?:\.\.?\/)[^\s]*$/;
-const FLAME_MANAGER_REGEX = /^@flame-oh\/manager\-/;
-
-export class ImportResolver {
-    buildMap = new Map<string, string>()
-
-    createRegister(dir?: string) {
-        return new ImportRegistry(this, dir);
-    }
-
-    // O objeto do registered terá um objeto rico em informações como o path de build esperado.
-    // Não será resolvido aqui, importações de modulos e path aliases
-    
-    constructor(public config: Config) {}
-}
-
 class ImportRegistry {
     config: Config;
     imports = new Map<string, Set<{ name: string, type: 'default' | '*' | 'named' }>>();
     resolved = new Set<{ name: string; type: "default" | "*" | "named", path: string }>();
     private pathAliases: Record<string, string> = {}
+    
+    evaluate(path: string) {
+        // todos os paths devem ter seu inicio substituido por path.replace(this.from, this.to)
+        // commands path devem remover seu path depois de commands tipo "C://.../commands/myCommand.tsx" to "C://.../commands"
         
+        path = path.replace(this.from!, '');
+        
+        
+    }
+    // Os arquivos que tem importações, serão resolvidas, e serão salvas somente a diferença entre entryPath.
+    
     register(
         node: T.ImportDeclaration,
         options: { clearImportsBefore?: boolean, path?: string } = { clearImportsBefore: false }
-    ) {        
+    ) {
+        if (options.path) {
+            const path = options.path;
+
+            options.path = options.path.replace(this.from!, this.to!);
+
+            console.log(options.path)
+        }
+        
+        if (this.to) {
+            let resolvedPath = this.resolveAlias(node.source.value, this.to);
+
+            if(RELATIVE_PATH_REGEX.test(resolvedPath) && this.from) {
+                resolvedPath = p.join(this.from, resolvedPath);
+            }
+
+            if (FLAME_MANAGER_REGEX.test(resolvedPath)) {
+                resolvedPath = resolvedPath.replace(FLAME_MANAGER_REGEX, p.join(this.from!, '/managers'));
+            }
+
+            if(pathAll.isAbsolute(resolvedPath)) {
+                const pathToBuild = resolvedPath.replace(this.from!, this.to);
+
+                // console.log({path: options.path})
+                
+                resolvedPath = p.relative(options.path ?? this.to, pathToBuild);
+                
+                if(!resolvedPath.startsWith('.')) {
+                    resolvedPath = changeFileExtension(`./${resolvedPath}`, 'js');
+                }
+
+                // console.log({resolvedPath})
+            }
+
+
+            node.source.value = resolvedPath;
+        }
+        
         const path = node.source.value;
 
         if (!this.imports.has(path)) {
@@ -49,12 +73,7 @@ class ImportRegistry {
             }
         });
 
-        const resumedPath = path.replace(this.config.entryPath, '');
-
-        this.resolver.buildMap.set(
-            resumedPath,
-            p.join(this.config.buildPath, resumedPath)
-        );
+        
     }
 
     private loadTsConfigAliases(cwd: string) {
@@ -228,10 +247,3 @@ class ImportRegistry {
         this.loadTsConfigAliases(this.config.cwd);
     }
 }
-
-function changeFileExtension(path: string, newExtension: string): string {
-    const pathWithoutExtension = path.replace(/\.[^/.]+$/, '');
-    return `${pathWithoutExtension}.${newExtension.replace(/^\./, '')}`;
-}
-
-export default ImportRegistry;

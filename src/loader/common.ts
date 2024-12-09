@@ -1,16 +1,11 @@
 import fs from 'fs/promises';
-import Config from "../config";
 import BaseLoader from "./base";
 import { join as j } from 'path/posix';
-import Loader from '.';
+import { ParseTree } from './scanner';
 
-const IGNORE_DIRS = ['commands', 'managers']
+const IGNORE_DIRS = ['commands', 'managers'];
 
 class CommonLoader extends BaseLoader {
-    constructor(config: Config, private loader: Loader) {
-        super(config);
-    }
-
     async loadDir(dirPath: string) {
         const dirent = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -32,7 +27,7 @@ class CommonLoader extends BaseLoader {
         });
     }
 
-    async load() {
+    async load(tree: ParseTree) {
         const dirent = await fs.readdir(this.config.entryPath, { withFileTypes: true });
 
         for(const dir of dirent) {

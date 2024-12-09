@@ -1,9 +1,7 @@
 import traverse from "@babel/traverse";
 import * as T from '@babel/types';
 import client from '!!raw-loader!../helpers/client';
-import ImportRegistry from './import-registry';
 import BaseLoader from './base';
-import { ReadedManager } from "./managers";
 
 class ClientLoader extends BaseLoader {
     injectedManagers: Record<string, string[]> = {}
@@ -11,10 +9,7 @@ class ClientLoader extends BaseLoader {
     async mergeWithInternalManagers() {
         const { injectedManagers } = this;
         
-        const importManager = new ImportRegistry({ 
-            from: this.config.entryPath, 
-            to: this.config.buildPath 
-        });
+        const importRegistry = this.loader.importResolver.createRegister();
         const ast = this.parseFile(client);
         
         ast.program.body.unshift(
@@ -35,7 +30,7 @@ class ClientLoader extends BaseLoader {
                 )
             )
         )
-        importManager.parse(ast.program, { clearImportsBefore: true });
+        importRegistry.parse(ast.program, { clearImportsBefore: true });
 
         const classes = new Array<T.ClassDeclaration>;
         
@@ -54,7 +49,7 @@ class ClientLoader extends BaseLoader {
 
                         const newExpressions = identifiers.map(i => T.newExpression(i, [T.identifier('client')]));
 
-                        importManager.register(importDecl);
+                        importRegistry.register(importDecl);
                         content.push(...newExpressions);
                     }
 
@@ -98,7 +93,7 @@ class ClientLoader extends BaseLoader {
             }
         });
         
-        ast.program = importManager.resolve(ast.program);
+        ast.program = importRegistry.resolve(ast.program);
 
         
         return ast.program;

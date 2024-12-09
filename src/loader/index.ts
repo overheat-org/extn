@@ -4,16 +4,19 @@ import ManagersLoader from "./managers";
 import ClientLoader from './client';
 import CommonLoader from "./common";
 import Config from "../config";
+import Scanner from "./scanner";
 
 class Loader {
     extensions = ['.ts', '.tsx'];
     
     async run() {
         // Don't reorder
-        await this.common.load();
-        await this.managers.load();
+        const parseTree = await this.scanner.run();
+        
+        await this.common.load(parseTree);
+        await this.managers.load(parseTree);
         await this.client.load();
-        await this.commands.load();
+        await this.commands.load(parseTree);
     }
 
     /**
@@ -39,15 +42,19 @@ class Loader {
     /**
      * Register all imports of loader, and 
      */
-    // importResolver: ImportResolver;
+    importResolver: ImportResolver;
+
+    /**
+     * a
+     */
+    scanner: Scanner
 
     constructor(config: Config, dev: boolean) {
-        ImportRegistry.init(config);
-        
-        // this.importResolver = new ImportResolver(config);
-        this.client = new ClientLoader(config);
+        this.scanner = new Scanner(config);
+        this.importResolver = new ImportResolver(config);
+        this.client = new ClientLoader(config, this);
         this.common = new CommonLoader(config, this);
-        this.commands = new CommandsLoader(config, dev);
+        this.commands = new CommandsLoader(config, this, dev);
         this.managers = new ManagersLoader(config, this);
     }
 }

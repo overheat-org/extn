@@ -9,7 +9,10 @@ function useComptimeDecorator(path: NodePath<T.Decorator>, meta: Record<string, 
     const expr = path.node.expression;
     if(!T.isIdentifier(expr)) return;
 
-    decoratorsRuntimeMap[expr.name]?.comptime(path, meta);
+    const decoratorRuntime = decoratorsRuntimeMap[expr.name]
+    
+    if(decoratorRuntime) decoratorRuntime.comptime(path, meta);
+    else throw new Error(`Unknown comptime decorator '${expr.name}'`)
 }
 
 export default useComptimeDecorator;

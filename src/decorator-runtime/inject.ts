@@ -4,7 +4,7 @@ import { useErrors } from '../utils';
 
 const errors = useErrors({
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
-    EXPECTED_EXPORT: 'Injected classes shound be exported like:\n\nexport class myManager {...}',
+    EXPECTED_EXPORT: 'Injected classes should be exported like:\n\nexport class myManager {...}\n\n',
     SHOULD_BE_GLOBAL: "Injected classes should be in global scope"
 })
 
@@ -36,9 +36,9 @@ export default {
                             )
                         )
                     ) throw errors.EXPECTED_EXPORT;
-
-                    break;
                 }
+
+                break;
 
             default: throw errors.SHOULD_BE_GLOBAL;
         }

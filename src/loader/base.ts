@@ -4,24 +4,34 @@ import Config from '../config';
 import { BabelFileResult, transform, transformFromAst, TransformOptions } from '@babel/core';
 import { dirname, basename, join as j } from 'path';
 import { parse } from '@babel/parser';
+import Loader from '.';
+import traverse, { TraverseOptions } from '@babel/traverse';
 
 class BaseLoader {
-    async transformFile(ast: T.Program | T.File | string, options: TransformOptions = {}) {
+    async transformFile(ast: string, options?: TransformOptions): Promise<BabelFileResult>
+    async transformFile(ast: T.Program | T.File, options: TransformOptions & { traverse?: TraverseOptions }): Promise<BabelFileResult>
+    async transformFile(ast: T.Program | T.File | string, options: TransformOptions & { traverse?: TraverseOptions } = {}) {
+        const { traverse: traverseOptions, ..._options } = options;
+            
         const { promise, resolve, reject } = Promise.withResolvers<BabelFileResult>();
         const opts =  {
-            ...options,
+            ..._options,
             ...this.config.babel
         }
         const callback = (err, result) => err ? reject(err) : resolve(result!);
         
         if(typeof ast == 'string') transform(ast, opts, callback);
-        else transformFromAst(ast, undefined, opts, callback);
+        else {
+            traverse(ast, traverseOptions);
+            transformFromAst(ast, undefined, opts, callback)
+        };
 
         return promise;
     }
 
     async emitFile(filename: string, result: BabelFileResult) {
         const outputPath = j(this.config.buildPath, filename);
+        this.loader.importResolver.buildMap.set(filename, outputPath);
         return this.emitAbsoluteFile(outputPath, result);
     }
     
@@ -43,7 +53,7 @@ class BaseLoader {
         return base.slice(base.indexOf('.'), base.length);
     }
 
-    constructor(protected config: Config) {}
+    constructor(protected config: Config, protected loader: Loader) {}
 }
 
 export default BaseLoader;
