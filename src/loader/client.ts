@@ -1,17 +1,17 @@
 import traverse from "@babel/traverse";
 import * as T from '@babel/types';
 import client from '!!raw-loader!../helpers/client';
-import ImportManager from './import-manager';
+import ImportRegistry from './import-registry';
 import BaseLoader from './base';
 import { ReadedManager } from "./managers";
 
 class ClientLoader extends BaseLoader {
-    internalManagers = new Array<ReadedManager>
+    injectedManagers: Record<string, string[]> = {}
     
     async mergeWithInternalManagers() {
-        const { internalManagers } = this;
+        const { injectedManagers } = this;
         
-        const importManager = new ImportManager({ 
+        const importManager = new ImportRegistry({ 
             from: this.config.entryPath, 
             to: this.config.buildPath 
         });
@@ -42,18 +42,23 @@ class ClientLoader extends BaseLoader {
         traverse(ast!, {
             Identifier(path) {
                 if(path.node.name == 'MANAGERS') {
-                    const managersContent = new Array<T.BlockStatement>;
+                    const content = new Array<T.Node>;
 
-                    for(const managerContent of internalManagers.map(m => m.content)) {
-                        if(managerContent) {
+                    for(const [k, v] of Object.entries(injectedManagers)) {
+                        const identifiers = v.map(m => T.identifier(m));
 
-                        }
-                        
-                        importManager.parse(managerContent, { clearImportsBefore: true });
-                        managersContent.push(T.blockStatement(managerContent));
+                        const importDecl = T.importDeclaration(
+                            identifiers.map(m => T.importNamespaceSpecifier(m)), 
+                            T.stringLiteral(k)
+                        );
+
+                        const newExpressions = identifiers.map(i => T.newExpression(i, [T.identifier('client')]));
+
+                        importManager.register(importDecl);
+                        content.push(...newExpressions);
                     }
-                    
-                    path.replaceWithMultiple(managersContent);
+
+                    path.replaceWithMultiple(content);
                 }
             },
             ExportDefaultDeclaration(path) {

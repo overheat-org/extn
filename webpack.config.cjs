@@ -34,7 +34,8 @@ const config = {
         'discord.js',
         'diseact',
         /^@babel\//,
-        'esbuild'
+        'esbuild',
+        'tsconfig-paths'
     ],
     optimization: {
         minimize: false,

@@ -1,7 +1,7 @@
 import { Client, TextChannel } from "discord.js";
 import { render, useState } from "diseact";
 import { Manager, Storage } from '@flame-oh/core';
-// import { plus } from '@utils/math';
+import { plus } from '@utils/math';
 
 const meta = new Storage('meta');
 
@@ -11,11 +11,11 @@ class Init extends Manager {
     async OnceReady() {
         console.log('READY');
 
-        // const r = plus(5, await meta.get('meta') ?? 0);
+        const r = plus(5, await meta.get('meta') ?? 0);
         
-        // await meta.set('meta', r);
+        await meta.set('meta', r);
         
-        // console.log(r);
+        console.log(r);
 
         // const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
 

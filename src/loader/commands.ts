@@ -7,7 +7,7 @@ import { getEnvFilePath } from '../env';
 import { readFileSync } from 'fs';
 import dotenv from 'dotenv';
 import { REST, Routes } from 'discord.js';
-import ImportManager from './import-manager';
+import ImportRegistry from './import-registry';
 import { transformFromAstAsync } from '@babel/core';
 import * as Diseact from 'diseact';
 import BaseLoader from './base';
@@ -107,7 +107,7 @@ class CommandsLoader extends BaseLoader {
     }
 
     async mergeFiles(files: typeof this.queueCommands) {
-        const imports = new ImportManager({ from: j(this.config.entryPath, 'commands'), to: this.config.buildPath });
+        const imports = new ImportRegistry({ from: j(this.config.entryPath, 'commands'), to: this.config.buildPath });
         const context = new Array<T.Statement>;
         const commandProperties = new Array<T.ObjectProperty>;
 

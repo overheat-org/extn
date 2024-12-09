@@ -2,11 +2,11 @@ import fs from 'fs/promises';
 import * as T from '@babel/types';
 import Config from '../config';
 import { BabelFileResult, transform, transformFromAst, TransformOptions } from '@babel/core';
-import path, { join as j } from 'path';
+import { dirname, basename, join as j } from 'path';
 import { parse } from '@babel/parser';
 
 class BaseLoader {
-    async transformFile(ast: T.Program | string, options: TransformOptions = {}) {
+    async transformFile(ast: T.Program | T.File | string, options: TransformOptions = {}) {
         const { promise, resolve, reject } = Promise.withResolvers<BabelFileResult>();
         const opts =  {
             ...options,
@@ -21,14 +21,13 @@ class BaseLoader {
     }
 
     async emitFile(filename: string, result: BabelFileResult) {
-        const { dir, base } = path.parse(filename);
-        const outputPath = j(this.config.buildPath, dir || "", base);
+        const outputPath = j(this.config.buildPath, filename);
+        return this.emitAbsoluteFile(outputPath, result);
+    }
     
-        if (dir) {
-            await fs.mkdir(j(this.config.buildPath, dir), { recursive: true });
-        }
-    
-        await fs.writeFile(outputPath, result.code!);
+    async emitAbsoluteFile(path: string, result: BabelFileResult) {
+        await fs.mkdir(dirname(path), { recursive: true });
+        await fs.writeFile(path, result.code!);
     }
 
     parseFile(content: string) {
@@ -36,6 +35,12 @@ class BaseLoader {
             sourceType: 'module',
             plugins: ['typescript', 'jsx', 'decorators']
         });
+    }
+
+    toExtension(path: string) {
+        const base = basename(path);
+
+        return base.slice(base.indexOf('.'), base.length);
     }
 
     constructor(protected config: Config) {}

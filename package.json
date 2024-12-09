@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "5.1.2",
+  "version": "5.1.3",
   "type": "module",
   "scripts": {
     "prebuild": "sh ./scripts/build.sh",
@@ -14,23 +14,22 @@
   "main": "./dist/index.js",
   "types": "./types/index.d.ts",
   "dependencies": {
-    "@babel/cli": "^7.25.6",
     "@babel/core": "^7.26.0",
     "@babel/parser": "^7.25.6",
-    "@babel/plugin-proposal-class-properties": "^7.18.6",
-    "@babel/plugin-proposal-decorators": "^7.25.9",
-    "@babel/plugin-transform-class-static-block": "^7.24.7",
     "@babel/preset-typescript": "^7.26.0",
     "@babel/traverse": "^7.25.6",
     "@keyv/sqlite": "^4.0.1",
+    "babel-plugin-module-resolver": "^5.0.2",
     "discord.js": "^14.16.2",
     "diseact": "^4.3.3",
     "esbuild": "^0.24.0",
     "keyv": "^5.1.3",
     "raw-loader": "^4.0.2",
-    "zig-loader": "^1.1.0"
+    "zig-loader": "^1.1.0",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
+    "@babel/cli": "^7.25.6",
     "@babel/helper-plugin-utils": "^7.24.8",
     "@babel/plugin-transform-react-jsx": "^7.25.9",
     "@babel/plugin-transform-runtime": "^7.25.9",

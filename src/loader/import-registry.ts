@@ -1,14 +1,28 @@
 import p from 'path/posix';
 import * as T from '@babel/types';
 import { parse } from '@babel/parser';
+import { loadConfig } from 'tsconfig-paths';
+import path from 'path';
+import Config from '../config';
 
 const RELATIVE_PATH_REGEX = /^(?:\.\.?\/)[^\s]*$/;
 
-class ImportManager {
+export class ImportResolver {
+    registered = {
+        "managers/Init": undefined
+    }
+
+    // Os arquivos que tem importações, serão resolvidas, e serão salvas somente a diferença entre entryPath.
+    // O objeto do registered terá um objeto rico em informações como o path de build esperado.
+    // Não será resolvido aqui, importações de modulos e path aliases
+}
+
+class ImportRegistry {
     imports = new Map<string, Set<{ name: string, type: 'default' | '*' | 'named' }>>();
     resolved = new Set<{ name: string; type: "default" | "*" | "named", path: string }>();
     from?: string
     to?: string
+    private pathAliases: Record<string, string> = {}
 
     register(node: T.ImportDeclaration) {
         const path = node.source.value;
@@ -28,6 +42,40 @@ class ImportManager {
                 imported.add({ name: specifier.local.name, type: '*' });
             }
         });
+    }
+
+    private loadTsConfigAliases(cwd: string) {
+        const tsConfigResult = loadConfig(cwd);
+        
+        if (tsConfigResult.resultType !== 'success') {
+            console.warn('Não foi possível carregar o tsconfig');
+            return;
+        }
+
+        const { absoluteBaseUrl, paths } = tsConfigResult;
+        
+        for (const [alias, pathValues] of Object.entries(paths)) {
+            const cleanAlias = alias.replace('/*', '');
+            const cleanPath = pathValues[0].replace('/*', '');
+            
+            this.pathAliases[cleanAlias] = path.resolve(
+                absoluteBaseUrl, 
+                cleanPath
+            ).replace(/\\/g, '/');
+        }
+
+        console.log('Path Aliases:', this.pathAliases);
+    }
+
+    private resolveAlias(importPath: string, currentFilePath: string): string {
+        for (const [alias, fullPath] of Object.entries(this.pathAliases)) {
+            if (importPath.startsWith(`${alias}/`)) {
+                const relativePath = importPath.replace(`${alias}/`, '');
+                const resolvedPath = path.resolve(fullPath, relativePath);
+                return path.relative(path.dirname(currentFilePath), resolvedPath).replace(/\\/g, '/');
+            }
+        }
+        return importPath;
     }
 
     parse(
@@ -59,24 +107,30 @@ class ImportManager {
         for (let i = body.length - 1; i >= 0; i--) {
             if (T.isImportDeclaration(body[i])) {
                 const importNode = body[i] as T.ImportDeclaration;
+
+                if (this.to) {
+                    const resolvedPath = this.resolveAlias(importNode.source.value, this.to);
+
+                    if(RELATIVE_PATH_REGEX.test(resolvedPath) ||
+                       Object.keys(this.pathAliases).some(alias =>
+                           importNode.source.value.startsWith(alias)
+                       )) {
+                        if (options.path) {
+                            const pathWithEntry = p.join(options.path, resolvedPath);
+                            let pathWithBuild = pathWithEntry.replace(this.from!, this.to);
                 
-                if(RELATIVE_PATH_REGEX.test(importNode.source.value)) {
-                    if(options.path && this.from && this.to) {
-                        const currentFilePath = this.to;
-
-                        // TODO: adicionar index se for diretorio
-
-                        const pathWithEntry = p.join(options.path, importNode.source.value);
-
-                        let pathWithBuild = pathWithEntry.replace(this.from, this.to);
-
-                        importNode.source.value = p.relative(currentFilePath, pathWithBuild);
-                        if(!importNode.source.value.startsWith('.')) importNode.source.value = `./${importNode.source.value}`; 
+                            importNode.source.value = p.relative(this.to, pathWithBuild);
+                            if(!importNode.source.value.startsWith('.')) {
+                                importNode.source.value = `./${importNode.source.value}`;
+                            }
+                        } else {
+                            importNode.source.value = resolvedPath;
+                        }
+                
+                        importNode.source.value = changeFileExtension(importNode.source.value, 'js')
                     }
-
-                    importNode.source.value = changeFileExtension(importNode.source.value, 'js')
-                };
-
+                }
+                
                 const FLAME_MANAGER_REGEX = /^@flame-oh\/manager\-/;
                 if(FLAME_MANAGER_REGEX.test(importNode.source.value)) {
                     importNode.source.value = changeFileExtension(
@@ -190,15 +244,23 @@ class ImportManager {
     }
 
     constructor(options?: { from: string, to: string }) {
-        this.from = options?.from;
-        this.to = options?.to;
+        const config = ImportRegistry.config;
+
+        this.from = options?.from ?? config.entryPath;
+        this.to = options?.to ?? config.buildPath;
+        
+        this.loadTsConfigAliases(config.cwd);
+    }
+
+    private static config: Config;
+    static init(config: Config) {
+        this.config = config;
     }
 }
 
 function changeFileExtension(path: string, newExtension: string): string {
     const pathWithoutExtension = path.replace(/\.[^/.]+$/, '');
-    
     return `${pathWithoutExtension}.${newExtension.replace(/^\./, '')}`;
-  }
+}
 
-export default ImportManager;
+export default ImportRegistry;

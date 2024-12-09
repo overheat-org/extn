@@ -4,6 +4,8 @@ import { useErrors } from '../utils';
 
 const errors = useErrors({
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
+    EXPECTED_EXPORT: 'Injected classes shound be exported like:\n\nexport class myManager {...}',
+    SHOULD_BE_GLOBAL: "Injected classes should be in global scope"
 })
 
 export default {
@@ -13,16 +15,35 @@ export default {
         if(!classDecl) throw errors.EXPECTED_CLASS;
 
         const className = classDecl.get('id').node?.name;
-        const program = classDecl.parentPath as NodePath<T.Program | T.ExportDefaultDeclaration>
+        let parent = classDecl.parentPath;
+        let exported = false;
 
-        if(!program.isExportDefaultDeclaration()) {
-            const exportDefault = program.get('body').find(p => p.isExportDefaultDeclaration()) as NodePath<T.ExportDefaultDeclaration> | null;
-            const id = exportDefault?.get('declaration').find(p => p.isIdentifier()) as NodePath<T.Identifier> | null;
-    
-            if(id?.node.name != className) return;
+        switch (true) {
+            case parent.isExportNamedDeclaration():
+                parent = parent.parentPath;
+                exported = true;
+
+            case parent.isProgram():
+                const program = parent as NodePath<T.Program>
+
+                if(!exported) {
+                    if(
+                        !program.get('body').some(node => 
+                            node.isExportNamedDeclaration() &&
+                            node.get('specifiers').some(specifier => 
+                                specifier.isExportSpecifier() &&
+                                specifier.get('local').node.name === className
+                            )
+                        )
+                    ) throw errors.EXPECTED_EXPORT;
+
+                    break;
+                }
+
+            default: throw errors.SHOULD_BE_GLOBAL;
         }
 
-        meta.isInternal = true;
+        (meta.injects as Array<string>).push(classDecl.node.id!.name);
         path.remove();
     }
 }

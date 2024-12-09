@@ -1,5 +1,4 @@
 import traverse from "@babel/traverse";
-import generate from '@babel/generator';
 import * as T from '@babel/types';
 import fs from 'fs/promises';
 import Config from "../config";
@@ -10,21 +9,23 @@ import Loader from ".";
 import esbuild from "esbuild";
 import useComptimeDecorator from "../decorator-runtime";
 import { nodeExternals } from 'esbuild-plugin-node-externals';
+import ImportRegistry from './import-registry';
 
 interface ParsedManager {
     path: string;
-    isInternal: boolean;
-    content: T.Statement[] | string;
+    injects: Array<string>;
+    body: T.Statement[];
 }
 
 export type ReadedManager = { name: string, content: T.Statement[] };
 
+// TODO: apenas enviar ao client a importação e a instanciação da classe
 class ManagersLoader extends BaseLoader {
-    async parseFile(filePath: string) { 
+    async intermediateParseFile(filePath: string) { 
         const buf = await fs.readFile(filePath);
         const ast = this.parseFile(buf.toString('utf-8'));
         
-        const meta = { isInternal: false };
+        const meta: Pick<ParsedManager, 'injects'> = { injects: [] };
         
         traverse(ast!, {
             Decorator: (path) => useComptimeDecorator(path, meta)
@@ -32,13 +33,13 @@ class ManagersLoader extends BaseLoader {
 
         return {
             path: filePath,
-            isInternal: meta.isInternal,
-            content: ast?.program.body
+            injects: meta.injects,
+            body: ast?.program.body
         } as ParsedManager;
     }
 
     async parseDir(path: string) {
-        let isInternal = false;
+        const injects = new Array<string>;
 
         const result = await esbuild.build({
             entryPoints: [path],
@@ -51,16 +52,12 @@ class ManagersLoader extends BaseLoader {
                 {
                     name: 'modify-index',
                     setup: (build) => {
-                        build.onLoad({ filter: /index/ }, async (args) => {
-                            const parsed = await this.parseFile(args.path);
-                            const contents = generate(T.program(parsed.content as T.Statement[])).code;
+                        build.onLoad({ filter: /./ }, async (args) => {
+                            const parsed = await this.intermediateParseFile(args.path);
                             
-                            isInternal = parsed.isInternal;
+                            injects.push(...parsed.injects);
                             
-                            return {
-                                contents,
-                                loader: 'tsx',
-                            }
+                            return {}
                         })
                     },
                 }
@@ -68,16 +65,20 @@ class ManagersLoader extends BaseLoader {
         });
 
         return {
-            isInternal,
             path,
+            injects,
             content: result.outputFiles[0].text,
-        } as ParsedManager;
+        };
     }
     
     async readDir(dir: string) {
         const content = await fs.readdir(dir, { withFileTypes: true });
         const managers = new Array<ReadedManager>;
-        const internalManagers = new Array<ReadedManager>;
+        const importManager = new ImportRegistry({ 
+            from: j(this.config.entryPath, 'managers'), 
+            to: j(this.config.buildPath, 'managers')
+        });
+        const injectsMap : Record<string, string[]> = {};
 
         for(const dirent of content) {
             let parsed!: ParsedManager;
@@ -88,11 +89,23 @@ class ManagersLoader extends BaseLoader {
                 const files = await fs.readdir(j(dir, dirent.name));
                 
                 if(files.some(f => f.startsWith('index'))) {
-                    parsed = await this.parseDir(j(dir, dirent.name, 'index'));
+                    const { injects, path, content } = await this.parseDir(j(dir, dirent.name, 'index'));
+
+                    parsed = {
+                        injects,
+                        body: this.parseFile(content).program.body,
+                        path
+                    }
                 }
                 else if(files.includes('package.json')) {
                     const data = JSON.parse(await fs.readFile(j(dir, dirent.name, 'package.json'), 'utf-8'))
-                    parsed = await this.parseDir(j(dir, dirent.name, data.main));
+                    const { injects, path, content } = await this.parseDir(j(dir, dirent.name, data.main));
+
+                    parsed = {
+                        injects,
+                        body: this.parseFile(content).program.body,
+                        path
+                    }
                 }
 
                 const command = files.find(f => /commands?/.test(f));
@@ -102,21 +115,19 @@ class ManagersLoader extends BaseLoader {
                     await this.loader.commands.queueRead(j(dir, dirent.name, command));
                 }
             }
-            else parsed = await this.parseFile(j(dir, dirent.name));
+            else parsed = await this.intermediateParseFile(j(dir, dirent.name));
+
+            injectsMap[parsed.path] = parsed.injects;
 
             if(/manager-/.test(dirent.name)) dirent.name = dirent.name.replace(/manager-/, '') + '.js';
 
-            const content = typeof parsed.content == 'string'
-                ? this.parseFile(parsed.content).program.body
-                : parsed.content;
+            importManager.parse(parsed.body, { clearImportsBefore: true });
+            parsed.body = importManager.resolve(parsed.body);
 
-            (parsed.isInternal 
-                ? internalManagers 
-                : managers
-            ).push({ name: dirent.name, content });
+            managers.push({ name: dirent.name, content: parsed.body });
         }
 
-        return { managers, internalManagers };
+        return {managers, injectsMap};
     }
 
     async emitBulkFiles(managers: ReadedManager[]) {
@@ -130,18 +141,18 @@ class ManagersLoader extends BaseLoader {
         await Promise.all([
             (async () => {
                 const managersDir = j(this.config.entryPath, 'managers'); 
-                const { managers, internalManagers } = await this.readDir(managersDir);
+                const { managers, injectsMap } = await this.readDir(managersDir);
     
-                this.loader.client.internalManagers.push(...internalManagers);
+                this.loader.client.injectedManagers = { ...this.loader.client.injectedManagers, ...injectsMap };
                 await this.emitBulkFiles(managers);
             })(),
             
             (async () => {
                 const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh')!;
                 if(!flameDir) return;
-                const { managers, internalManagers } = await this.readDir(flameDir);
+                const { managers, injectsMap } = await this.readDir(flameDir);
                 
-                this.loader.client.internalManagers.push(...internalManagers);
+                this.loader.client.injectedManagers = { ...this.loader.client.injectedManagers, ...injectsMap };
                 await this.emitBulkFiles(managers);
             })()
         ]);

@@ -1,8 +1,8 @@
 import { TransformOptions } from '@babel/core';
 import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
-import { join as j } from 'path/posix';
+import { join as j, resolve } from 'path/posix';
 
-const DEFAULT_BABEL = (config: Config): TransformOptions => ({
+const GEN_DEFAULT_BABEL = (config: Config): TransformOptions => ({
     sourceType: 'module',
     presets: [
         "@babel/preset-typescript",
@@ -26,7 +26,7 @@ const DEFAULT_BABEL = (config: Config): TransformOptions => ({
         }],
         ["transform-define", {
             INTENTS: config.intents,
-        }]
+        }],
     ]
 })
 
@@ -62,19 +62,18 @@ class Config {
     }
 
     set babel(value) {
-        this.#babel = { ...DEFAULT_BABEL(this), ...value }
+        this.#babel = { ...GEN_DEFAULT_BABEL(this), ...value }
     }
     
     intents: BitFieldResolvable<GatewayIntentsString, number> = ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
 
     constructor(obj: Partial<Config>) {
-        this.#babel = DEFAULT_BABEL(this);
-        
         for(const key of Object.keys(obj)) {
             // @ts-ignore
             this[key] = obj[key];
         }
 
+        this.#babel = GEN_DEFAULT_BABEL(this);
     }
 
     merge(obj: Partial<Config>) {
