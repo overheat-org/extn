@@ -1,3 +1,4 @@
+import { join as j } from 'path/posix';
 import traverse from "@babel/traverse";
 import * as T from '@babel/types';
 import client from '!!raw-loader!../helpers/client';
@@ -9,7 +10,7 @@ class ClientLoader extends BaseLoader {
     async mergeWithInternalManagers() {
         const { injectedManagers } = this;
         
-        const importRegistry = this.loader.importResolver.createRegister();
+        const importRegistry = this.importResolver.createRegister(j(this.config.entryPath, 'index.ts'));
         const ast = this.parseFile(client);
         
         ast.program.body.unshift(
@@ -30,7 +31,6 @@ class ClientLoader extends BaseLoader {
                 )
             )
         )
-        importRegistry.parse(ast.program, { clearImportsBefore: true });
 
         const classes = new Array<T.ClassDeclaration>;
         
@@ -94,7 +94,6 @@ class ClientLoader extends BaseLoader {
         });
         
         ast.program = importRegistry.resolve(ast.program);
-
         
         return ast.program;
     }

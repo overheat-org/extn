@@ -50,8 +50,8 @@ class Loader {
     scanner: Scanner
 
     constructor(config: Config, dev: boolean) {
-        this.scanner = new Scanner(config.entryPath);
         this.importResolver = new ImportResolver(config);
+        this.scanner = new Scanner(config, this.importResolver);
         this.client = new ClientLoader(config, this);
         this.common = new CommonLoader(config, this);
         this.commands = new CommandsLoader(config, this, dev);

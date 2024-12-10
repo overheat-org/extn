@@ -3,6 +3,8 @@ import * as T from '@babel/types';
 import { basename, join as j } from 'path/posix';
 import { Dirent } from 'fs';
 import { parse } from '@babel/parser';
+import ImportRegistry, { ImportResolver } from './import-registry';
+import Config from '../config';
 
 const EXCLUDE_DIRECTORIES = [
     "node_modules",
@@ -20,16 +22,19 @@ export class Tree extends Map<FileSymbol, Content> {
  * Parse all files before build
  */
 class Scanner {
-    static isFile(content: Content): content is T.File {
-        return T.isNode(content) && T.isFile(content);
-    }
-
     private tree: Tree;
+    
+    imports: ImportRegistry;
+
+    private parseFile(content: string) {
+        return parse(content, {
+            sourceType: 'module',
+            plugins: ['typescript', 'jsx', 'decorators']
+        })
+    }
 
     private async parseDir(path: string | Dirent, tree: Tree = this.tree) {
         if(typeof path != 'string') path = j(path.parentPath, path.name);
-        
-        console.log(path)
         
         const dirents = await fs.readdir(path, { withFileTypes: true });
 
@@ -55,10 +60,7 @@ class Scanner {
 
                     tree.set(
                         dirent.name,
-                        parse(content, {
-                            sourceType: 'module',
-                            plugins: ['typescript', 'jsx', 'decorators']
-                        })
+                        this.parseFile(content)
                     );
                 }
                 
@@ -79,14 +81,19 @@ class Scanner {
         return tree;
     }
 
+    static isFile(content: Content): content is T.File {
+        return T.isNode(content) && T.isFile(content);
+    }
+
     async run() {
-        await this.parseDir(this.entryPath);
+        await this.parseDir(this.config.entryPath);
 
         return this.tree;
     }
     
-    constructor(private entryPath: string) {
-        this.tree = new Tree(basename(entryPath));
+    constructor(private config: Config, importResolver: ImportResolver) {
+        this.imports = importResolver.createRegister("");
+        this.tree = new Tree(basename(config.entryPath));
     }
 }
 

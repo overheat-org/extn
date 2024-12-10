@@ -6,6 +6,7 @@ import { dirname, basename, join as j } from 'path';
 import { parse } from '@babel/parser';
 import Loader from '.';
 import traverse, { TraverseOptions } from '@babel/traverse';
+import { ImportResolver } from './import-registry';
 
 class BaseLoader {
     async transformFile(ast: string, options?: TransformOptions): Promise<BabelFileResult>
@@ -31,7 +32,7 @@ class BaseLoader {
 
     async emitFile(filename: string, result: BabelFileResult) {
         const outputPath = j(this.config.buildPath, filename);
-        this.loader.importResolver.buildMap.set(filename, outputPath);
+        this.loader.importResolver.global.set(filename, outputPath);
         return this.emitAbsoluteFile(outputPath, result);
     }
     
@@ -53,7 +54,11 @@ class BaseLoader {
         return base.slice(base.indexOf('.'), base.length);
     }
 
-    constructor(protected config: Config, protected loader: Loader) {}
+    importResolver: ImportResolver;
+    
+    constructor(protected config: Config, protected loader: Loader) {
+        this.importResolver = loader.importResolver;
+    }
 }
 
 export default BaseLoader;

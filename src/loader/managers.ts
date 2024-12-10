@@ -6,29 +6,34 @@ import useComptimeDecorator from '../decorator-runtime';
 
 class ManagersLoader extends BaseLoader {
     async readDir(dir: Tree, accPath: string = dir.name) {
-        for(const [symbol, content] of dir) {
-            if(Scanner.isFile(content)) {
-                if(/commands?/.test(symbol)) {
+        for (const [symbol, content] of dir) {
+            const currentPath = j(accPath, symbol); // Preserve o valor atual
+            
+            if (Scanner.isFile(content)) {
+                if (/commands?/.test(symbol)) {
                     await this.loader.commands.queueRead(content);
-                }
-                else {
+                } else {
                     const meta = { injects: [] };
-                
-                    const result = await this.transformFile(content as T.File, { traverse: {
-                        Decorator: (path) => useComptimeDecorator(path, meta)
-                    }});
+    
+                    const result = await this.transformFile(content as T.File, {
+                        filename: symbol,
+                        traverse: {
+                            Decorator: (path) => useComptimeDecorator(path, meta)
+                        }
+                    });
     
                     this.loader.client.injectedManagers[symbol] = meta.injects;
-                    await this.emitFile(`managers/${accPath.replace(/\.\w+$/, '.js')}`, result);
+                    console.log({ currentPath });
+                    await this.emitFile(currentPath.replace(/\.\w+$/, '.js'), result);
                 }
-            }
-            else {
-                if(dir.name == '@flame-oh' && symbol == 'core') continue;
+            } else {
+                if (dir.name == '@flame-oh' && symbol == 'core') continue;
     
-                await this.readDir(content, j(accPath, symbol));
+                await this.readDir(content, currentPath); // Use o caminho atualizado para o próximo nível
             }
         }
     }
+    
 
     async load(tree: Tree) {
         const managersTree = tree.get('managers') as Tree;

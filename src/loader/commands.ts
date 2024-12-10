@@ -114,7 +114,7 @@ class CommandsLoader extends BaseLoader {
         for (const file of files) {
             if (!file.command || !T.isJSXElement(file.command)) continue;
 
-            imports.parse(file.rest, { clearImportsBefore: true });
+            imports.resolve(file.rest, { clearImportsBefore: true });
 
             let commandName!: T.StringLiteral;
             {
