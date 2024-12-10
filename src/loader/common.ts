@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import BaseLoader from "./base";
 import { join as j } from 'path/posix';
-import { ParseTree } from './scanner';
+import { Tree } from './scanner';
 
 const IGNORE_DIRS = ['commands', 'managers'];
 
@@ -27,7 +27,7 @@ class CommonLoader extends BaseLoader {
         });
     }
 
-    async load(tree: ParseTree) {
+    async load(tree: Tree) {
         const dirent = await fs.readdir(this.config.entryPath, { withFileTypes: true });
 
         for(const dir of dirent) {

@@ -1,4 +1,3 @@
-import fs from 'fs/promises';
 import Config from "../config";
 import traverse from '@babel/traverse';
 import * as T from '@babel/types';
@@ -11,20 +10,20 @@ import { transformFromAstAsync } from '@babel/core';
 import * as Diseact from 'diseact';
 import BaseLoader from './base';
 import Loader from '.';
-import { Tree } from './scanner';
+import Scanner, { Tree } from './scanner';
+
+type CommandData = { command: T.Expression | undefined, rest: T.Statement[] };
 
 class CommandsLoader extends BaseLoader {
     commandsDir: string;
     env: NodeJS.ProcessEnv;
     rest = new REST();
 
-    async intermediateParseFile(filePath: string) {
-        const buf = await fs.readFile(filePath);
+    async intermediateParseFile(ast: T.File) {
         let command: T.Expression | undefined = undefined;
         let rest = new Array<T.Statement>;
-        const ast = this.parseFile(buf.toString('utf-8'));
 
-        traverse(ast!, {
+        traverse(ast, {
             ExportDefaultDeclaration: {
                 enter(path) {
                     command = T.isExpression(path.node.declaration)
@@ -46,15 +45,15 @@ class CommandsLoader extends BaseLoader {
         if (command) this.queueRegistry(command);
 
         return {
-            path: filePath,
             command,
             rest,
         };
     }
 
-    private queueCommands = new Array<{ path: string, command: T.Expression | undefined, rest: T.Statement[] }>;
-    async queueRead(filePath: string) {
-        this.queueCommands.push(await this.intermediateParseFile(filePath));
+    private queueCommands = new Array<CommandData>;
+    async queueRead(ast: T.File) {
+        const data = await this.intermediateParseFile(ast);
+        this.queueCommands.push(data);
     }
 
     private queueRegistryCommands = new Array<T.Expression>
@@ -113,10 +112,9 @@ class CommandsLoader extends BaseLoader {
         const commandProperties = new Array<T.ObjectProperty>;
 
         for (const file of files) {
-            if (!/\.(j|t)sx?$/.test(file.path)) continue;
             if (!file.command || !T.isJSXElement(file.command)) continue;
 
-            imports.parse(file.rest, { clearImportsBefore: true, path: file.path });
+            imports.parse(file.rest, { clearImportsBefore: true });
 
             let commandName!: T.StringLiteral;
             {
@@ -182,17 +180,34 @@ class CommandsLoader extends BaseLoader {
         return T.program(imports.resolve(context));
     }
 
-    async readDir() {
-        const files = await fs.readdir(this.commandsDir);
-        const parsedFiles = files.map(f => this.intermediateParseFile(j(this.commandsDir, f)));
-        return Promise.all(parsedFiles);
+    async readDir(tree: Tree) {
+        const dir = new Array<CommandData>;
+
+        for(const [symbol, content] of tree) {
+            if(Scanner.isFile(content)) {
+                const parsed = await this.intermediateParseFile(content);
+                
+                dir.push(parsed);
+            } else {
+                dir.push(...await this.readDir(tree));
+            }
+
+        }
+
+        return dir;
     }
 
     async load(tree: Tree) {
         const { promise: registeredCommands, resolve, reject } = Promise.withResolvers();
 
-        const commands = await this.readDir();
-        this.registryCommands().then(resolve).catch(reject);
+        const commandsTree = tree.get('commands') as Tree;
+        if(!commandsTree) return;
+
+        const commands = await this.readDir(commandsTree);
+        
+        this.registryCommands()
+            .then(resolve)
+            .catch(reject);
 
         const ast = await this.mergeFiles([ ...commands, ...this.queueCommands ]);
         const result = await this.transformFile(ast, { filename: 'commands.tsx' });
