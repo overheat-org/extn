@@ -1,7 +1,8 @@
 export enum Errors {
     GameEnded,
     InvalidPosition,
-    CellOccupied
+    CellOccupied,
+    ChannelReservated
 }
 
 export enum GameStatus {
@@ -14,11 +15,12 @@ export enum GameStatus {
 export type Player = 'X' | 'O';
 
 class TicTacToe {
+    private static games = new Map<string, TicTacToe>();
     private board: string[][];
     private currentPlayer: Player;
     private status: GameStatus;
 
-    constructor() {
+    constructor(private id: string) {
         this.board = [
             ['', '', ''],
             ['', '', ''],
@@ -27,6 +29,12 @@ class TicTacToe {
         this.currentPlayer = 'X';
         this.status = GameStatus.InProgress;
     }
+
+    delete() {
+        TicTacToe.games.delete(this.id);
+        
+        return true as const;
+    } 
 
     makeMove(row: number, col: number): Errors | boolean {
         // Verifica se o jogo já terminou
@@ -144,6 +152,19 @@ class TicTacToe {
 
     getStatus(): GameStatus {
         return this.status;
+    }
+
+    static play(channelId: string) {
+        if(this.games.has(channelId)) {
+            return Errors.ChannelReservated;
+        }
+
+        this.games.set(channelId, new this(channelId));
+        return true;
+    }
+
+    static get(channelId: string): TicTacToe | undefined {
+        return this.games.get(channelId);
     }
 }
 

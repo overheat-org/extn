@@ -1,6 +1,6 @@
 import { TransformOptions } from '@babel/core';
 import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
-import { join as j, resolve } from 'path/posix';
+import { join as j } from 'path/posix';
 
 const GEN_DEFAULT_BABEL = (config: Config): TransformOptions => ({
     sourceType: 'module',

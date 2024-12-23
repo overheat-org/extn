@@ -1,6 +1,6 @@
 import { join as j } from 'path/posix';
 import Config from '../config';
-import Loader from '../loader';
+import Loader from '../loaders';
 import fs from 'fs/promises';
 import { readFileSync } from 'fs';
 import execute from './execute';

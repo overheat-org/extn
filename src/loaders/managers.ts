@@ -1,53 +1,58 @@
+
 import * as T from '@babel/types';
-import { join as j } from 'path/posix';
+import { basename, join as j } from 'path/posix';
 import BaseLoader from "./base";
-import Scanner, { Tree } from "./scanner";
 import useComptimeDecorator from '../decorator-runtime';
+import ImportResolver from './import-resolver';
 
 class ManagersLoader extends BaseLoader {
-    async readDir(dir: Tree, accPath: string = dir.name) {
-        for (const [symbol, content] of dir) {
-            const currentPath = j(accPath, symbol); // Preserve o valor atual
-            
-            if (Scanner.isFile(content)) {
-                if (/commands?/.test(symbol)) {
+    importResolver = new ImportResolver(j(this.config.entryPath, 'managers'), this.config);
+    
+    async loadDir(path: string) {
+        console.log({path})
+
+        for(const dirent of await this.readDir(path)) {
+            const filename = dirent.name;
+            const filepath = j(dirent.parentPath, filename);
+
+            if(dirent.isFile()) {
+                const content = await this.parseFile(filepath);
+
+                if (/commands?/.test(filename)) {
                     await this.loader.commands.queueRead(content);
                 } else {
                     const meta = { injects: [] };
     
                     const result = await this.transformFile(content as T.File, {
-                        filename: symbol,
+                        filename,
                         traverse: {
-                            Decorator: (path) => useComptimeDecorator(path, meta)
+                            Decorator: (path) => useComptimeDecorator(path, meta),
+                            ImportDeclaration: (path) => this.importResolver.resolve(path)
                         }
                     });
     
-                    this.loader.client.injectedManagers[symbol] = meta.injects;
-                    console.log({ currentPath });
-                    await this.emitFile(currentPath.replace(/\.\w+$/, '.js'), result);
+                    this.loader.client.injections[filename] = meta.injects;
+                    await this.emitFile(j('managers', filename.replace(/\.\w+$/, '.js')), result);
                 }
             } else {
-                if (dir.name == '@flame-oh' && symbol == 'core') continue;
+                if (basename(dirent.parentPath) == '@flame-oh' && filename == 'core') continue;
     
-                await this.readDir(content, currentPath); // Use o caminho atualizado para o próximo nível
+                await this.loadDir(filepath);
             }
         }
     }
     
-
-    async load(tree: Tree) {
-        const managersTree = tree.get('managers') as Tree;
-        if(!managersTree) return;
-
-        // const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh')!;
-        // if(!flameDir) return;
-
-        // const scanner = new Scanner(flameDir);
-        // const flameTree = await scanner.run();
-
+    async load() {
         await Promise.all([
-            this.readDir(managersTree),
-            // this.readDir(flameTree)
+            this.loadDir(j(this.config.entryPath, 'managers')),
+
+            // (async () => {
+            //     const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh')!;
+            //     console.log({flameDir})
+            //     if(!flameDir) return;
+
+            //     return this.readDir(flameDir);
+            // })()
         ]);
     }
 }

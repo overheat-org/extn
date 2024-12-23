@@ -10,7 +10,7 @@ import { transformFromAstAsync } from '@babel/core';
 import * as Diseact from 'diseact';
 import BaseLoader from './base';
 import Loader from '.';
-import Scanner, { Tree } from './scanner';
+import ImportResolver from "./import-resolver";
 
 type CommandData = { command: T.Expression | undefined, rest: T.Statement[] };
 
@@ -18,6 +18,7 @@ class CommandsLoader extends BaseLoader {
     commandsDir: string;
     env: NodeJS.ProcessEnv;
     rest = new REST();
+    importResolver: ImportResolver;
 
     async intermediateParseFile(ast: T.File) {
         let command: T.Expression | undefined = undefined;
@@ -107,14 +108,11 @@ class CommandsLoader extends BaseLoader {
     }
 
     async mergeFiles(files: typeof this.queueCommands) {
-        const imports = this.loader.importResolver.createRegister('commands');
         const context = new Array<T.Statement>;
         const commandProperties = new Array<T.ObjectProperty>;
 
         for (const file of files) {
             if (!file.command || !T.isJSXElement(file.command)) continue;
-
-            imports.resolve(file.rest, { clearImportsBefore: true });
 
             let commandName!: T.StringLiteral;
             {
@@ -177,40 +175,44 @@ class CommandsLoader extends BaseLoader {
             )
         );
 
-        return T.program(imports.resolve(context));
+        return T.program(context);
     }
 
-    async readDir(tree: Tree) {
+    async loadDir(path: string) {
         const dir = new Array<CommandData>;
 
-        for(const [symbol, content] of tree) {
-            if(Scanner.isFile(content)) {
+        for(const dirent of await this.readDir(path)) {
+            const filepath = j(dirent.parentPath, dirent.name);
+            const content = await this.parseFile(filepath);
+            
+            if(dirent.isFile()) {
                 const parsed = await this.intermediateParseFile(content);
                 
                 dir.push(parsed);
             } else {
-                dir.push(...await this.readDir(tree));
+                dir.push(...await this.loadDir(filepath));
             }
-
         }
 
         return dir;
     }
 
-    async load(tree: Tree) {
+    async load() {
         const { promise: registeredCommands, resolve, reject } = Promise.withResolvers();
 
-        const commandsTree = tree.get('commands') as Tree;
-        if(!commandsTree) return;
-
-        const commands = await this.readDir(commandsTree);
+        const commands = await this.loadDir(j(this.config.entryPath, 'commands'));
         
         this.registryCommands()
             .then(resolve)
             .catch(reject);
 
         const ast = await this.mergeFiles([ ...commands, ...this.queueCommands ]);
-        const result = await this.transformFile(ast, { filename: 'commands.tsx' });
+        const result = await this.transformFile(ast, { 
+            filename: 'commands.tsx',
+            traverse: {
+                ImportDeclaration: (path) => this.importResolver.resolve(path)
+            }
+        });
         await this.emitFile('commands.js', result);
 
         await registeredCommands;
@@ -220,6 +222,7 @@ class CommandsLoader extends BaseLoader {
         super(config, loader);
 
         this.commandsDir = j(this.config.entryPath, 'commands');
+        this.importResolver = new ImportResolver(j(this.config.entryPath, 'commands'), this.config);
         
         const envPath = getEnvFilePath(config.cwd, isDev);
         if (!envPath) throw new Error('Env File not found');

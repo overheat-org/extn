@@ -1,107 +1,71 @@
-import { join as j } from 'path/posix';
-import traverse from "@babel/traverse";
+import { NodePath, TraverseOptions } from "@babel/traverse";
 import * as T from '@babel/types';
-import client from '!!raw-loader!../helpers/client';
 import BaseLoader from './base';
+import client from '!!raw-loader!../helpers/client';
+import ImportResolver from "./import-resolver";
+import { join as j } from 'path/posix';
 
 class ClientLoader extends BaseLoader {
-    injectedManagers: Record<string, string[]> = {}
-    
-    async mergeWithInternalManagers() {
-        const { injectedManagers } = this;
-        
-        const importRegistry = this.importResolver.createRegister(j(this.config.entryPath, 'index.ts'));
-        const ast = this.parseFile(client);
-        
-        ast.program.body.unshift(
-            T.importDeclaration(
-                [
-                    T.importNamespaceSpecifier(T.identifier('Diseact'))
-                ], 
-                T.stringLiteral('diseact')
-            ),
-            T.expressionStatement(
-                T.assignmentExpression(
-                    '=',
-                    T.memberExpression(
-                        T.identifier('global'),
-                        T.identifier('Diseact')
+    injections: Record<string, string[]> = {};
+    importResolver = new ImportResolver(j(this.config.entryPath), this.config);
+
+    traverse: TraverseOptions = {
+        Identifier: (path) => {
+            if(path.node.name == 'MANAGERS') {
+                const content = new Array<T.Node>;
+                const statements = new Array<T.Statement>();
+
+                statements.push(
+                    T.importDeclaration(
+                        [T.importNamespaceSpecifier(T.identifier('Diseact'))], 
+                        T.stringLiteral('diseact')
                     ),
-                    T.identifier('Diseact')
-                )
-            )
-        )
+                    T.expressionStatement(
+                        T.assignmentExpression(
+                            '=',
+                            T.memberExpression(
+                                T.identifier('global'),
+                                T.identifier('Diseact')
+                            ),
+                            T.identifier('Diseact')
+                        )
+                    )
+                );
 
-        const classes = new Array<T.ClassDeclaration>;
-        
-        traverse(ast!, {
-            Identifier(path) {
-                if(path.node.name == 'MANAGERS') {
-                    const content = new Array<T.Node>;
+                for(const [k, v] of Object.entries(this.injections)) {
+                    const identifiers = v.map(m => T.identifier(m));
 
-                    for(const [k, v] of Object.entries(injectedManagers)) {
-                        const identifiers = v.map(m => T.identifier(m));
+                    const importDecl = T.importDeclaration(
+                        identifiers.map(m => T.importNamespaceSpecifier(m)), 
+                        T.stringLiteral(this.importResolver.parse(j(this.config.buildPath, 'managers', k)))
+                    );
 
-                        const importDecl = T.importDeclaration(
-                            identifiers.map(m => T.importNamespaceSpecifier(m)), 
-                            T.stringLiteral(k)
-                        );
+                    statements.push(importDecl);
 
-                        const newExpressions = identifiers.map(i => T.newExpression(i, [T.identifier('client')]));
+                    const newExpressions = identifiers.map(i => T.newExpression(i, [T.identifier('client')]));
 
-                        importRegistry.register(importDecl);
-                        content.push(...newExpressions);
-                    }
-
-                    path.replaceWithMultiple(content);
+                    content.push(...newExpressions);
                 }
-            },
-            ExportDefaultDeclaration(path) {
-                const { declaration } = path.node;
 
-                switch(true) {
-                    case T.isClassDeclaration(declaration): {
-                        const instantiate = T.newExpression(
-                            T.identifier(declaration.id!.name),
-                            [T.identifier('client')]
-                        );
-        
-                        path.insertAfter(T.expressionStatement(instantiate));
-                        path.replaceWith(declaration);
-                        
-                        break;
-                    }
-                        
-                    case T.isIdentifier(declaration): {
-                        const selectedClass = classes.find(c => c.id?.name == declaration.name);
-                        if(!selectedClass) break;
-
-                        const instantiate = T.newExpression(
-                            T.identifier(selectedClass.id!.name),
-                            [T.identifier('client')]
-                        );
-
-                        path.insertBefore(T.expressionStatement(instantiate))
-                        path.remove();
-                        
-                        break;
-                    }
+                const programPath = path.findParent(p => p.isProgram()) as NodePath<T.Program>;
+                if (programPath) {
+                    programPath.unshiftContainer('body', statements);
                 }
-            },
-            ClassDeclaration(path) {
-                classes.push(path.node);
+
+                path.replaceWithMultiple(content);
             }
-        });
-        
-        ast.program = importRegistry.resolve(ast.program);
-        
-        return ast.program;
+        },
+        ImportDeclaration: (path) => this.importResolver.resolve(path)
     }
 
     async load() {
-        const ast = await this.mergeWithInternalManagers();
-        const result = await this.transformFile(ast, { filename: 'index.tsx' });
-        this.emitFile('index.js', result);
+        const ast = this.parseContent(client);
+        const result = await this.transformFile(ast, { 
+            filename: 'index.tsx',
+            traverse: this.traverse
+        });
+
+        await this.emitFile('index.js', result);
     }
 }
 

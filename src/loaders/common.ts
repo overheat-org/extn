@@ -1,11 +1,13 @@
 import fs from 'fs/promises';
 import BaseLoader from "./base";
 import { join as j } from 'path/posix';
-import { Tree } from './scanner';
+import ImportResolver from './import-resolver';
 
 const IGNORE_DIRS = ['commands', 'managers'];
 
 class CommonLoader extends BaseLoader {
+    importResolver = new ImportResolver(this.config.entryPath, this.config);
+    
     async loadDir(dirPath: string) {
         const dirent = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -18,16 +20,21 @@ class CommonLoader extends BaseLoader {
                 if(!this.loader.extensions.some(e => this.toExtension(filePath) == e)) return; 
 
                 const content = await fs.readFile(filePath, 'utf-8');
-                const parsed = this.parseFile(content);
+                const parsed = this.parseContent(content);
                 const newFilePath = filePath.replace(this.config.entryPath, this.config.buildPath).replace(/.(j|t)sx?$/, '.js');
-                const transformated = await this.transformFile(parsed, { filename: dir.name });
+                const transformated = await this.transformFile(parsed, { 
+                    filename: dir.name,
+                    traverse: {
+                        ImportDeclaration: (path) => this.importResolver.resolve(path)
+                    }
+                });
                 await this.emitAbsoluteFile(newFilePath, transformated);
             }
             else await this.loadDir(filePath);
         });
     }
 
-    async load(tree: Tree) {
+    async load() {
         const dirent = await fs.readdir(this.config.entryPath, { withFileTypes: true });
 
         for(const dir of dirent) {

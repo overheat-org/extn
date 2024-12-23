@@ -17,6 +17,7 @@ export default {
         const classDecl = methodDecl.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
         
         let once = false;
+        // TODO: transform eventName in enum value if eventName exists on discord enum
         let eventName!: string;
         let methodName!: string;
         {

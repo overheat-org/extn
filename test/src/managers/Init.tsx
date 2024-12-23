@@ -1,5 +1,5 @@
-import { Client, TextChannel } from "discord.js";
-import { render, useState } from "diseact";
+import { Client } from "discord.js";
+import { useState } from "diseact";
 import { Manager, Storage } from '@flame-oh/core';
 import { plus } from '@utils/math';
 

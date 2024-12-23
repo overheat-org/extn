@@ -4,7 +4,6 @@ import { useErrors } from '../utils';
 
 const errors = useErrors({
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
-    EXPECTED_EXPORT: 'Injected classes should be exported like:\n\nexport class myManager {...}\n\n',
     SHOULD_BE_GLOBAL: "Injected classes should be in global scope"
 })
 
@@ -13,6 +12,8 @@ export default {
     comptime(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
         const classDecl = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
         if(!classDecl) throw errors.EXPECTED_CLASS;
+
+        classDecl.addComment('inner', "@inject entity");
 
         const className = classDecl.get('id').node?.name;
         let parent = classDecl.parentPath;
@@ -35,7 +36,9 @@ export default {
                                 specifier.get('local').node.name === className
                             )
                         )
-                    ) throw errors.EXPECTED_EXPORT;
+                    ) {
+                        classDecl.replaceWith(T.exportNamedDeclaration(classDecl.node));
+                    };
                 }
 
                 break;
