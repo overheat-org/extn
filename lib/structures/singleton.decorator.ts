@@ -12,14 +12,6 @@
  * }
  * ```
  */
-export function singleton(constructor: new () => unknown, context: ClassDecoratorContext) {
-    if (context.kind != 'class') {
-        throw new Error("This Decorator only can be used on Class");
-    }
-    
-    if ('find' in constructor) {
-        throw new Error("Singleton mode needs a static 'find' method");
-    }
-}
+export function singleton(constructor: new () => unknown, context: ClassDecoratorContext) {}
 
 global.singleton = singleton;
