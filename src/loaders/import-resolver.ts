@@ -1,54 +1,72 @@
 import * as T from '@babel/types';
 import traverse, { NodePath } from "@babel/traverse";
 import Config from '../config';
-import { relative, join as j, dirname } from 'path/posix';
+import { relative, join as j } from 'path/posix';
+import { isAbsolute } from 'path';
 
 const FLAME_MANAGER_REGEX = /^@flame-oh\/manager\-/;
+const RELATIVE_PATH_REGEX = /^(\.\/|\.\.\/)/;
 
 class ImportResolver {
     constructor(private dirpath: string, private config: Config) {}
 
+    parseRelative(path: string, target: string) {
+        const entryDirname = this.dirpath;
+
+        const absoluteEntryPath = j(entryDirname, path);
+        const a = absoluteEntryPath.replace(this.config.entryPath, target);
+
+        return a;
+    }
+
+    parseFlameDir(path: string) {
+        path = j(
+            this.config.buildPath, 
+            path.replace(FLAME_MANAGER_REGEX, 'managers/')
+        );
+
+        return path;
+    }
+
     parse(importPath: string) {
         let resumedCurrentPath = this.dirpath.replace(this.config.entryPath, '');
         if(/\/?commands/.test(resumedCurrentPath)) {
-            resumedCurrentPath = "commands.js";
+            resumedCurrentPath = "";
         }
 
         const buildCurrentPath = j(this.config.buildPath, resumedCurrentPath);
 
-        const toRelative = (path: string) => relative(dirname(buildCurrentPath), path);
+        let absolutePath!: string;
         
-        if(FLAME_MANAGER_REGEX.test(importPath)) {
-            importPath = j(
-                this.config.buildPath, 
-                importPath.replace(FLAME_MANAGER_REGEX, 'managers/')
-            );
-
-            importPath = toRelative(importPath);
-
-            if (!importPath.endsWith('.js')) {
-                importPath += '.js';
-            }
+        if(isAbsolute(importPath)) {
+            absolutePath = importPath;
         }
-        else if(importPath.startsWith('.')) {
-            const entryDirname = this.dirpath;
 
-            const buildDirname = dirname(buildCurrentPath);
-            const absoluteEntryPath = j(entryDirname, importPath);
-            const absoluteBuildPath = absoluteEntryPath.replace(this.config.entryPath, buildDirname);
+        if(RELATIVE_PATH_REGEX.test(importPath)) {
+            absolutePath = this.parseRelative(importPath, buildCurrentPath);
+        }
 
-            importPath = toRelative(absoluteBuildPath);
+        if(FLAME_MANAGER_REGEX.test(importPath)) {
+            absolutePath = this.parseFlameDir(importPath);
+        }
 
-            if(!importPath.startsWith('.')) {
-                importPath = `./${importPath}`;
+        if(absolutePath) {
+            let path = relative(buildCurrentPath, absolutePath);
+
+            if(!RELATIVE_PATH_REGEX.test(absolutePath)) {
+                path = `./${path}`;
             }
             
-            if (!importPath.endsWith('.js')) {
-                importPath += '.js';
-            }
+            importPath = this.ensureExt(path);
         }
 
+        // console.log(importPath)
+
         return importPath;
+    }
+
+    ensureExt(path: string) {
+        return path.replace(/\.\w+$/, '.js') + (!/\.\w+$/.test(path) ? '.js' : '');
     }
 
     resolve(path: NodePath<T.ImportDeclaration>) {

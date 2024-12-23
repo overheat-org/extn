@@ -37,7 +37,7 @@ class ClientLoader extends BaseLoader {
 
                     const importDecl = T.importDeclaration(
                         identifiers.map(m => T.importNamespaceSpecifier(m)), 
-                        T.stringLiteral(this.importResolver.parse(j(this.config.buildPath, 'managers', k)))
+                        T.stringLiteral(j(this.config.buildPath, 'managers', k))
                     );
 
                     statements.push(importDecl);
