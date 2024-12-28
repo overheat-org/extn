@@ -8,56 +8,55 @@ const errors = useErrors({
     INVALID_NAME_FORMAT: "The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'"
 });
 
-export default {
-    name: 'event',
-    comptime(path: NodePath<T.Decorator>) {
-        const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
-        if(!methodDecl) throw errors.EXPECTED_METHOD;
+function event(path: NodePath<T.Decorator>) {
+    const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
+    if(!methodDecl) throw errors.EXPECTED_METHOD;
 
-        const classDecl = methodDecl.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+    const classDecl = methodDecl.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+    
+    let once = false;
+    // TODO: transform eventName in enum value if eventName exists on discord enum
+    let eventName!: string;
+    let methodName!: string;
+    {
+        const key = methodDecl.get('key');
+        if(!key.isIdentifier()) throw errors.EXPECTED_COMPTIME_NAME;
         
-        let once = false;
-        // TODO: transform eventName in enum value if eventName exists on discord enum
-        let eventName!: string;
-        let methodName!: string;
-        {
-            const key = methodDecl.get('key');
-            if(!key.isIdentifier()) throw errors.EXPECTED_COMPTIME_NAME;
-            
-            methodName = key.node.name;
-        }
-
-        if (methodName.startsWith('Once')) {
-            once = true;
-            eventName = methodName.replace('Once', '');
-            eventName = eventName.charAt(0).toLowerCase() + eventName.slice(1);
-        }
-        else if (methodName.startsWith('On')) {
-            eventName = methodName.replace('On', '');
-            eventName = eventName.charAt(0).toLowerCase() + eventName.slice(1);
-        }
-        else throw errors.INVALID_NAME_FORMAT;
-
-        classDecl.traverse({
-            ClassMethod(path) {
-                if(path.node.kind != 'constructor') return;
-
-                const eventListener = T.expressionStatement(generateEventListener(
-                    once, 
-                    eventName, 
-                    T.memberExpression(
-                        T.identifier('this'),
-                        T.identifier(methodName)
-                    )
-                ));
-                
-                path.get('body').pushContainer('body', eventListener);
-            }
-        })
-
-        path.remove();
+        methodName = key.node.name;
     }
+
+    if (methodName.startsWith('Once')) {
+        once = true;
+        eventName = methodName.replace('Once', '');
+        eventName = eventName.charAt(0).toLowerCase() + eventName.slice(1);
+    }
+    else if (methodName.startsWith('On')) {
+        eventName = methodName.replace('On', '');
+        eventName = eventName.charAt(0).toLowerCase() + eventName.slice(1);
+    }
+    else throw errors.INVALID_NAME_FORMAT;
+
+    classDecl.traverse({
+        ClassMethod(path) {
+            if(path.node.kind != 'constructor') return;
+
+            const eventListener = T.expressionStatement(generateEventListener(
+                once, 
+                eventName, 
+                T.memberExpression(
+                    T.identifier('this'),
+                    T.identifier(methodName)
+                )
+            ));
+            
+            path.get('body').pushContainer('body', eventListener);
+        }
+    })
+
+    path.remove();
 }
+
+export default event;
 
 const generateEventListener = (once: boolean, event: string, fn: T.Expression) => {
     // Gera `this.client`
