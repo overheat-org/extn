@@ -30,11 +30,10 @@ class ImportResolver {
 
     parseRelative(path: string, target: string) {
         const entryDirname = this.dirpath;
-
+        
         const absoluteEntryPath = j(entryDirname, path);
-        const a = absoluteEntryPath.replace(this.config.entryPath, target);
-
-        return a;
+        console.log({path, target, entryDirname, absoluteEntryPath})
+        return absoluteEntryPath.replace(this.config.entryPath, this.config.buildPath);
     }
 
     parseFlameDir(path: string) {

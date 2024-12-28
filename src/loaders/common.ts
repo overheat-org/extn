@@ -3,12 +3,18 @@ import BaseLoader from "./base";
 import { join as j } from 'path/posix';
 import ImportResolver from './import-resolver';
 
-const IGNORE_DIRS = ['commands', 'managers'];
+const IGNORE_DIRS = [
+    '.git',
+    '.vscode',
+    'node_modules',
+    'commands', 
+    'managers'
+];
 
 class CommonLoader extends BaseLoader {
     importResolver = new ImportResolver(this.config.entryPath, this.config);
     
-    async loadDir(dirPath: string) {
+    async loadDir(dirPath: string = this.config.entryPath) {
         const dirent = await fs.readdir(dirPath, { withFileTypes: true });
 
         dirent.forEach(async dir => {
@@ -33,15 +39,9 @@ class CommonLoader extends BaseLoader {
             else await this.loadDir(filePath);
         });
     }
-
-    async load() {
-        const dirent = await fs.readdir(this.config.entryPath, { withFileTypes: true });
-
-        for(const dir of dirent) {
-            if(IGNORE_DIRS.includes(dir.name)) continue;
-
-            await this.loadDir(j(this.config.entryPath, dir.name));
-        }
+    
+    load() {
+        return this.loadDir();
     }
 }
 
