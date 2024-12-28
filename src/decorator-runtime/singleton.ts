@@ -71,7 +71,7 @@ function singleton(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
         ]);
     }
     
-    path.remove();
+    if(!path.removed) path.remove();
 }
 
 export default singleton;

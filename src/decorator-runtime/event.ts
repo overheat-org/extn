@@ -11,8 +11,8 @@ const errors = useErrors({
 function event(path: NodePath<T.Decorator>) {
     const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
     if(!methodDecl) throw errors.EXPECTED_METHOD;
-
-    const classDecl = methodDecl.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+    
+    const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
     
     let once = false;
     // TODO: transform eventName in enum value if eventName exists on discord enum
@@ -53,7 +53,7 @@ function event(path: NodePath<T.Decorator>) {
         }
     })
 
-    path.remove();
+    if(!path.removed) path.remove();
 }
 
 export default event;

@@ -11,6 +11,8 @@ function inject(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
     const classDecl = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
     if(!classDecl) throw errors.EXPECTED_CLASS;
 
+    if(!path.removed) path.remove();
+
     classDecl.addComment('inner', "@inject entity");
 
     const className = classDecl.get('id').node!.name;
@@ -23,7 +25,7 @@ function inject(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
             exported = true;
 
         case parent.isProgram():
-            const program = parent as NodePath<T.Program>
+            const program = parent as NodePath<T.Program>;
 
             if(!exported) {
                 if(
@@ -45,7 +47,6 @@ function inject(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
     }
 
     (meta.injects as Array<string>).push(className!);
-    path.remove();
 }
 
 export default inject;
