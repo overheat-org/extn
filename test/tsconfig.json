@@ -3,6 +3,7 @@
         "lib": ["ESNext"],
         "jsx": "preserve",
         "jsxImportSource": "diseact",
+        "baseUrl": "./",
         "paths": {
             "@utils/*": ["./src/utils/*"]
         }

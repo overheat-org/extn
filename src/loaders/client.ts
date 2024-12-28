@@ -36,7 +36,7 @@ class ClientLoader extends BaseLoader {
                     const identifiers = v.map(m => T.identifier(m));
 
                     const importDecl = T.importDeclaration(
-                        identifiers.map(m => T.importNamespaceSpecifier(m)), 
+                        identifiers.map(m => T.importSpecifier(m, m)), 
                         T.stringLiteral(j(this.config.buildPath, 'managers', k))
                     );
 
