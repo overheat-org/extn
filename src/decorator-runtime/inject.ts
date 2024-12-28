@@ -13,7 +13,7 @@ function inject(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
 
     classDecl.addComment('inner', "@inject entity");
 
-    const className = classDecl.get('id').node?.name;
+    const className = classDecl.get('id').node!.name;
     let parent = classDecl.parentPath;
     let exported = false;
 
@@ -44,7 +44,7 @@ function inject(path: NodePath<T.Decorator>, meta: Record<string, unknown>) {
         default: throw errors.SHOULD_BE_GLOBAL;
     }
 
-    (meta.injects as Array<string>).push(classDecl.node.id!.name);
+    (meta.injects as Array<string>).push(className!);
     path.remove();
 }
 
