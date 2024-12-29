@@ -4,4 +4,3 @@ node_modules
 test/.flame
 *lock*
 types/*
-!types/globals.d.ts
