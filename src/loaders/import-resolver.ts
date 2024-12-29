@@ -32,7 +32,6 @@ class ImportResolver {
         const entryDirname = this.dirpath;
         
         const absoluteEntryPath = j(entryDirname, path);
-        console.log({path, target, entryDirname, absoluteEntryPath})
         return absoluteEntryPath.replace(this.config.entryPath, this.config.buildPath);
     }
 

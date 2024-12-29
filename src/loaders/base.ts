@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import * as T from '@babel/types';
 import Config from '../config';
 import { BabelFileResult, transform, transformFromAst, TransformOptions } from '@babel/core';
-import { dirname, basename, join as j } from 'path';
+import { dirname, basename, join as j } from 'path/posix';
 import { parse } from '@babel/parser';
 import Loader from '.';
 import traverse, { TraverseOptions } from '@babel/traverse';
@@ -34,8 +34,25 @@ class BaseLoader {
         return this.emitAbsoluteFile(outputPath, result);
     }
 
-    readDir(dirpath: string) {
-        return fs.readdir(dirpath, { withFileTypes: true });
+    readDir(path: string, options: { allowFallbackToParent?: boolean } = {}) {
+        return fs.readdir(path, { withFileTypes: true })
+            .catch(e => {
+                if (e.code === 'ENOTDIR') {
+                    return options.allowFallbackToParent
+                        ? fs.readdir(dirname(path), { withFileTypes: true }) 
+                        : [];
+                }
+                throw e;
+            });
+    }
+
+    async readFile(path: string) {
+        const content = await fs.readFile(path, 'utf-8');
+
+        switch (path.split('.')[1]) {
+            case 'json': return JSON.parse(content)
+            default: return content;
+        }
     }
     
     async emitAbsoluteFile(path: string, result: BabelFileResult) {
@@ -53,7 +70,13 @@ class BaseLoader {
     async parseFile(path: string) {
         const content = await fs.readFile(path, 'utf-8');
 
-        return this.parseContent(content);
+        try {
+            return this.parseContent(content);
+        } catch(e) {
+            console.log(`Error occurred in ${path}`);
+            
+            throw e;
+        } 
     }
 
     toExtension(path: string) {
