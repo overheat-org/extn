@@ -13,5 +13,5 @@
     "noImplicitAny": false,
     "skipLibCheck": true,
   },
-  "include": ["./src/**/*", "./lib/**/*", "types/globals.d.ts"]
+  "include": ["./src/**/*", "./lib/**/*"]
 }
