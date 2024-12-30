@@ -2,8 +2,8 @@ import fs, { readFileSync } from 'fs';
 import { join as j } from 'path';
 import path from 'path/posix';
 
-export function findNodeModulesDir(startDir = process.cwd(), expectedPackage, maxDepth = 10) {
-    let currentDir = startDir;
+export function findNodeModulesDir(startDir?: string, expectedPackage?: string, maxDepth = 10) {
+    let currentDir = startDir ?? process.cwd();
     let depth = 0;
 
     while (currentDir !== path.parse(currentDir).root && depth < maxDepth) {
@@ -17,7 +17,7 @@ export function findNodeModulesDir(startDir = process.cwd(), expectedPackage, ma
         depth++;
     }
 
-    return null;
+    throw new Error("Cannot find node_modules");
 }
 
 export function useErrors<O extends object>(

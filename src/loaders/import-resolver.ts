@@ -2,8 +2,9 @@ import fs from 'fs';
 import * as T from '@babel/types';
 import traverse, { NodePath } from "@babel/traverse";
 import Config from '../config';
-import { relative, join as j } from 'path/posix';
+import { relative, dirname, basename, join as j } from 'path/posix';
 import { isAbsolute } from 'path';
+import { findNodeModulesDir } from '../utils';
 
 const FLAME_MANAGER_REGEX = /^@flame-oh\/manager\-/;
 const RELATIVE_PATH_REGEX = /^(\.\/|\.\.\/)/;
@@ -11,6 +12,8 @@ const RELATIVE_PATH_REGEX = /^(\.\/|\.\.\/)/;
 class ImportResolver {
     constructor(private dirpath: string, private config: Config) {}
 
+    private nodeModulesDir?: string;
+    
     parseAliases(filePath: string, target: string) {
         const tsConfigPath = j(this.config.cwd, 'tsconfig.json');
         
@@ -22,26 +25,9 @@ class ImportResolver {
             if (filePath.startsWith(aliasPattern)) {
                 const [firstMatch] = paths[alias];
                 const resolvedPath = firstMatch.replace('/*', filePath.slice(aliasPattern.length));
-                const entryPath = j(this.config.cwd, resolvedPath);
-                return entryPath.replace(this.config.entryPath, this.config.buildPath);
+                return j(this.config.cwd, resolvedPath);
             }
         }
-    }
-
-    parseRelative(path: string, target: string) {
-        const entryDirname = this.dirpath;
-        
-        const absoluteEntryPath = j(entryDirname, path);
-        return absoluteEntryPath.replace(this.config.entryPath, this.config.buildPath);
-    }
-
-    parseFlameDir(path: string) {
-        path = j(
-            this.config.buildPath, 
-            path.replace(FLAME_MANAGER_REGEX, 'managers/')
-        );
-
-        return path;
     }
 
     parse(importPath: string) {
@@ -59,11 +45,14 @@ class ImportResolver {
         }
 
         if(RELATIVE_PATH_REGEX.test(importPath)) {
-            absolutePath = this.parseRelative(importPath, buildCurrentPath);
+            absolutePath = j(this.dirpath, importPath);
         }
 
         if(FLAME_MANAGER_REGEX.test(importPath)) {
-            absolutePath = this.parseFlameDir(importPath);
+            absolutePath = j(
+                this.nodeModulesDir ??= findNodeModulesDir(this.config.cwd), 
+                importPath.replace(FLAME_MANAGER_REGEX, 'managers/')
+            );
         }
 
         if(!absolutePath) {
@@ -71,16 +60,40 @@ class ImportResolver {
         }
 
         if(absolutePath) {
-            let path = relative(buildCurrentPath, absolutePath);
+            const buildAbsolutePath = absolutePath.replace(this.config.entryPath, this.config.buildPath);
+            let path = relative(buildCurrentPath, buildAbsolutePath);
 
-            if(!RELATIVE_PATH_REGEX.test(absolutePath)) {
+            if(!RELATIVE_PATH_REGEX.test(buildAbsolutePath)) {
                 path = `./${path}`;
             }
-            
-            importPath = this.ensureExt(path);
+
+            if(this.isDir(buildCurrentPath)) {
+                importPath = j(path, 'index.js');
+            }
+            else {
+                importPath = this.ensureExt(path);
+            }
         }
 
         return importPath;
+    }
+
+    isDir(absolutePath: string) {
+        try {
+            const dir = dirname(j(absolutePath, this.config.buildPath));
+            const dir2 = dirname(j(findNodeModulesDir(this.config.cwd), this.config.buildPath));
+    
+            const filesInDir = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+            const filesInDir2 = fs.existsSync(dir2) ? fs.readdirSync(dir2) : [];
+    
+            const path = [...filesInDir, ...filesInDir2].find(d => d.startsWith(basename(absolutePath)));
+            if (!path) return;
+    
+            const fullPath = j(dir, path);
+            return fs.existsSync(fullPath) && !fs.statSync(fullPath).isFile();
+        } catch {
+            return false;
+        }
     }
 
     ensureExt(path: string) {

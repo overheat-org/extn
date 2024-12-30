@@ -39,13 +39,13 @@ class ManagersLoader extends BaseLoader {
                     });
                     
                     let relativeFilepath = filepath.replace(this.config.entryPath, '').replace(/\.\w+$/, '.js');
-                    if(meta.injects.length > 0) {
-                        this.loader.client.injections[j(this.config.buildPath, relativeFilepath)] = meta.injects;
-                    }
-
                     if(relativeFilepath.includes(FLAME_OH)) {
                         const startIndex = relativeFilepath.indexOf(FLAME_OH) + FLAME_OH.length + 1;
                         relativeFilepath = relativeFilepath.substring(startIndex).replace('manager-', 'managers/');
+                    }
+
+                    if(meta.injects.length > 0) {
+                        this.loader.client.injections[j(this.config.buildPath, relativeFilepath)] = meta.injects;
                     }
                     
                     await this.emitFile(relativeFilepath, result);
