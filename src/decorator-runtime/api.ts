@@ -9,17 +9,19 @@ const errors = useErrors({
 })
 
 function api(path: NodePath<T.Decorator>) {
-    const callExpr = path.findParent(p => p.isCallExpression()) as NodePath<T.CallExpression>;
+    // const callExpr = path.findParent(p => p.isCallExpression()) as NodePath<T.CallExpression>;
     
-    let route: string;
-    {
-        const routeArgument = callExpr.get('arguments')[0];
-        if(!routeArgument.isStringLiteral()) throw errors.EXPECTED_COMPTIME_KNOW_STRING;
-        route = routeArgument.node.value;
-    }
+    // let route: string;
+    // {
+    //     const routeArgument = callExpr.get('arguments')[0];
+    //     if(!routeArgument.isStringLiteral()) throw errors.EXPECTED_COMPTIME_KNOW_STRING;
+    //     route = routeArgument.node.value;
+    // }
 
-    const memberExpr = callExpr.get('callee') as NodePath<T.MemberExpression>;
-    const method = (memberExpr.node.property as T.Identifier).name;
+    // const memberExpr = callExpr.get('callee') as NodePath<T.MemberExpression>;
+    // const method = (memberExpr.node.property as T.Identifier).name;
     
-    
+    path.remove();
 }
+
+export default api;

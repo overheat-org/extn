@@ -5,8 +5,10 @@ import generate from '@babel/generator';
 import inject from "./inject";
 import event from './event';
 import singleton from './singleton';
+import api from './api';
+import http from './http';
 
-const A = { inject, event, singleton }
+const decoratorsMap = { inject, event, singleton, api, http }
 
 function useComptimeDecorator(path: NodePath<T.Decorator>, meta: Record<string, unknown> = {}) {
     const expr = path.node.expression;
@@ -15,7 +17,7 @@ function useComptimeDecorator(path: NodePath<T.Decorator>, meta: Record<string, 
 
     switch (true) {
         case T.isIdentifier(expr): {
-            const callback = A[expr.name];
+            const callback = decoratorsMap[expr.name];
             if(!callback) throw err();
 
             callback(path, meta);
@@ -23,7 +25,7 @@ function useComptimeDecorator(path: NodePath<T.Decorator>, meta: Record<string, 
         }
         
         case T.isCallExpression(expr) && T.isMemberExpression(expr.callee) && T.isIdentifier(expr.callee.object): {
-            const callback = A[expr.callee.object.name];
+            const callback = decoratorsMap[expr.callee.object.name];
             if(!callback) throw err();
 
             callback(path, meta);
