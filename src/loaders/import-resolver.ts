@@ -78,17 +78,86 @@ class ImportResolver {
         return importPath;
     }
 
+    transform(path: NodePath<T.ImportDeclaration>) {
+        const source = path.node.source.value;
+    
+        const defaultSpecifiers = new Array<T.ImportDefaultSpecifier>;
+        const namespaceSpecifiers = new Array<T.ImportNamespaceSpecifier>;
+        const namedSpecifiers = new Array<T.ImportSpecifier>;
+    
+        for (const specifier of path.node.specifiers) {
+            if (T.isImportDefaultSpecifier(specifier)) {
+                defaultSpecifiers.push(specifier);
+            } else if (T.isImportNamespaceSpecifier(specifier)) {
+                namespaceSpecifiers.push(specifier);
+            } else if (T.isImportSpecifier(specifier)) {
+                namedSpecifiers.push(specifier);
+            }
+        }
+    
+        const statements = new Array<T.Statement>;
+
+        if (defaultSpecifiers.length > 0) {
+            for (const specifier of defaultSpecifiers) {
+                const modName = specifier.local.name;
+                const stmt = T.variableDeclaration('const', [
+                    T.variableDeclarator(
+                        T.identifier(modName),
+                        T.memberExpression(
+                            T.awaitExpression(T.callExpression(T.import(), [T.stringLiteral(source)])),
+                            T.identifier('default')
+                        )
+                    )
+                ]);
+                statements.push(stmt);
+            }
+        }
+
+        if (namespaceSpecifiers.length > 0) {
+            for (const specifier of namespaceSpecifiers) {
+                const modName = specifier.local.name;
+                const stmt = T.variableDeclaration('const', [
+                    T.variableDeclarator(
+                        T.identifier(modName),
+                        T.awaitExpression(T.callExpression(T.import(), [T.stringLiteral(source)]))
+                    )
+                ]);
+                statements.push(stmt);
+            }
+        }
+
+        if (namedSpecifiers.length > 0) {
+            const props = namedSpecifiers.map(specifier =>
+                T.objectProperty(
+                    T.identifier((specifier.imported as T.Identifier).name),
+                    T.identifier(specifier.local.name)
+                )
+            );
+            const stmt = T.variableDeclaration('const', [
+                T.variableDeclarator(
+                    T.objectPattern(props),
+                    T.awaitExpression(T.callExpression(T.import(), [T.stringLiteral(source)]))
+                )
+            ]);
+            statements.push(stmt);
+        }
+
+        path.replaceWithMultiple(statements);
+
+        return statements;
+    }
+
     isDir(absolutePath: string) {
         try {
             const dir = dirname(j(absolutePath, this.config.buildPath));
             const dir2 = dirname(j(findNodeModulesDir(this.config.cwd), this.config.buildPath));
-    
+
             const filesInDir = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
             const filesInDir2 = fs.existsSync(dir2) ? fs.readdirSync(dir2) : [];
-    
+
             const path = [...filesInDir, ...filesInDir2].find(d => d.startsWith(basename(absolutePath)));
             if (!path) return;
-    
+
             const fullPath = j(dir, path);
             return fs.existsSync(fullPath) && !fs.statSync(fullPath).isFile();
         } catch {
@@ -104,6 +173,45 @@ class ImportResolver {
         const source = path.get('source');
 
         source.set('value', this.parse(source.node.value));
+    }
+
+    private collected: Record<string, Array<T.ImportSpecifier | T.ImportDefaultSpecifier | T.ImportNamespaceSpecifier>> = {}
+    collect(path: NodePath<T.ImportDeclaration>) {
+        this.resolve(path);
+    
+        const source = path.node.source.value;
+        if (!this.collected[source]) {
+            this.collected[source] = [];
+        }
+    
+        const uniqueSpecifiers = path.node.specifiers.filter(
+            (specifier) => !this.collected[source].includes(specifier)
+        );
+    
+        this.collected[source].push(...uniqueSpecifiers);
+
+        path.remove();
+    }
+
+    insert(ast?: T.Node) {
+        const body = T.isFile(ast)
+            ? ast.program.body
+            : T.isProgram(ast)
+                ? ast.body
+                : [];
+
+        if(!body) throw new Error('Invalid AST');
+
+        Object.entries(this.collected).forEach(([source, specifiers]) => {
+            const importDeclaration = T.importDeclaration(
+                specifiers,
+                T.stringLiteral(source)
+            );
+
+            body.push(importDeclaration);
+        });
+
+        return body; 
     }
 
     traverse(node: T.Node) {
