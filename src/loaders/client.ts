@@ -60,7 +60,7 @@ class ClientLoader extends BaseLoader {
 
     async load() {
         const ast = this.parseContent(client);
-        const result = await this.transformFile(ast, { 
+        const result = await this.transformContent(ast, { 
             filename: 'index.tsx',
             traverse: this.traverse
         });

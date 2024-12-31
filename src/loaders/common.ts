@@ -28,7 +28,7 @@ class CommonLoader extends BaseLoader {
                 const content = await fs.readFile(filePath, 'utf-8');
                 const parsed = this.parseContent(content);
                 const newFilePath = filePath.replace(this.config.entryPath, this.config.buildPath).replace(/.(j|t)sx?$/, '.js');
-                const transformated = await this.transformFile(parsed, { 
+                const transformated = await this.transformContent(parsed, { 
                     filename: dir.name,
                     traverse: {
                         ImportDeclaration: (path) => this.importResolver.resolve(path)

@@ -9,11 +9,12 @@ const GEN_DEFAULT_BABEL = (config: Config): TransformOptions => ({
         ["@babel/preset-env", {
             modules: false,
             targets: {
-                esmodules: true
+                esmodules: 'node >= 16.0.0',
+                browsers: 'node >= 16.0.0'
             }
         }],
         ['@babel/preset-react', {
-            pragma: "Diseact.createElement",
+            pragma: "Diseact.jsx",
             pragmaFrag: "Diseact.Fragment",
             runtime: "classic"
         }],

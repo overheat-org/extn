@@ -30,7 +30,7 @@ class ManagersLoader extends BaseLoader {
                 } else {
                     const meta = { injects: [] };
                     
-                    const result = await this.transformFile(content as T.File, {
+                    const result = await this.transformContent(content as T.File, {
                         filename,
                         traverse: {
                             Decorator: (path) => useComptimeDecorator(path, meta),
