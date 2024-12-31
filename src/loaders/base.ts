@@ -5,12 +5,17 @@ import { BabelFileResult, transform, transformFromAst, TransformOptions } from '
 import { dirname, basename, join as j } from 'path/posix';
 import { parse } from '@babel/parser';
 import Loader from '.';
-import traverse, { TraverseOptions } from '@babel/traverse';
+import traverse, { NodePath, Scope, TraverseOptions } from '@babel/traverse';
+import generate, { GeneratorOptions } from '@babel/generator';
 
 class BaseLoader {
-    async transformFile(ast: string, options?: TransformOptions): Promise<BabelFileResult>
-    async transformFile(ast: T.Program | T.File, options: TransformOptions & { traverse?: TraverseOptions }): Promise<BabelFileResult>
-    async transformFile(ast: T.Program | T.File | string, options: TransformOptions & { traverse?: TraverseOptions } = {}) {
+    traverseContent(parent: T.Node, opts?: TraverseOptions, scope?: Scope, state?: any, parentPath?: NodePath) {
+        return traverse(parent, opts, scope, state, parentPath);
+    }
+
+    async transformContent(ast: string, options?: TransformOptions): Promise<BabelFileResult>
+    async transformContent(ast: T.Program | T.File, options?: TransformOptions & { traverse?: TraverseOptions }): Promise<BabelFileResult>
+    async transformContent(ast: T.Program | T.File | string, options: TransformOptions & { traverse?: TraverseOptions } = {}) {
         const { traverse: traverseOptions, ..._options } = options;
             
         const { promise, resolve, reject } = Promise.withResolvers<BabelFileResult>();
@@ -22,11 +27,15 @@ class BaseLoader {
         
         if(typeof ast == 'string') transform(ast, opts, callback);
         else {
-            traverse(ast, traverseOptions);
+            if(traverseOptions) this.traverseContent(ast, traverseOptions);
             transformFromAst(ast, undefined, opts, callback)
         };
 
         return promise;
+    }
+
+    generateContent(ast: T.Node, opts?: GeneratorOptions) {
+        return generate(ast, opts)
     }
 
     async emitFile(filename: string, result: BabelFileResult) {
