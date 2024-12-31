@@ -1,228 +1,117 @@
 import Config from "../config";
-import traverse from '@babel/traverse';
+import { TraverseOptions } from '@babel/traverse';
 import * as T from '@babel/types';
 import { join as j } from 'path/posix';
 import { getEnvFilePath } from '../env';
 import { readFileSync } from 'fs';
 import dotenv from 'dotenv';
-import { REST, Routes } from 'discord.js';
-import { transformFromAstAsync } from '@babel/core';
-import * as Diseact from 'diseact';
+import { REST } from 'discord.js';
 import BaseLoader from './base';
 import Loader from '.';
 import ImportResolver from "./import-resolver";
+import { ParseResult } from "@babel/parser";
 
-type CommandData = { command: T.Expression | undefined, rest: T.Statement[] };
+const id = {
+    mod: T.identifier('__mod__')
+}
 
 class CommandsLoader extends BaseLoader {
-    commandsDir: string;
+    dir: string
     env: NodeJS.ProcessEnv;
     rest = new REST();
     importResolver: ImportResolver;
+    highScope = new Array<T.Node>;
+    objectProps = new Array<T.Statement>;
 
-    async intermediateParseFile(ast: T.File) {
-        let command: T.Expression | undefined = undefined;
-        let rest = new Array<T.Statement>;
+    traverse: TraverseOptions = {
+        Program: (path) => {
+            const statements = new Array<T.Statement>;
 
-        traverse(ast, {
-            ExportDefaultDeclaration: {
-                enter(path) {
-                    command = T.isExpression(path.node.declaration)
-                        ? path.node.declaration
-                        : T.identifier('undefined');
-                },
-                exit(path) {
-                    path.remove();
+            for(const p of path.get('body')) {
+                if(p.isImportDeclaration()) {
+                    statements.push(...this.importResolver.transform(p));
                 }
-            },
-
-            Program: {
-                exit(path) {
-                    rest.push(...path.node.body);
+                else if(p.isExportSpecifier() || p.isExportNamedDeclaration()) {
+                    throw new Error('Cannot export in commands');
                 }
-            }
-        });
-
-        if (command) this.queueRegistry(command);
-
-        return {
-            command,
-            rest,
-        };
-    }
-
-    private queueCommands = new Array<CommandData>;
-    async queueRead(ast: T.File) {
-        const data = await this.intermediateParseFile(ast);
-        this.queueCommands.push(data);
-    }
-
-    private queueRegistryCommands = new Array<T.Expression>
-    async queueRegistry(expr: T.Expression) {
-        this.queueRegistryCommands.push(T.cloneNode(expr, true));
-    }
-
-    async registryCommands() {
-        const { CLIENT_ID, TEST_GUILD_ID } = this.env;
-        
-        const route = this.isDev
-        ? Routes.applicationGuildCommands(CLIENT_ID, TEST_GUILD_ID!)
-        : Routes.applicationCommands(CLIENT_ID);
-        
-        const ast = T.file(T.program([T.expressionStatement(T.arrayExpression(this.queueRegistryCommands))]));
-        
-        traverse(ast, {
-            JSXExpressionContainer(path) {
-                if (T.isFunctionExpression(path.node.expression) || T.isArrowFunctionExpression(path.node.expression)) {
-                    path.node.expression.body = T.blockStatement([]);
-                    path.node.expression.params = [];
+                else if(p.isTSEnumDeclaration()) {
+                    this.highScope.push(T.cloneNode(p.node));
+                    p.remove();
                 }
-            },
-            JSXAttribute(path) {
-                if (path.node.name.name == 'autocomplete') {
-                    path.node.value = T.jsxExpressionContainer(T.booleanLiteral(true));
+                else if(p.isExportDefaultDeclaration()) {
+                    statements.push(T.returnStatement(p.node.declaration as T.Expression))
+                }
+                else {
+                    statements.push(T.cloneNode(p.node, true));
                 }
             }
-        });
-        
-        const { code } = await transformFromAstAsync(ast, undefined, {
-            plugins: [
-                ["@babel/plugin-transform-react-jsx", {
-                    pragma: "Diseact.createElement",
-                    pragmaFrag: "Diseact.Fragment"
-                }]
-            ]
-        }) ?? {};
-        
-        if (!code) throw new Error('Cannot parse JSX command');
-        
-        const execute = new Function('Diseact', `return ${code}`);
-        
-        const evaluated = execute(Diseact);
 
-        const r = this.rest.put(route, { body: evaluated });
-
-        this.queueRegistryCommands.length = 0;
-
-        return await r;
-    }
-
-    async mergeFiles(files: typeof this.queueCommands) {
-        const context = new Array<T.Statement>;
-        const commandProperties = new Array<T.ObjectProperty>;
-
-        for (const file of files) {
-            if (!file.command || !T.isJSXElement(file.command)) continue;
-
-            let commandName!: T.StringLiteral;
-            {
-                const attribute = file.command.openingElement.attributes.find(
-                    (attr) =>
-                        (T.isJSXAttribute(attr) && attr.name.name === "name") ||
-                        T.isJSXSpreadAttribute(attr)
-                );
-
-                if (!attribute) {
-                    throw new Error('Command should have a "name" attribute');
-                }
-
-                let value;
-
-                if (T.isJSXAttribute(attribute)) {
-                    value = attribute.value;
-
-                    if (!T.isStringLiteral(value)) {
-                        throw new Error('Name of command should be a string');
-                    }
-                }
-
-                if (T.isJSXSpreadAttribute(attribute)) {
-                    const spreadObject = attribute.argument;
-
-                    if (!T.isObjectExpression(spreadObject)) {
-                        throw new Error('Spread attributes must be an object expression');
-                    }
-
-                    const nameProperty = spreadObject.properties.find(
-                        (prop) =>
-                            T.isObjectProperty(prop) &&
-                            T.isIdentifier(prop.key) &&
-                            prop.key.name === "name"
-                    ) as T.ObjectProperty;
-
-                    if (!nameProperty || !T.isStringLiteral(nameProperty.value)) {
-                        throw new Error('Name of command should be a string in the spread object');
-                    }
-
-                    value = nameProperty.value;
-                }
-
-                commandName = value;
-            }
-
-            commandProperties.push(
-                T.objectProperty(
-                    commandName,
-                    file.command ?? T.identifier('undefined')
-                )
+            const transformed = T.callExpression(
+                T.memberExpression(
+                    T.callExpression(
+                        T.arrowFunctionExpression(
+                            [],
+                            T.blockStatement(statements),
+                            true
+                        ),
+                        []
+                    ),
+                    T.identifier("then")
+                ),
+                [
+                    T.arrowFunctionExpression(
+                        [T.identifier('m')], 
+                        T.assignmentExpression('=', 
+                            id.mod,
+                            T.objectExpression([
+                                T.spreadElement(id.mod), 
+                                T.spreadElement(T.memberExpression(T.identifier('m'), T.identifier('__map__')))
+                            ]) 
+                        ),
+                    )
+                ]
             );
-            context.push(...file.rest);
+                    
+            this.objectProps.push(T.expressionStatement(transformed));
         }
-
-        context.push(
-            T.exportDefaultDeclaration(
-                T.objectExpression(commandProperties)
-            )
-        );
-
-        return T.program(context);
     }
 
-    async loadDir(path: string) {
-        const dir = new Array<CommandData>;
-
-        for(const dirent of await this.readDir(path)) {
+    async loadDir() {
+        for(const dirent of await this.readDir(this.dir)) {
             const filepath = j(dirent.parentPath, dirent.name);
             const content = await this.parseFile(filepath);
-            
+
             if(dirent.isFile()) {
-                const parsed = await this.intermediateParseFile(content);
-                
-                dir.push(parsed);
+                this.traverseContent(content, this.traverse);
             } else {
-                dir.push(...await this.loadDir(filepath));
+                await this.loadDir();
             }
         }
-
-        return dir;
     }
 
     async load() {
-        const { promise: registeredCommands, resolve, reject } = Promise.withResolvers();
+        await this.loadDir();
 
-        const commands = await this.loadDir(j(this.config.entryPath, 'commands'));
-        
-        this.registryCommands()
-            .then(resolve)
-            .catch(reject);
+        const program = T.program([
+            T.variableDeclaration('const', [T.variableDeclarator(id.mod, T.objectExpression([]))]),
+            ...this.objectProps,
+            T.exportDefaultDeclaration(id.mod)
+        ]);
 
-        const ast = await this.mergeFiles([ ...commands, ...this.queueCommands ]);
-        const result = await this.transformFile(ast, { 
-            filename: 'commands.tsx',
-            traverse: {
-                ImportDeclaration: (path) => this.importResolver.resolve(path)
-            }
-        });
-        await this.emitFile('commands.js', result);
+        const { ast } = await this.transformContent(program, { filename: "commands.tsx", ast: true });
+        const content = this.generateContent(ast!);
+        await this.emitFile('commands.js', content);
+    }
 
-        await registeredCommands;
+    queueRead(result: ParseResult<T.File>) {
+        this.traverseContent(result, this.traverse);
     }
 
     constructor(protected config: Config, protected loader: Loader, private isDev: boolean) {
         super(config, loader);
 
-        this.commandsDir = j(this.config.entryPath, 'commands');
-        this.importResolver = new ImportResolver(j(this.config.entryPath, 'commands'), this.config);
+        this.dir = j(this.config.entryPath, 'commands');
+        this.importResolver = new ImportResolver(this.dir, this.config);
         
         const envPath = getEnvFilePath(config.cwd, isDev);
         if (!envPath) throw new Error('Env File not found');
