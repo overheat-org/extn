@@ -1,7 +1,9 @@
+#!/usr/bin/env node
+
 import { join as j } from 'path/posix';
 import { program } from 'commander';
-import build from './compilation/build';
-import execute from './compilation/execute';
+import build from './compiler/build';
+import execute from './compiler/execute';
 import Config from './config';
 
 const config = Config.getInstance(j(process.cwd(), 'flamecore.config.js'))
