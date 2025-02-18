@@ -4,6 +4,7 @@
         "jsx": "preserve",
         "jsxImportSource": "diseact",
         "baseUrl": "./",
+        "strictPropertyInitialization": false,
         "paths": {
             "@utils/*": ["./src/utils/*"]
         }

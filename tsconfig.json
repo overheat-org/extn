@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "ESNext",
     "lib": ["ESNext"],
+    "target": "ESNext",
     "moduleResolution": "bundler",
     "allowJs": true,
     "outDir": "./dist",

@@ -1,10 +1,11 @@
 import * as T from '@babel/types';
-import { DecoratorDeclaration } from "@meta-oh/comptime-decorators";
-import { useErrors } from "./utils";
+import type { DecoratorDeclaration } from "@meta-oh/comptime-decorators/babel";
+import { FlameError, FlameErrorLocation, useErrors } from "./utils";
 import { NodePath } from "@babel/traverse";
 import { replacement } from '@meta-oh/replacer';
+import Graph from './graph';
 
-const errors = useErrors({
+const errors = {
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
     SHOULD_BE_GLOBAL: "Injected classes should be in global scope",
     EXPECTED_METHOD: "This decorator only can be used on class method declarations",
@@ -12,16 +13,16 @@ const errors = useErrors({
     INVALID_NAME_FORMAT: "The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
     EXPECTED_FIND_METHOD: "The target of singleton decorator needs a static find method",
     EXPECTED_IDENTIFIER_PARAM: "The first param of find method needs to be a number or string identifier"
-});
+};
 
 export default {
-    inject(path) {
+    inject(path, graph: Graph) {
         const classDecl = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
         if (!classDecl) throw errors.EXPECTED_CLASS;
 
         if (!path.removed) path.remove();
 
-        classDecl.addComment('inner', "@inject entity");
+        classDecl.addComment('leading', "@inject entity");
 
         const className = classDecl.get('id').node!.name;
         let parent = classDecl.parentPath;
@@ -51,16 +52,22 @@ export default {
 
                 break;
 
-            default: throw errors.SHOULD_BE_GLOBAL;
+                
+            default: {
+                const locStart = classDecl.node.loc?.start!;
+
+                throw new FlameError(errors.SHOULD_BE_GLOBAL, { path: this.path, ...locStart });
+            }
         }
 
-        const a = `import { ${className} } from '${""}'\nnew ${className}(client)`;
-
-        replacement.set('MANAGERS', replacement.get('MANAGERS') ?? "" + className)
+        const module = graph.getModule(this.path)!;
+        graph.addInject(className, module);
     },
     event(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
         if (!methodDecl) throw errors.EXPECTED_METHOD;
+
+        methodDecl.addComment('leading', "@event entity");
 
         const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
 

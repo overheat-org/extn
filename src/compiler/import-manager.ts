@@ -30,7 +30,7 @@ export class TopLevelImport {
             }
 
             if(s.type == 'ImportSpecifier') {
-                acc.push(T.objectProperty(s.local, s.imported as T.Identifier));
+                acc.push(T.objectProperty(s.imported as T.Identifier, s.local));
             }
         }
 
