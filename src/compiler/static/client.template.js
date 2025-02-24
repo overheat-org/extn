@@ -1,3 +1,4 @@
+import { InteractionExecutor } from 'diseact';
 import { FlameClient } from '@flame-oh/core';
 
 const { TOKEN } = process.env;
@@ -7,8 +8,16 @@ const { TOKEN } = process.env;
  * Get intents of discord client
  */
 
-const client = new FlameClient({ intents: INTENTS });
-import('./commands.js');
+const executor = new InteractionExecutor();
+
+const client = new FlameClient({ intents });
+import('./commands.js').then(executor.putCommands);
+
+client.on('interactionCreate', i => {
+    if(!i.isChatInputCommand() && !i.isAutocomplete()) return;
+    
+    executor.run(i);
+})
 
 /**
  * @comptime MANAGERS

@@ -1,15 +1,25 @@
+import * as T from '@babel/types';
 import fs from 'fs/promises';
 import { basename } from 'path';
 import Config from '../config';
 import { toPosix } from './utils';
+import _generate from '@babel/generator';
+
+const generate: typeof _generate = typeof _generate == 'object'
+    ? (_generate as any).default
+    : _generate;
 
 interface ModuleOptions { filename?: string }
 
 class Injection {
+    id: T.Identifier;
+    
     constructor(
-        public id: string,
+        id: string,
         public module: Module
-    ) {}
+    ) {
+        this.id = T.identifier(id);
+    }
 }
 
 export class Module implements ModuleOptions {
@@ -17,7 +27,7 @@ export class Module implements ModuleOptions {
     
     constructor(
         public path: string,
-        public content: string,
+        public content?: T.Node,
         options?: ModuleOptions
     ) {
         this.filename = options?.filename ?? basename(this.path);
@@ -28,10 +38,10 @@ export class Graph {
     modules = new Map<string, Module>;
     injections = new Array<Injection>;
 
-    addModule(path: string, content?: string, options?: ModuleOptions) {
+    addModule(path: string, content?: T.Node, options?: ModuleOptions) {
         path = toPosix(path);
 
-        const module = new Module(path, content ?? "", options);
+        const module = new Module(path, content, options);
 
         this.modules.set(path, module);
 
@@ -50,17 +60,21 @@ export class Graph {
         );
     }
 
-    async build(config: Config) {
+    async build() {
         for(const module of this.modules.values()) {
             const outPath = module.path
-                .replace(config.entryPath, config.buildPath)
+                .replace(this.config.entryPath, this.config.buildPath)
                 .replace(/\.(t|j)sx?$/, '.js');
-            
-            await fs.writeFile(outPath, module.content, { recursive: true })
+
+            if(module.content) {
+                const content = generate(module.content).code;
+                
+                await fs.writeFile(outPath, content, { recursive: true });
+            }
         }
     }
 
-    // constructor(public config: Config) {}
+    constructor(public config: Config) {}
 }
 
 export default Graph;

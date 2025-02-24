@@ -1,22 +1,20 @@
 import fs from 'fs/promises';
 import { basename, dirname, relative, resolve } from 'path';
 import * as T from '@babel/types';
-import { PluginItem, transformAsync } from '@babel/core';
+import { PluginItem, template, transformAsync } from '@babel/core';
 import { NodePath, Visitor } from "@babel/traverse";
-import _generate from '@babel/generator';
 import ComptimeDecoratorsPlugin from '@meta-oh/comptime-decorators/babel';
 import decorators from './decorators';
 import Graph from './graph';
 import Config from '../config';
-import ImportManager from './import-manager';
-import { findNodeModulesDir, FlameError, resolvePath, toPosix, transformImportPath, useErrors } from './utils';
+import { findNodeModulesDir, FlameError, resolvePath, toDynamicImport, toPosix, transformImportPath, useErrors } from './utils';
 import { join as j } from 'path/posix';
-import { FLAME_MANAGER_REGEX } from '../consts';
+import { FLAME_MANAGER_REGEX, SUPPORTED_EXTENSIONS_REGEX } from '../consts';
 import { glob } from 'glob';
+import { fileURLToPath } from 'url';
+import { default as ReplacerPlugin, replacement } from '@meta-oh/replacer/babel';
 
-const generate: typeof _generate = typeof _generate == 'object'
-	? (_generate as any).default
-	: _generate;
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const isRootPath = (path: string) => /^\.?\/?[^/]+$/.test(path);
 
@@ -30,7 +28,7 @@ class BaseTransformer {
     plugins: PluginItem[] = [];
     presets: PluginItem[] = [
         "@babel/preset-typescript",
-        "@babel/preset-react"
+        ["@babel/preset-react", { runtime: "automatic", importSource: "diseact" }]
     ];
 
     protected getVisitor(filepath: string): Visitor {
@@ -39,7 +37,7 @@ class BaseTransformer {
         };
     }
 
-    async transformFile(path: string, opts: { code?: boolean, ast?: boolean } = { code: true }) {
+    async transformFile(path: string, opts: { code?: boolean, ast?: boolean } = { ast: true }) {
         path = resolvePath(path);
 
         let content = await fs.readFile(path, 'utf-8');
@@ -50,12 +48,10 @@ class BaseTransformer {
             ...opts,
             plugins: this.plugins,
             presets: this.presets,
-            filename: basename(path)
+            filename: path
         });
 
-        if (!result || !result.code) {
-            throw new Error("");
-        };
+        if(!result) throw new Error("Transformation failed");
 
         return result;
     }
@@ -63,10 +59,10 @@ class BaseTransformer {
     async transformModule(path: string) {
         path = resolvePath(path);
 
-        const result = await this.transformFile(path);
         const module = this.graph.addModule(path);
+        const result = await this.transformFile(path);
 
-        module.content = result.code!;
+        module.content = result.ast ?? undefined;
     }
 
     protected transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
@@ -159,15 +155,40 @@ class CommandTransformer extends BaseTransformer {
     async mergeDir(path: string) {
         const commands = await this.transformDir(path);
 
-        const body = new Array<T.Statement>;
+        let body = new Array<T.Statement>;
+
+        const buildAsyncWrapper = template.statement(`
+            (async () => {
+                %%body%%
+            })().then(m => __module__ = { ...__module__, ...m.__map__ });
+        `);
 
         for(const command of commands) {
-            body.push(...command.program.body);
+            body.push(buildAsyncWrapper({
+                body: command.program.body,
+            }))
         }
 
-        const { code } = generate(T.program(body));
+        body.unshift(
+            T.variableDeclaration(
+                "let",
+                [
+                    T.variableDeclarator(
+                        T.identifier("__module__"),
+                        T.objectExpression([])
+                    )
+                ]
+            )
+        );
 
-        this.graph.addModule(path + '.js', code);
+        body.push(
+            T.exportDefaultDeclaration(
+                T.identifier("__module__")
+            )
+        );
+
+
+        this.graph.addModule(path + '.js', T.program(body));
     }
 
     async transformDir(path: string) {
@@ -177,7 +198,7 @@ class CommandTransformer extends BaseTransformer {
         for (const dirent of dirents) {
             const path = j(dirent.parentPath, dirent.name);
 
-            if (dirent.isFile()) files.push((await this.transformFile(path, { ast: true })).ast!);
+            if (dirent.isFile()) files.push((await this.transformFile(path)).ast!);
             else files.push(...await this.transformDir(path));
         }
 
@@ -185,31 +206,22 @@ class CommandTransformer extends BaseTransformer {
     }
     
     protected transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
-        const source = path.get('source').node.value;
+        let importPath = path.get('source').node.value;
+
+        if (importPath.startsWith('..')) {
+            const currentBuildFile = basename(toPosix(relative(this.config.entryPath, filepath)));
+
+            const finalImportPath = transformImportPath(
+                filepath,
+                currentBuildFile,
+                importPath,
+                this.config
+            ).replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
         
-        if (source.startsWith('..')) {
-            const absolutePath = resolvePath(resolve(dirname(filepath), source));
-
-            this.parent.transformModule(absolutePath);
-
-            const relativePath = toPosix(relative(dirname(filepath), absolutePath)).replace(/\.(t|j)sx?$/, '.js');
-
-            path.get('source').set('value', relativePath);
+            path.get('source').set('value', finalImportPath);
         }
-        
-        const node = path.node;
-
-        path.get('source').set('value', transformImportPath(
-            filepath,
-            'commands.js',
-            node.source.value,
-            this.config
-        ));
-
-        const topLevelImport = ImportManager.fromTopLevel(node);
-        const dynamicImport = topLevelImport.toDynamic();
-
-        path.replaceWith(dynamicImport.node);
+    
+        toDynamicImport(path);
     }
 
     private transformEnumDeclaration(path: NodePath<T.EnumDeclaration>, filepath: string) {
@@ -228,7 +240,7 @@ class CommandTransformer extends BaseTransformer {
 
         if(node.specifiers.length == 0) return;
 
-        const locStart = node.loc?.start ?? {} as T.s;
+        const locStart = node.loc?.start!;
         throw new FlameError('Cannot export in command', { path: filepath, ...locStart });
     }
 
@@ -242,6 +254,10 @@ class CommandTransformer extends BaseTransformer {
 }
 
 class Transformer extends BaseTransformer {
+    plugins: PluginItem[] = [
+        ReplacerPlugin()
+    ];
+    
     manager: ManagerTransformer;
     command: CommandTransformer;
 
@@ -261,14 +277,31 @@ class Transformer extends BaseTransformer {
             this.manager.transformDir(j(this.config.entryPath, 'managers')),
             this.command.mergeDir(j(this.config.entryPath, 'commands')),
             // this.manager.transformExternDir(flamePath)
-            this.emitIndex(this.config.entryPath)
         ]);
+        await this.emitIndex(this.config.entryPath);
     }
 
     private async emitIndex(path: string) {
+        const imports = this.graph.injections.map(i => (
+            T.importDeclaration([
+                T.importSpecifier(
+                    i.id,
+                    i.id
+                )
+            ], T.stringLiteral(i.module.path)
+        )));
 
+        const instances = this.graph.injections.map(i => (
+            T.expressionStatement(
+                T.newExpression(i.id, [T.identifier('client')])
+            )
+        ));
 
-        // this.graph.addModule(j(path, 'index.js'), content);
+        replacement.set("MANAGERS", [...imports, ...instances]);
+
+        const content = (await this.transformFile(j(__dirname, 'static', 'client.template.js'))).ast ?? undefined;
+
+        this.graph.addModule(j(path, 'index.js'), content);
     }
 }
 

@@ -2,6 +2,10 @@
   "name": "@flame-oh/core",
   "version": "5.2.6",
   "type": "module",
+  "exports": {
+    ".": "./dist/lib/index.js",
+    "./internal": "./dist/lib/internal/index.js"
+  },
   "scripts": {
     "build": "vite build",
     "test": "sh ./scripts/test.sh"
@@ -10,7 +14,6 @@
     "type": "git",
     "url": "git+https://github.com/flame-oh/core.git"
   },
-  "main": "./dist/lib/index.js",
   "types": "./types/index.d.ts",
   "dependencies": {
     "@babel/core": "^7.26.8",
@@ -22,10 +25,10 @@
     "@babel/traverse": "^7.25.6",
     "@keyv/sqlite": "^4.0.1",
     "@meta-oh/comptime-decorators": "npm:@jsr/meta-oh__comptime-decorators@^2.1.3",
-    "@meta-oh/replacer": "npm:@jsr/meta-oh__replacer@^1.2.0",
+    "@meta-oh/replacer": "npm:@jsr/meta-oh__replacer@^1.2.2",
     "babel-plugin-module-resolver": "^5.0.2",
     "discord.js": "^14.16.2",
-    "diseact": "^4.3.3",
+    "diseact": "^4.4.0",
     "esbuild": "^0.25.0",
     "keyv": "^5.1.3",
     "tsconfig-paths": "^4.2.0"

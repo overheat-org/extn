@@ -1,9 +1,9 @@
 import * as T from '@babel/types';
 import type { DecoratorDeclaration } from "@meta-oh/comptime-decorators/babel";
-import { FlameError, FlameErrorLocation, useErrors } from "./utils";
+import { createConstructor, FlameError, FlameErrorLocation, getConstructor, useErrors } from "./utils";
 import { NodePath } from "@babel/traverse";
-import { replacement } from '@meta-oh/replacer';
 import Graph from './graph';
+import { template } from '@babel/core';
 
 const errors = {
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
@@ -78,20 +78,14 @@ export default {
         {
             const key = methodDecl.get('key');
             if (!key.isIdentifier()) throw errors.EXPECTED_COMPTIME_NAME;
-
             methodName = key.node.name;
-        }
 
-        if (methodName.startsWith('Once')) {
-            once = true;
-            eventName = methodName.replace('Once', '');
-            eventName = eventName.charAt(0).toLowerCase() + eventName.slice(1);
+            const matches = methodName.match(/^(On|Once)([A-Z][a-zA-Z]*)$/);
+            if(!matches) throw errors.INVALID_NAME_FORMAT;
+            
+            once = matches[0] == 'Once';
+            eventName = matches[1];
         }
-        else if (methodName.startsWith('On')) {
-            eventName = methodName.replace('On', '');
-            eventName = eventName.charAt(0).toLowerCase() + eventName.slice(1);
-        }
-        else throw errors.INVALID_NAME_FORMAT;
 
         classDecl.traverse({
             ClassMethod(path) {
@@ -116,7 +110,23 @@ export default {
         path.remove();
     },
     api(path) {
-        path.remove();
+        const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
+        if (!methodDecl) throw errors.EXPECTED_METHOD;
+
+        methodDecl.addComment('leading', "@event entity");
+
+        const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
+        const constructorDecl = getConstructor(classDecl) ?? createConstructor(classDecl);
+
+        const wrapper = template.statement(`
+            this.addEndpoint(%%string%%, (...args) => this.%%id%%.bind(this, ...args));
+        `);
+
+
+        constructorDecl.get('body').pushContainer('body', wrapper({ string, id }));
+
+        // constructorDecl.
+
     },
     singleton(path) {
         const classDeclPath = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
