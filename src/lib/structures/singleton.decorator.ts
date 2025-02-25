@@ -8,7 +8,7 @@
  * class Product {
  *      // If this product id has already fetched, will returns this instance
  *      // Else, will be created a new instance
- *      find(id) {}
+ *      static find(id) {}
  * }
  * ```
  */

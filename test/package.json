@@ -7,6 +7,7 @@
     "@flame-oh/manager-commerce": "^2.0.0"
   },
   "dependencies": {
-    "@flame-oh/manager-ticket": "^1.0.2"
+    "@flame-oh/manager-ticket": "^1.0.2",
+    "diseact": "^4.5.0"
   }
 }

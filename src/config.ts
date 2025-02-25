@@ -1,35 +1,5 @@
-import { TransformOptions } from '@babel/core';
 import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
 import { join as j } from 'path/posix';
-
-const GEN_DEFAULT_BABEL = (config: Config): TransformOptions => ({
-    sourceType: 'module',
-    presets: [
-        "@babel/preset-typescript",
-        ["@babel/preset-env", {
-            modules: false,
-            targets: {
-                esmodules: 'node >= 16.0.0',
-                browsers: 'node >= 16.0.0'
-            }
-        }],
-        ['@babel/preset-react', {
-            pragma: "Diseact.jsx",
-            pragmaFrag: "Diseact.Fragment",
-            runtime: "classic"
-        }],
-    ],
-    plugins: [
-        "@babel/plugin-transform-class-properties",
-        ["@babel/plugin-transform-runtime", {
-            useESModules: true,
-            helpers: false
-        }],
-        ["transform-define", {
-            INTENTS: config.intents,
-        }],
-    ]
-})
 
 class Config {
     #cwd!: string;
@@ -56,16 +26,6 @@ class Config {
         this.#entryPath = j(this.cwd.replace(/\\/g, '/'), value);
     };
 
-    #babel: TransformOptions;
-
-    get babel() {
-        return this.#babel;
-    }
-
-    set babel(value) {
-        this.#babel = { ...GEN_DEFAULT_BABEL(this), ...value }
-    }
-    
     intents: BitFieldResolvable<GatewayIntentsString, number> = ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
 
     constructor(obj: Partial<Config>) {
@@ -73,8 +33,6 @@ class Config {
             // @ts-ignore
             this[key] = obj[key];
         }
-
-        this.#babel = GEN_DEFAULT_BABEL(this);
     }
 
     merge(obj: Partial<Config>) {
