@@ -1,5 +1,6 @@
 import { join as j } from 'path/posix';
-import { readdirSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
+import { parse } from 'dotenv';
 
 export const EnvName = {
     COMMON: '.env',
@@ -18,6 +19,21 @@ export function getEnvFilePath(cwd: string, dev: boolean) {
     if(cwdFiles.includes(EnvName.COMMON)) {
         return j(cwd, EnvName.COMMON);
     }
+}
+
+const ENV_REGEX = /^\.env(?:\.(development|production))?$/;
+
+export function getEnvFile(cwd = process.cwd()) {
+	const envPath = readdirSync(cwd)
+		.find(d => d.match(ENV_REGEX)?.[0] == process.env.NODE_ENV)
+		?? ".env";
+	
+	try {
+		const file = readFileSync(j(cwd, envPath));
+		return parse(file);
+	} catch {
+		return {}
+	}
 }
 
 export function createEnvFileOption(cwd: string, dev: boolean) {

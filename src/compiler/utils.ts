@@ -5,6 +5,9 @@ import Config from '../config';
 import { NodePath } from '@babel/traverse';
 import * as T from '@babel/types';
 import { SUPPORTED_EXTENSIONS_REGEX } from '../consts';
+import { parse } from 'dotenv';
+
+
 
 export function findNodeModulesDir(startDir?: string, expectedPackage?: string, maxDepth = 10) {
     let currentDir = startDir ?? process.cwd();

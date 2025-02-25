@@ -13,6 +13,8 @@ import { FLAME_MANAGER_REGEX, SUPPORTED_EXTENSIONS_REGEX } from '../consts';
 import { glob } from 'glob';
 import { fileURLToPath } from 'url';
 import { default as ReplacerPlugin, replacement } from '@meta-oh/replacer/babel';
+import { parseExpression } from '@babel/parser';
+import { getEnvFile } from './env';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -37,16 +39,16 @@ class BaseTransformer {
         };
     }
 
-    async transformFile(path: string, opts: { code?: boolean, ast?: boolean } = { ast: true }) {
+    async transformFile(path: string, { visitor, ...opts }: { code?: boolean, ast?: boolean, visitor?: Visitor } = { ast: true }) {
         path = resolvePath(path);
 
         let content = await fs.readFile(path, 'utf-8');
 
-        this.plugins.push({ visitor: this.getVisitor(path) });
+        const visitorPlugin = { visitor: visitor ?? this.getVisitor(path) };
 
         const result = await transformAsync(content, {
             ...opts,
-            plugins: this.plugins,
+            plugins: [...this.plugins, visitorPlugin],
             presets: this.presets,
             filename: path
         });
@@ -86,11 +88,11 @@ class ManagerTransformer extends BaseTransformer {
     OUT_DIR: string;
     parent!: Transformer;
 
-    async transformDir(path: string) {
-        const dirents = await fs.readdir(path, { withFileTypes: true });
+    async transformDir(dirpath: string) {
+        const dirents = await fs.readdir(dirpath, { withFileTypes: true });
 
         for (const dirent of dirents) {
-            const path = j(dirent.parentPath, dirent.name);
+            const path = j(dirent.parentPath ?? dirpath, dirent.name);
 
             if (dirent.isFile()) await this.transformModule(path);
             else await this.transformDir(path);
@@ -191,12 +193,12 @@ class CommandTransformer extends BaseTransformer {
         this.graph.addModule(path + '.js', T.program(body));
     }
 
-    async transformDir(path: string) {
-        const dirents = await fs.readdir(path, { withFileTypes: true });
+    async transformDir(dirpath: string) {
+        const dirents = await fs.readdir(dirpath, { withFileTypes: true });
         const files = new Array<T.File>;
 
         for (const dirent of dirents) {
-            const path = j(dirent.parentPath, dirent.name);
+            const path = j(dirent.parentPath ?? dirpath, dirent.name);
 
             if (dirent.isFile()) files.push((await this.transformFile(path)).ast!);
             else files.push(...await this.transformDir(path));
@@ -282,14 +284,25 @@ class Transformer extends BaseTransformer {
     }
 
     private async emitIndex(path: string) {
-        const imports = this.graph.injections.map(i => (
-            T.importDeclaration([
-                T.importSpecifier(
-                    i.id,
-                    i.id
-                )
-            ], T.stringLiteral(i.module.path)
-        )));
+        const imports = this.graph.injections.map(i => {
+			let modPath = toPosix(relative(path, i.module.path))
+				.replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
+
+			if(!modPath.startsWith('.')) {
+				modPath = './' + modPath;
+			}
+			
+			const decl = (
+				T.importDeclaration([
+					T.importSpecifier(
+						i.id,
+						i.id
+					)
+				], T.stringLiteral(modPath))
+			)
+			
+			return decl;
+		});
 
         const instances = this.graph.injections.map(i => (
             T.expressionStatement(
@@ -298,10 +311,41 @@ class Transformer extends BaseTransformer {
         ));
 
         replacement.set("MANAGERS", [...imports, ...instances]);
+		
+		const EnvWrapper = template(`
+			process.env = {
+				...process.env,
+				...%%ENV%%
+			}	
+		`);
+		
+		replacement.set("ENV", [EnvWrapper({ 
+			ENV: JSON.stringify(getEnvFile(this.config.cwd))
+		})] as T.Statement[]);
 
-        const content = (await this.transformFile(j(__dirname, 'static', 'client.template.js'))).ast ?? undefined;
+		replacement.set('INTENTS', [
+			T.variableDeclaration('const', [
+				T.variableDeclarator(
+					T.identifier('intents'),
+					parseExpression(typeof this.config.intents == 'string' 
+						? this.config.intents 
+						: JSON.stringify(this.config.intents)
+					)
+				)
+			])
+		]);
 
-        this.graph.addModule(j(path, 'index.js'), content);
+        const result = await this.transformFile(
+			j(__dirname, 'static', 'client.template.js'), 
+			{
+				ast: true,
+				visitor: {}
+			}
+		);
+
+		const ast = result.ast ?? undefined;
+
+        this.graph.addModule(j(path, 'index.js'), ast);
     }
 }
 

@@ -1,7 +1,9 @@
 import { InteractionExecutor } from 'diseact';
 import { FlameClient } from '@flame-oh/core';
 
-const { TOKEN } = process.env;
+/** 
+ * @comptime ENV
+ */
 
 /**
  * @comptime INTENTS
@@ -24,4 +26,4 @@ client.on('interactionCreate', i => {
  * Inject managers instances marked with inject decorator
  */
 
-client.login(TOKEN);
+client.login(process.env.TOKEN);
