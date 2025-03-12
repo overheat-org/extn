@@ -46,22 +46,6 @@ export function useErrors<O extends object>(
     return result;
 }
 
-export function transformImportPath(
-    selfPath: string,
-    newSelfPath: string,
-    importPath: string,
-    config: Config
-): string {
-    const absImport = resolvePath(toPosix(resolve(_path.dirname(selfPath), importPath)));
-    const relToEntry = _path.relative(config.entryPath, absImport);
-    const builtImport = _path.join(config.buildPath, relToEntry);
-    let relFromNewSelf = _path.relative(_path.dirname(_path.join(config.buildPath, newSelfPath)), builtImport);
-    if (!relFromNewSelf.startsWith('.')) {
-        relFromNewSelf = '.' + _path.sep + relFromNewSelf;
-    }
-    return relFromNewSelf.replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
-}
-
 export function getConstructor(path: NodePath<T.Class>) {
     return path.get('body').get('body').find(
         (method) => method.isClassMethod({ kind: 'constructor' })

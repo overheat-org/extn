@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { basename, dirname, relative } from 'path';
+import { basename, dirname, join, posix, relative } from 'path';
 import * as T from '@babel/types';
 import { PluginItem, template, transformAsync } from '@babel/core';
 import { NodePath, Visitor } from "@babel/traverse";
@@ -7,7 +7,7 @@ import ComptimeDecoratorsPlugin from '@meta-oh/comptime-decorators/babel';
 import decorators from './decorators';
 import Graph from './graph';
 import Config from '../config';
-import { findNodeModulesDir, FlameError, toDynamicImport, transformImportPath, useErrors } from './utils';
+import { findNodeModulesDir, FlameError, toDynamicImport } from './utils';
 import { join as j } from 'path/posix';
 import { FLAME_MANAGER_REGEX, SUPPORTED_EXTENSIONS_REGEX } from '../consts';
 import { glob } from 'glob';
@@ -20,12 +20,6 @@ import { Module } from './module';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const isRootPath = (path: string) => /^\.?\/?[^/]+$/.test(path);
-
-const errors = useErrors({
-    CANNOT_USE_CLASS: 'Cannot use class in command',
-    CANNOT_EXPORT: 'Cannot export in command',
-    CANNOT_USE_ENUM: 'Cannot declare enums in command'
-});
 
 class BaseTransformer {
     plugins: PluginItem[] = [];
@@ -70,9 +64,11 @@ class BaseTransformer {
         const replaceArgs = [/\.(t|j)sx?$/, '.js'] as const;
 
         if(dirpath) {
-            return Module
-                .pathToRelative(path, dirpath)
-                .replace(...replaceArgs);
+			return Module.normalizePath(
+				Module
+					.pathToRelative(path, dirpath)
+					.replace(...replaceArgs)
+			)
         }
         else {
             return path.replace(...replaceArgs);
@@ -88,6 +84,8 @@ class BaseTransformer {
             const absolutePath = Module.resolvePath(source, dirpath)!;
             const relativePath = await this.transformModule(absolutePath, dirpath);
 
+			console.log({absolutePath, relativePath})
+			
             path.get('source').set('value', relativePath);
         }
     }
@@ -218,24 +216,28 @@ class CommandTransformer extends BaseTransformer {
         return files;
     }
     
-    protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
-        let importPath = path.get('source').node.value;
-
-        if (importPath.startsWith('.')) {
-            const currentBuildFile = basename(Module.pathToRelative(filepath, this.config.entryPath));
-
-            const finalImportPath = transformImportPath(
-                filepath,
-                currentBuildFile,
-                importPath,
-                this.config
-            ).replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
-        
-            path.get('source').set('value', finalImportPath);
-        }
-    
-        toDynamicImport(path);
-    }
+	protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
+		let importPath = path.get('source').node.value;
+	
+		if (importPath.startsWith('.')) {
+			const currentBuildFile = basename(Module.pathToRelative(filepath, this.config.entryPath));
+			const absImport = Module.resolvePath(importPath, dirname(filepath))!;
+			const relToEntry = relative(this.config.entryPath, absImport);
+			const builtImport = join(this.config.buildPath, relToEntry);
+			let relFromNewSelf = relative(dirname(join(this.config.buildPath, currentBuildFile)), builtImport);
+			relFromNewSelf = Module.normalizePath(relFromNewSelf);
+			
+			if (!relFromNewSelf.startsWith('.')) {
+				relFromNewSelf = '.' + posix.sep + relFromNewSelf;
+			}
+			const finalImportPath = relFromNewSelf.replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
+	
+			path.get('source').set('value', finalImportPath);
+		}
+	
+		toDynamicImport(path);
+	}
+	
 
     private transformEnumDeclaration(path: NodePath<T.EnumDeclaration>, filepath: string) {
         const locations = path.node.loc?.start! ?? {};

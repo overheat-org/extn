@@ -9,13 +9,18 @@ const generate: typeof _generate = typeof _generate == 'object'
     : _generate;
 
 class Injection {
-    id: T.Identifier;
+    readonly id: T.Identifier;
     
     constructor(
-        id: string,
+        id: string | T.Identifier,
         public module: Module
     ) {
-        this.id = T.identifier(id);
+		if(T.isNode(id) && T.isIdentifier(id)) {
+			this.id = id;	
+		}
+		else {
+			this.id = T.identifier(id);
+		}
     }
 }
 
