@@ -1,13 +1,10 @@
 import fs from 'fs';
-import { join as j, normalize, posix, sep, resolve } from 'path';
+import { resolve } from 'path';
 import _path from 'path/posix';
 import Config from '../config';
 import { NodePath } from '@babel/traverse';
 import * as T from '@babel/types';
 import { SUPPORTED_EXTENSIONS_REGEX } from '../consts';
-import { parse } from 'dotenv';
-
-
 
 export function findNodeModulesDir(startDir?: string, expectedPackage?: string, maxDepth = 10) {
     let currentDir = startDir ?? process.cwd();
@@ -56,28 +53,13 @@ export function transformImportPath(
     config: Config
 ): string {
     const absImport = resolvePath(toPosix(resolve(_path.dirname(selfPath), importPath)));
-    console.log({absImport})
     const relToEntry = _path.relative(config.entryPath, absImport);
-    console.log({relToEntry})
     const builtImport = _path.join(config.buildPath, relToEntry);
-    console.log({builtImport})
     let relFromNewSelf = _path.relative(_path.dirname(_path.join(config.buildPath, newSelfPath)), builtImport);
-    console.log({relFromNewSelf})
     if (!relFromNewSelf.startsWith('.')) {
         relFromNewSelf = '.' + _path.sep + relFromNewSelf;
     }
     return relFromNewSelf.replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
-}
-
-export function resolvePath(path: string, exts = ['.ts', '.tsx', '.js', '.jsx']) {
-    if (fs.existsSync(path) && fs.statSync(path).isDirectory()) path = _path.join(path, 'index');
-    if (!_path.extname(path))
-        for (let ext of exts) if (fs.existsSync(path + ext)) return path + ext;
-    return path;
-}
-
-export function toPosix(path: string) {
-    return normalize(path).split(sep).join(posix.sep);
 }
 
 export function getConstructor(path: NodePath<T.Class>) {

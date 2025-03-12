@@ -1,15 +1,12 @@
 import * as T from '@babel/types';
 import fs from 'fs/promises';
-import { basename } from 'path';
 import Config from '../config';
-import { toPosix } from './utils';
 import _generate from '@babel/generator';
+import { Module } from "./module";
 
 const generate: typeof _generate = typeof _generate == 'object'
     ? (_generate as any).default
     : _generate;
-
-interface ModuleOptions { filename?: string }
 
 class Injection {
     id: T.Identifier;
@@ -22,26 +19,14 @@ class Injection {
     }
 }
 
-export class Module implements ModuleOptions {
-    public filename: string;
-    
-    constructor(
-        public path: string,
-        public content?: T.Node,
-        options?: ModuleOptions
-    ) {
-        this.filename = options?.filename ?? basename(this.path);
-    }
-}
-
 export class Graph {
     modules = new Map<string, Module>;
     injections = new Array<Injection>;
 
-    addModule(path: string, content?: T.Node, options?: ModuleOptions) {
-        path = toPosix(path);
+    addModule(path: string, content?: T.Node) {
+        path = Module.normalizePath(path);
 
-        const module = new Module(path, content, options);
+        const module = new Module(path, content);
 
         this.modules.set(path, module);
 
@@ -49,7 +34,7 @@ export class Graph {
     }
 
     getModule(path: string) {
-        path = toPosix(path);
+        path = Module.normalizePath(path);
         
         return this.modules.get(path);
     }

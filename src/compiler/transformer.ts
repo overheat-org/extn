@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { basename, dirname, relative, resolve } from 'path';
+import { basename, dirname, relative } from 'path';
 import * as T from '@babel/types';
 import { PluginItem, template, transformAsync } from '@babel/core';
 import { NodePath, Visitor } from "@babel/traverse";
@@ -7,7 +7,7 @@ import ComptimeDecoratorsPlugin from '@meta-oh/comptime-decorators/babel';
 import decorators from './decorators';
 import Graph from './graph';
 import Config from '../config';
-import { findNodeModulesDir, FlameError, resolvePath, toDynamicImport, toPosix, transformImportPath, useErrors } from './utils';
+import { findNodeModulesDir, FlameError, toDynamicImport, transformImportPath, useErrors } from './utils';
 import { join as j } from 'path/posix';
 import { FLAME_MANAGER_REGEX, SUPPORTED_EXTENSIONS_REGEX } from '../consts';
 import { glob } from 'glob';
@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import { default as ReplacerPlugin, replacement } from '@meta-oh/replacer/babel';
 import { parseExpression } from '@babel/parser';
 import { getEnvFile } from './env';
+import { Module } from './module';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -40,7 +41,7 @@ class BaseTransformer {
     }
 
     async transformFile(path: string, { visitor, ...opts }: { code?: boolean, ast?: boolean, visitor?: Visitor } = { ast: true }) {
-        path = resolvePath(path);
+        path = Module.normalizePath(path);
 
         let content = await fs.readFile(path, 'utf-8');
 
@@ -58,24 +59,34 @@ class BaseTransformer {
         return result;
     }
 
-    async transformModule(path: string) {
-        path = resolvePath(path);
+    async transformModule(path: string, dirpath?: string) {
+        path = Module.normalizePath(path);
 
         const module = this.graph.addModule(path);
         const result = await this.transformFile(path);
 
         module.content = result.ast ?? undefined;
+
+        const replaceArgs = [/\.(t|j)sx?$/, '.js'] as const;
+
+        if(dirpath) {
+            return Module
+                .pathToRelative(path, dirpath)
+                .replace(...replaceArgs);
+        }
+        else {
+            return path.replace(...replaceArgs);
+        }
+
     }
 
-    protected transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
+    protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
+        const dirpath = dirname(filepath);
         const source = path.node.source.value;
 
         if (source.startsWith('.')) {
-            const absolutePath = resolvePath(resolve(dirname(filepath), source));
-
-            this.transformModule(absolutePath);
-
-            const relativePath = toPosix(relative(dirname(filepath), absolutePath)).replace(/\.(t|j)sx?$/, '.js');
+            const absolutePath = Module.resolvePath(source, dirpath)!;
+            const relativePath = await this.transformModule(absolutePath, dirpath);
 
             path.get('source').set('value', relativePath);
         }
@@ -207,11 +218,11 @@ class CommandTransformer extends BaseTransformer {
         return files;
     }
     
-    protected transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
+    protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
         let importPath = path.get('source').node.value;
 
-        if (importPath.startsWith('..')) {
-            const currentBuildFile = basename(toPosix(relative(this.config.entryPath, filepath)));
+        if (importPath.startsWith('.')) {
+            const currentBuildFile = basename(Module.pathToRelative(filepath, this.config.entryPath));
 
             const finalImportPath = transformImportPath(
                 filepath,
@@ -227,14 +238,15 @@ class CommandTransformer extends BaseTransformer {
     }
 
     private transformEnumDeclaration(path: NodePath<T.EnumDeclaration>, filepath: string) {
-        throw errors.CANNOT_USE_ENUM;
+        const locations = path.node.loc?.start! ?? {};
+
+        throw new FlameError('Cannot use enum in command', { path: filepath, ...locations });
     }
 
     private transformClassDeclaration(path: NodePath<T.ClassDeclaration>, filepath: string) {
-        const node = path.node;
+        const locations = path.node.loc?.start! ?? {};
 
-        const locStart = node.loc?.start!;
-        throw new FlameError('Cannot use class in command', { path: filepath, ...locStart });
+        throw new FlameError('Cannot use class in command', { path: filepath, ...locations });
     }
 
     private transformExportNamedDeclaration(path: NodePath<T.ExportNamedDeclaration>, filepath: string) {
@@ -242,16 +254,12 @@ class CommandTransformer extends BaseTransformer {
 
         if(node.specifiers.length == 0) return;
 
-        const locStart = node.loc?.start!;
-        throw new FlameError('Cannot export in command', { path: filepath, ...locStart });
+        const locations = node.loc?.start! ?? {};
+        throw new FlameError('Cannot export in command', { path: filepath, ...locations });
     }
 
     private transformExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
         path.replaceWith(T.returnStatement(path.node.declaration as T.Expression));
-    }
-
-    constructor(graph: Graph, config: Config) {
-        super(graph, config);
     }
 }
 
@@ -285,12 +293,7 @@ class Transformer extends BaseTransformer {
 
     private async emitIndex(path: string) {
         const imports = this.graph.injections.map(i => {
-			let modPath = toPosix(relative(path, i.module.path))
-				.replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
-
-			if(!modPath.startsWith('.')) {
-				modPath = './' + modPath;
-			}
+            const modPath = Module.toBuildPath(i.module.path, path);
 			
 			const decl = (
 				T.importDeclaration([
