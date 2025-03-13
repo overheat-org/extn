@@ -57,7 +57,7 @@ export class Graph {
                 .replace(/\.(t|j)sx?$/, '.js');
 
             if(module.content) {
-                const content = generate(module.content).code;
+                const content = generate(module.content, { comments: false }).code;
                 
                 await fs.writeFile(outPath, content, { recursive: true });
             }
