@@ -16,12 +16,18 @@ import { default as ReplacerPlugin, replacement } from '@meta-oh/replacer/babel'
 import { parseExpression } from '@babel/parser';
 import { getEnvFile } from './env';
 import { Module } from './module';
+import { readFileSync } from 'fs';
+import type {CompilerOptions} from "typescript";
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const isRootPath = (path: string) => /^\.?\/?[^/]+$/.test(path);
 
+type TsConfig = { CompilerOptions: CompilerOptions }
+
 class BaseTransformer {
+    tsconfig?: TsConfig;
+
     plugins: PluginItem[] = [];
     presets: PluginItem[] = [
         "@babel/preset-typescript",
@@ -76,6 +82,10 @@ class BaseTransformer {
 
     }
 
+    isImportAlias() {
+        this.tsconfig?.CompilerOptions
+    }
+
     protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
         const dirpath = dirname(filepath);
         const source = path.node.source.value;
@@ -90,7 +100,12 @@ class BaseTransformer {
         }
     }
 
-    constructor(protected graph: Graph, protected config: Config) { }
+    constructor(protected graph: Graph, protected config: Config) {
+        // FIXME: if tsconfig not exists, this will throw an error
+        this.tsconfig = JSON.parse(
+            readFileSync(j(config.cwd, "tsconfig.json"), "utf8")
+        );
+    }
 }
 
 class ManagerTransformer extends BaseTransformer {
