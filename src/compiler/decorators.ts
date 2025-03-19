@@ -1,9 +1,10 @@
 import * as T from '@babel/types';
 import type { DecoratorDeclaration } from "@meta-oh/comptime-decorators/babel";
-import { createConstructor, FlameError, FlameErrorLocation, getConstructor, useErrors } from "./utils";
+import { createConstructor, getConstructor, getDecoratorParams } from "./utils";
 import { NodePath } from "@babel/traverse";
 import Graph from './graph';
 import { template } from '@babel/core';
+import { FlameError } from './reporter';
 
 const errors = {
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
@@ -18,11 +19,13 @@ const errors = {
 export default {
     inject(path, graph: Graph) {
         const classDecl = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
-        if (!classDecl) throw errors.EXPECTED_CLASS;
+        if (!classDecl) {
+			const locStart = path.node.loc?.start!;
+
+			throw new FlameError(errors.EXPECTED_CLASS, { path: this.path, ...locStart });
+		};
 
         if (!path.removed) path.remove();
-
-        classDecl.addComment('leading', "@inject entity");
 
         const className = classDecl.get('id').node!.name;
         let parent = classDecl.parentPath;
@@ -65,9 +68,11 @@ export default {
     },
     event(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
-        if (!methodDecl) throw errors.EXPECTED_METHOD;
+        if (!methodDecl) {
+			const locStart = path.node.loc?.start!;
 
-        methodDecl.addComment('leading', "@event entity");
+			throw new FlameError(errors.EXPECTED_METHOD, { path: this.path, ...locStart });
+		};
 
         const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
 
@@ -77,32 +82,40 @@ export default {
         let methodName!: string;
         {
             const key = methodDecl.get('key');
-            if (!key.isIdentifier()) throw errors.EXPECTED_COMPTIME_NAME;
+            if (!key.isIdentifier()) {
+				const locStart = key.node.loc?.start!;
+
+				throw new FlameError("Expected a comptime known class method name", { path: this.path, ...locStart });
+			};
+
             methodName = key.node.name;
 
             const matches = methodName.match(/^(On|Once)([A-Z][a-zA-Z]*)$/);
-            if(!matches) throw errors.INVALID_NAME_FORMAT;
+            if(!matches) {
+				const locStart = key.node.loc?.start!;
+				
+				throw new FlameError(
+					"The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
+					{ path: this.path, ...locStart }
+				)
+			};
             
             once = matches[0] == 'Once';
             eventName = matches[1];
         }
 
-        classDecl.traverse({
-            ClassMethod(path) {
-                if (path.node.kind != 'constructor') return;
+		const constructorPath = getConstructor(classDecl) ?? createConstructor(classDecl);
 
-                const eventListener = T.expressionStatement(generateEventListener(
-                    once,
-                    eventName,
-                    T.memberExpression(
-                        T.identifier('this'),
-                        T.identifier(methodName)
-                    )
-                ));
+		const eventListener = T.expressionStatement(generateEventListener(
+			once,
+			eventName,
+			T.memberExpression(
+				T.identifier('this'),
+				T.identifier(methodName)
+			)
+		));
 
-                path.get('body').pushContainer('body', eventListener);
-            }
-        })
+		constructorPath.get('body').pushContainer('body', eventListener);
 
         if (!path.removed) path.remove();
     },
@@ -111,9 +124,11 @@ export default {
     },
     api(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
-        if (!methodDecl) throw errors.EXPECTED_METHOD;
+        if (!methodDecl) {
+			const locStart = path.node.loc?.start!;
 
-        methodDecl.addComment('leading', "@event entity");
+			throw new FlameError(errors.EXPECTED_METHOD, { path: this.path, ...locStart });
+		};
 
         const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
         const constructorDecl = getConstructor(classDecl) ?? createConstructor(classDecl);
@@ -122,15 +137,38 @@ export default {
             this.addEndpoint(%%string%%, (...args) => this.%%id%%.bind(this, ...args));
         `);
 
+		let string: string;
+		{
+			const params = getDecoratorParams(path);
+			if(
+				!params?.[0].isExpression() || 
+				!params[0].isStringLiteral()
+			) throw new Error("String expected");
+	
+			string = params[0].node.value;
+		}
+
+		let id: string;
+		{
+			const expr = methodDecl.get('key');
+			if(
+				!expr.isIdentifier()
+			) throw new Error("Expected a identifier");
+
+			id = expr.node.name;
+		}
+
+        if (!path.removed) path.remove();
 
         constructorDecl.get('body').pushContainer('body', wrapper({ string, id }));
-
-        // constructorDecl.
-
     },
     singleton(path) {
         const classDeclPath = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
-            if(!classDeclPath) throw errors.EXPECTED_CLASS;
+            if(!classDeclPath) {
+				const locStart = path.node.loc?.start!;
+
+				throw new FlameError(errors.EXPECTED_CLASS, { path: this.path, ...locStart });
+			};
         
             classDeclPath.addComment('inner', "@singleton entity");
         
