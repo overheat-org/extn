@@ -24,28 +24,6 @@ export function findNodeModulesDir(startDir?: string, expectedPackage?: string, 
     throw new Error("Cannot find node_modules");
 }
 
-export type FlameErrorLocation = { path: string, line: number, column: number }
-
-export class FlameError extends Error {
-    constructor(message: string, location?: FlameErrorLocation) {
-        if (location) message += `\n    at ${location.path}:${location.line}:${location.column}`;
-        super(message);
-        Error.captureStackTrace?.(this, FlameError);
-    }
-}
-
-export function useErrors<O extends object>(
-    obj: O
-): { [K in keyof O]: FlameError } {
-    const result = {} as any;
-    for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            result[key] = new FlameError(String(obj[key]));
-        }
-    }
-    return result;
-}
-
 export function getConstructor(path: NodePath<T.Class>) {
     return path.get('body').get('body').find(
         (method) => method.isClassMethod({ kind: 'constructor' })
@@ -72,6 +50,13 @@ export function createConstructor(
         .find((method) => method.isClassMethod({ kind: 'constructor' })) as NodePath<T.ClassMethod>;
 
     return constructorPath;
+}
+
+export function getDecoratorParams(path: NodePath<T.Decorator>) {
+	const expr = path.get("expression");
+	if(!expr.isCallExpression()) return;
+
+	return expr.get('arguments');
 }
 
 // FIXME: poor solution

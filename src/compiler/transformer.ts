@@ -7,7 +7,7 @@ import ComptimeDecoratorsPlugin from '@meta-oh/comptime-decorators/babel';
 import decorators from './decorators';
 import Graph from './graph';
 import Config from '../config';
-import { findNodeModulesDir, FlameError, toDynamicImport } from './utils';
+import { findNodeModulesDir, toDynamicImport } from './utils';
 import { join as j } from 'path/posix';
 import { FLAME_MANAGER_REGEX, SUPPORTED_EXTENSIONS_REGEX } from '../consts';
 import { glob } from 'glob';
@@ -18,6 +18,7 @@ import { getEnvFile } from './env';
 import { Module } from './module';
 import { readFileSync } from 'fs';
 import type { CompilerOptions } from "typescript";
+import { FlameError } from './reporter';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -79,7 +80,6 @@ class BaseTransformer {
 		else {
 			return path.replace(...replaceArgs);
 		}
-
 	}
 
 	resolveImportAlias(path: string) {
@@ -118,8 +118,6 @@ class BaseTransformer {
 	protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
 		const dirpath = dirname(filepath);
 		const source = path.node.source.value;
-
-		console.log("PATH: ", source)
 
 		let absolutePath: string | undefined;
 		{
@@ -163,15 +161,15 @@ class ManagerTransformer extends BaseTransformer {
 		}
 	}
 
-	async transformExternDir(path: string) {
-		const dirents = await fs.readdir(path, { withFileTypes: true });
+	async transformExternDir(dirpath: string) {
+		const dirents = await fs.readdir(dirpath, { withFileTypes: true });
 
 		for (const dirent of dirents) {
-			const path = j(dirent.parentPath, dirent.name);
+			const path = j(dirent.parentPath ?? dirpath, dirent.name);
 
 			if (!FLAME_MANAGER_REGEX.test(path)) continue;
 
-			const name = dirent.name.split('-')[1];
+			const name = dirent.name.split('-').slice(1).join('-');
 
 			try {
 				const { main } = JSON.parse(await fs.readFile(j(path, 'package.json'), 'utf-8'));
@@ -340,10 +338,12 @@ class Transformer extends BaseTransformer {
 	async run() {
 		const flamePath = findNodeModulesDir(this.config.cwd, '@flame-oh');
 
+		console.log({flamePath})
+
 		await Promise.all([
 			this.manager.transformDir(j(this.config.entryPath, 'managers')),
 			this.command.mergeDir(j(this.config.entryPath, 'commands')),
-			// this.manager.transformExternDir(flamePath)
+			this.manager.transformExternDir(flamePath)
 		]);
 		await this.emitIndex(this.config.entryPath);
 	}
