@@ -13,7 +13,10 @@ import { FlameClient } from '@flame-oh/core';
 const executor = new InteractionExecutor();
 
 const client = new FlameClient({ intents });
-import('./commands.js').then(executor.putCommands);
+import('./commands.js').then(m => {
+    const map = m.default;
+    executor.putCommands(map.values);
+});
 
 client.on('interactionCreate', i => {
     if(!i.isChatInputCommand() && !i.isAutocomplete()) return;

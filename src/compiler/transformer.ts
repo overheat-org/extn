@@ -9,7 +9,7 @@ import Graph from './graph';
 import Config from '../config';
 import { findNodeModulesDir, toDynamicImport } from './utils';
 import { join as j } from 'path/posix';
-import { FLAME_MANAGER_REGEX, SUPPORTED_EXTENSIONS_REGEX } from '../consts';
+import { FLAME_MANAGER, SUPPORTED_EXTENSIONS } from '../consts/regex';
 import { glob } from 'glob';
 import { fileURLToPath } from 'url';
 import { default as ReplacerPlugin, replacement } from '@meta-oh/replacer/babel';
@@ -19,8 +19,9 @@ import { Module } from './module';
 import { readFileSync } from 'fs';
 import type { CompilerOptions } from "typescript";
 import { FlameError } from './reporter';
+import { jsonc as JSONC } from 'jsonc';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = fileURLToPath(new URL(/* @vite-ignore */'.', import.meta.url));
 
 const isRootPath = (path: string) => /^\.?\/?[^/]+$/.test(path);
 
@@ -125,7 +126,6 @@ class BaseTransformer {
 				absolutePath = Module.resolvePath(source, dirpath)!;
 			}
 			else {
-				console.log('NOT RELATIVE')
 				absolutePath = this.resolveImportAlias(source);
 			}
 		}
@@ -140,7 +140,7 @@ class BaseTransformer {
 
 	constructor(protected graph: Graph, protected config: Config) {
 		// FIXME: if tsconfig not exists, this will throw an error
-		this.tsconfig = JSON.parse(
+		this.tsconfig = JSONC.parse(
 			readFileSync(j(config.cwd, "tsconfig.json"), "utf8")
 		);
 	}
@@ -167,7 +167,7 @@ class ManagerTransformer extends BaseTransformer {
 		for (const dirent of dirents) {
 			const path = j(dirent.parentPath ?? dirpath, dirent.name);
 
-			if (!FLAME_MANAGER_REGEX.test(path)) continue;
+			if (!FLAME_MANAGER.test(path)) continue;
 
 			const name = dirent.name.split('-').slice(1).join('-');
 
@@ -222,9 +222,9 @@ class CommandTransformer extends BaseTransformer {
 		let body = new Array<T.Statement>;
 
 		const buildAsyncWrapper = template.statement(`
-            (async () => {
+            __map__.register(async () => {
                 %%body%%
-            })().then(m => __module__ = { ...__module__, ...m.__map__ });
+			});
         `);
 
 		for (const command of commands) {
@@ -232,22 +232,18 @@ class CommandTransformer extends BaseTransformer {
 				body: command.program.body,
 			}))
 		}
-
+		
 		body.unshift(
-			T.variableDeclaration(
-				"let",
-				[
-					T.variableDeclarator(
-						T.identifier("__module__"),
-						T.objectExpression([])
-					)
-				]
-			)
+			...template.statements(`
+				import { CommandMap } from '@flame-oh/core/internal';
+
+				const __map__ = new CommandMap();
+			`)()
 		);
 
 		body.push(
 			T.exportDefaultDeclaration(
-				T.identifier("__module__")
+				T.identifier("__map__")
 			)
 		);
 
@@ -283,7 +279,7 @@ class CommandTransformer extends BaseTransformer {
 			if (!relFromNewSelf.startsWith('.')) {
 				relFromNewSelf = '.' + posix.sep + relFromNewSelf;
 			}
-			const finalImportPath = relFromNewSelf.replace(SUPPORTED_EXTENSIONS_REGEX, '.js');
+			const finalImportPath = relFromNewSelf.replace(SUPPORTED_EXTENSIONS, '.js');
 
 			path.get('source').set('value', finalImportPath);
 		}
@@ -336,14 +332,12 @@ class Transformer extends BaseTransformer {
 	}
 
 	async run() {
-		const flamePath = findNodeModulesDir(this.config.cwd, '@flame-oh');
-
-		console.log({flamePath})
+		// const flamePath = findNodeModulesDir(this.config.cwd, '@flame-oh');
 
 		await Promise.all([
 			this.manager.transformDir(j(this.config.entryPath, 'managers')),
 			this.command.mergeDir(j(this.config.entryPath, 'commands')),
-			this.manager.transformExternDir(flamePath)
+			// this.manager.transformExternDir(flamePath)
 		]);
 		await this.emitIndex(this.config.entryPath);
 	}

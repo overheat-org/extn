@@ -4,7 +4,8 @@ import _path from 'path/posix';
 import Config from '../config';
 import { NodePath } from '@babel/traverse';
 import * as T from '@babel/types';
-import { SUPPORTED_EXTENSIONS_REGEX } from '../consts';
+import { SUPPORTED_EXTENSIONS } from '../consts/regex';
+import { FlameErrorLocation } from './reporter';
 
 export function findNodeModulesDir(startDir?: string, expectedPackage?: string, maxDepth = 10) {
     let currentDir = startDir ?? process.cwd();
@@ -33,7 +34,8 @@ export function getConstructor(path: NodePath<T.Class>) {
 export function createConstructor(
     classPath: NodePath<T.ClassDeclaration | T.ClassExpression>,
     params: T.Identifier[] = [],
-    body: T.Statement[] = []
+    body: T.Statement[] = [],
+    Super = false,
 ): NodePath<T.ClassMethod> {
     const constructorMethod = T.classMethod(
         'constructor',
@@ -41,6 +43,10 @@ export function createConstructor(
         params,
         T.blockStatement(body)
     );
+
+    if(Super) {
+        constructorMethod.body.body.push(T.expressionStatement(T.callExpression(T.identifier('super'), [])))
+    }
 
     classPath.get('body').pushContainer('body', constructorMethod);
 
@@ -53,10 +59,48 @@ export function createConstructor(
 }
 
 export function getDecoratorParams(path: NodePath<T.Decorator>) {
-	const expr = path.get("expression");
-	if(!expr.isCallExpression()) return;
+    const expr = path.get("expression");
+    if (!expr.isCallExpression()) return;
 
-	return expr.get('arguments');
+    return expr.get('arguments');
+}
+
+export function getErrorLocation(path: NodePath, filepath?: string): FlameErrorLocation {
+    return { ...path.node.loc?.start! ?? {}, path: filepath };
+}
+
+export function resolveName(path: NodePath) {
+    const node = path.node;
+
+    if (T.isObjectProperty(node)) {
+        if (node.computed && T.isStringLiteral(node.key)) {
+            const binding = path.scope.getBinding(node.key.value);
+            if (binding && T.isVariableDeclarator(binding.path.node) && T.isIdentifier(binding.path.node.id)) {
+                return binding.path.node.id.name;
+            }
+            return node.key.value;
+        } else if (!node.computed && T.isIdentifier(node.key)) {
+            return node.key.name;
+        }
+    }
+
+    if (T.isClassMethod(node)) {
+        if (node.computed && T.isStringLiteral(node.key)) {
+            const binding = path.scope.getBinding(node.key.value);
+            if (binding && T.isVariableDeclarator(binding.path.node) && T.isIdentifier(binding.path.node.id)) {
+                return binding.path.node.id.name;
+            }
+            return node.key.value;
+        } else if (!node.computed && T.isIdentifier(node.key)) {
+            return node.key.name;
+        }
+    }
+
+    if (T.isIdentifier(node)) {
+        return node.name;
+    }
+
+    throw new Error('Cannot resolve name of node');
 }
 
 // FIXME: poor solution
