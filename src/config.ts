@@ -1,13 +1,19 @@
 import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
 import { join as j } from 'path/posix';
+import { Module } from './compiler/module';
 
 class Config {
-    #cwd!: string;
+    static DEFAULT = {
+        entryPath: 'src',
+        buildPath: '.flame'
+    } as Config 
+
+    #cwd = process.cwd();
     get cwd() {
         return this.#cwd;
     }
     set cwd(value: string) {
-        this.#cwd = value.replace(/\\/g, '/');
+        this.#cwd = Module.normalizePath(value);
     }
 
     #buildPath!: string;
@@ -15,7 +21,7 @@ class Config {
         return this.#buildPath;
     }
     set buildPath(value) {
-        this.#buildPath = j(this.cwd.replace(/\\/g, '/'), value);
+        this.#buildPath = j(Module.normalizePath(this.cwd), value);
     };
     
     #entryPath!: string;
@@ -23,45 +29,13 @@ class Config {
         return this.#entryPath;
     }
     set entryPath(value) {
-        this.#entryPath = j(this.cwd.replace(/\\/g, '/'), value);
+        this.#entryPath = j(Module.normalizePath(this.cwd), value);
     };
 
     intents: BitFieldResolvable<GatewayIntentsString, number> = ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
 
     constructor(obj: Partial<Config>) {
-        for(const key of Object.keys(obj)) {
-            // @ts-ignore
-            this[key] = obj[key];
-        }
-    }
-
-    merge(obj: Partial<Config>) {
-        for(const key of Object.keys(obj)) {
-            // @ts-ignore
-            this[key] = obj[key];
-        }
-
-        return this;
-    }
-    
-    static getInstance(path: string, cwd = process.cwd()) {
-        const defaultConfig = new Config({
-            cwd,
-            entryPath: 'src',
-            buildPath: '.flame', 
-        });
-
-        const config = (() => {
-            try {
-                // This string template is required to webpack
-                return require(`${path}`) as Config;
-            }
-            catch {
-                return null;
-            }
-        })();
-
-        return config ? defaultConfig.merge(config) : defaultConfig;
+        Object.assign(this, Config.DEFAULT, obj);
     }
 }
 
