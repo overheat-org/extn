@@ -1,11 +1,14 @@
 export class IPC {
-    private endpoints = new Map<string, (req: any) => Promise<any>>();
+    private endpoints = new Map<string, Map<string, (req: any) => Promise<any>>>();
 
     constructor() {
-        process.on('message', async (arg: IPC_Object | null) => {
+        process.on('message', async (arg: IPCObject | null) => {
             if (typeof arg === 'object' && arg?.url?.startsWith('ipc')) {
                 const path = arg.url.replace('ipc:/', '');
-                const handler = this.endpoints.get(path);
+                const method = arg.method.toUpperCase();
+                const methodMap = this.endpoints.get(path);
+                const handler = methodMap?.get(method);
+                
                 if (handler) {
                     try {
                         const result = await handler(arg);
@@ -20,13 +23,36 @@ export class IPC {
         });
     }
 
-    addEndpoint(path: string, handler: (req: any) => Promise<any>) {
-        this.endpoints.set(path, handler);
+    private registerEndpoint(method: string, path: string, handler: (req: any) => Promise<any>) {
+        if (!this.endpoints.has(path)) {
+            this.endpoints.set(path, new Map());
+        }
+        this.endpoints.get(path)!.set(method.toUpperCase(), handler);
+    }
+
+    __get__(path: string, handler: (req: any) => Promise<any>) {
+        this.registerEndpoint('GET', path, handler);
+    }
+
+    __post__(path: string, handler: (req: any) => Promise<any>) {
+        this.registerEndpoint('POST', path, handler);
+    }
+
+    __put__(path: string, handler: (req: any) => Promise<any>) {
+        this.registerEndpoint('PUT', path, handler);
+    }
+
+    __delete__(path: string, handler: (req: any) => Promise<any>) {
+        this.registerEndpoint('DELETE', path, handler);
+    }
+
+    __patch__(path: string, handler: (req: any) => Promise<any>) {
+        this.registerEndpoint('PATCH', path, handler);
     }
 }
 
 
-type IPC_Object = {
+type IPCObject = {
     method: string,
     url: string,
     headers: Headers,

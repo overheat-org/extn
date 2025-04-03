@@ -1,10 +1,10 @@
 import * as T from '@babel/types';
 import type { DecoratorDeclaration } from "@meta-oh/comptime-decorators/babel";
-import { createConstructor, getConstructor, getDecoratorParams } from "./utils";
+import { createConstructor, getConstructor, getDecoratorParams, getErrorLocation, resolveName } from "./utils";
 import { NodePath } from "@babel/traverse";
 import Graph from './graph';
 import { template } from '@babel/core';
-import { FlameError } from './reporter';
+import { FlameError, FlameErrorLocation } from './reporter';
 
 const errors = {
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
@@ -15,6 +15,8 @@ const errors = {
     EXPECTED_FIND_METHOD: "The target of singleton decorator needs a static find method",
     EXPECTED_IDENTIFIER_PARAM: "The first param of find method needs to be a number or string identifier"
 };
+
+const CALL_EXPECTED = (location: FlameErrorLocation, n: string) => new FlameError(`The decorator '${n}' is expecting call expression`, location);
 
 export default {
     inject(path, graph: Graph) {
@@ -125,17 +127,36 @@ export default {
     api(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
         if (!methodDecl) {
-			const locStart = path.node.loc?.start!;
-
-			throw new FlameError(errors.EXPECTED_METHOD, { path: this.path, ...locStart });
+			throw new FlameError(errors.EXPECTED_METHOD, getErrorLocation(path, this.path));
 		};
 
-        const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
-        const constructorDecl = getConstructor(classDecl) ?? createConstructor(classDecl);
+        let method: string;
+        {
+            const expr = path.get('expression');
+            if(!expr.isCallExpression()) throw CALL_EXPECTED(getErrorLocation(expr, this.path), "api");
+            
+            const callee = expr.get('callee');
+            if(!callee.isMemberExpression()) throw new FlameError("The decorator 'api' should have a member expression", getErrorLocation(callee, this.path));
 
-        const wrapper = template.statement(`
-            this.addEndpoint(%%string%%, (...args) => this.%%id%%.bind(this, ...args));
-        `);
+            method = `__${resolveName(callee.get('property'))}__`;
+        }
+
+        const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
+        if(!classDecl.node.superClass) {
+            const ipcId = T.identifier('_IPC_');
+            classDecl.set('superClass', ipcId);
+
+            const program = path.findParent(n => n.isProgram()) as NodePath<T.Program>;
+
+            program.node.body.unshift(
+                T.importDeclaration(
+                    [T.importSpecifier(ipcId, T.identifier("IPC"))],
+                    T.stringLiteral('@flame-oh/core/internal')
+                )
+            );
+        }
+        
+        const constructorDecl = getConstructor(classDecl) ?? createConstructor(classDecl, [], [], true);
 
 		let string: string;
 		{
@@ -158,9 +179,13 @@ export default {
 			id = expr.node.name;
 		}
 
+        const wrapper = template.statement(`
+            this.%%method%%(${JSON.stringify(string)}, (...args) => this.%%id%%.bind(this, ...args));
+        `);
+
         if (!path.removed) path.remove();
 
-        constructorDecl.get('body').pushContainer('body', wrapper({ string, id }));
+        constructorDecl.get('body').pushContainer('body', wrapper({ id, method }));
     },
     singleton(path) {
         const classDeclPath = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
