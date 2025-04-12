@@ -10,7 +10,9 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "sourceMap": true,
   },
-  "include": ["./src/**/*"]
+  "include": ["./src/**/*"],  // Não incluir dist aqui
+  "exclude": ["./dist/**/*", "./test/**/*"]  // Exclui o diretório dist
 }

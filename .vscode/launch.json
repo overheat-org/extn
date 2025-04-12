@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch and Debug with TypeScript",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/dist/main.js",  // Caminho para o arquivo JS gerado
+      "args": ["."],
+      "preLaunchTask": "Run test script",  // Script que roda antes do launch
+      "runtimeArgs": ["--inspect-brk"],  // Habilita o modo de depuração
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"  // Caminho para os arquivos JS gerados
+      ],
+      "sourceMaps": true, // Habilita o uso de source maps
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  ]
+}
