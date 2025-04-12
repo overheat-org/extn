@@ -3,6 +3,8 @@ import fs from 'fs/promises';
 import Config from '../config';
 import _generate from '@babel/generator';
 import { Module } from "./module";
+import { REGEX } from '../consts';
+import { join } from 'path';
 
 const generate: typeof _generate = typeof _generate == 'object'
     ? (_generate as any).default
@@ -24,11 +26,12 @@ class Injection {
     }
 }
 
+// TODO: registrar os symbols 
 export class Graph {
     modules = new Map<string, Module>;
     injections = new Array<Injection>;
 
-    addModule(path: string, content?: T.Node) {
+    addModule(path: string, content?: T.File | string) {
         path = Module.normalizePath(path);
 
         const module = new Module(path, content);
@@ -52,14 +55,10 @@ export class Graph {
 
     async build() {
         for(const module of this.modules.values()) {
-            const outPath = module.path
-                .replace(this.config.entryPath, this.config.buildPath)
-                .replace(/\.(t|j)sx?$/, '.js');
-
             if(module.content) {
                 const content = generate(module.content, { comments: false }).code;
                 
-                await fs.writeFile(outPath, content, { recursive: true });
+                await fs.writeFile(module.buildPath, content, { recursive: true });
             }
         }
     }
