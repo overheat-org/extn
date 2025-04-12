@@ -7,6 +7,11 @@ import * as T from '@babel/types';
 import { SUPPORTED_EXTENSIONS } from '../consts/regex';
 import { FlameErrorLocation } from './reporter';
 
+export function readJSONFile<T = any>(path: string) {
+    const file = fs.readFileSync(path, 'utf-8');
+    return JSON.parse(file) as T;
+}
+
 export function findNodeModulesDir(startDir?: string, expectedPackage?: string, maxDepth = 10) {
     let currentDir = startDir ?? process.cwd();
     let depth = 0;
