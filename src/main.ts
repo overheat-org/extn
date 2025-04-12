@@ -1,6 +1,6 @@
 import { extname, join, resolve } from 'path';
 import Config from './config';
-import { regex } from './consts';
+import { REGEX } from './consts';
 import { readdirSync } from 'fs';
 import { readFile } from 'fs/promises';
 import HotReload from './hot-reload';
@@ -15,7 +15,7 @@ import { createEnvFileOption } from './compiler/env';
 
     let config: Config;
     {
-        const filename = readdirSync(path).find(p => regex.CONFIG_PATH.test(p));
+        const filename = readdirSync(path).find(p => REGEX.CONFIG_PATH.test(p));
 
         if(!filename) config = new Config({ cwd: path }); 
         else {

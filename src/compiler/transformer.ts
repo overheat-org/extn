@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { basename, dirname, join, posix, relative } from 'path';
+import { basename, dirname, join, posix, relative, resolve, sep } from 'path';
 import * as T from '@babel/types';
 import { PluginItem, template, transformAsync } from '@babel/core';
 import { NodePath, Visitor } from "@babel/traverse";
@@ -7,11 +7,11 @@ import ComptimeDecoratorsPlugin from '@meta-oh/comptime-decorators/babel';
 import decorators from './decorators';
 import Graph from './graph';
 import Config from '../config';
-import { findNodeModulesDir, toDynamicImport } from './utils';
+import { findNodeModulesDir, getErrorLocation, toDynamicImport } from './utils';
 import { join as j } from 'path/posix';
-import { FLAME_MANAGER, SUPPORTED_EXTENSIONS } from '../consts/regex';
+import { FLAME_MODULE, SUPPORTED_EXTENSIONS } from '../consts/regex';
 import { glob } from 'glob';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { default as ReplacerPlugin, replacement } from '@meta-oh/replacer/babel';
 import { parseExpression } from '@babel/parser';
 import { getEnvFile } from './env';
@@ -20,6 +20,7 @@ import { readFileSync } from 'fs';
 import type { CompilerOptions } from "typescript";
 import { FlameError } from './reporter';
 import { jsonc as JSONC } from 'jsonc';
+import { REGEX } from '../consts';
 
 const __dirname = fileURLToPath(new URL(/* @vite-ignore */'.', import.meta.url));
 
@@ -33,7 +34,6 @@ class BaseTransformer {
 	plugins: PluginItem[] = [];
 	presets: PluginItem[] = [
 		"@babel/preset-typescript",
-		["@babel/preset-react", { runtime: "automatic", importSource: "diseact" }]
 	];
 
 	protected getVisitor(filepath: string): Visitor {
@@ -42,12 +42,12 @@ class BaseTransformer {
 		};
 	}
 
-	async transformFile(path: string, { visitor, ...opts }: { code?: boolean, ast?: boolean, visitor?: Visitor } = { ast: true }) {
+	async transformFile(path: string, { visitor, ...opts }: { visitor?: Visitor } = {}) {
 		path = Module.normalizePath(path);
 
 		let content = await fs.readFile(path, 'utf-8');
 
-		const visitorPlugin = { visitor: visitor ?? this.getVisitor(path) };
+		const visitorPlugin = { visitor: visitor ?? this.getVisitor(path), ast: true };
 
 		const result = await transformAsync(content, {
 			...opts,
@@ -61,31 +61,19 @@ class BaseTransformer {
 		return result;
 	}
 
-	async transformModule(path: string, dirpath?: string) {
-		path = Module.normalizePath(path);
-
-		const module = this.graph.addModule(path);
-		const result = await this.transformFile(path);
+	async transformModule(module: Module) {
+		const result = await this.transformFile(module.entryPath);
 
 		module.content = result.ast ?? undefined;
 
-		const replaceArgs = [/\.(t|j)sx?$/, '.js'] as const;
-
-		if (dirpath) {
-			return Module.normalizePath(
-				Module
-					.pathToRelative(path, dirpath)
-					.replace(...replaceArgs)
-			)
-		}
-		else {
-			return path.replace(...replaceArgs);
-		}
+		return module;
 	}
 
-	resolveImportAlias(path: string) {
+	protected resolveImportAlias(path: string) {
+		const ERR = new FlameError(`Import alias for path "${path}" could not be resolved.`);
+
 		const { baseUrl, paths } = this.tsconfig?.compilerOptions ?? {};
-		if (!paths) return;
+		if (!paths) throw ERR;
 
 		const basePath = j(this.config.cwd, baseUrl || '');
 
@@ -114,40 +102,70 @@ class BaseTransformer {
 				if (candidate) return candidate;
 			}
 		}
+
+		throw ERR;
 	}
 
-	protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
-		const dirpath = dirname(filepath);
-		const source = path.node.source.value;
+	protected async resolveFlameModuleImport(path: string) {
+		const flameDir = findNodeModulesDir(this.config.cwd, '@flame-oh');
+		const nodeModules = dirname(flameDir);
+		const targetPath = nodeModules + sep + path;
+		const absolutePath = Module.resolvePath(targetPath);
 
-		let absolutePath: string | undefined;
-		{
-			if(source.startsWith('.')) {
-				absolutePath = Module.resolvePath(source, dirpath)!;
-			}
-			else {
-				absolutePath = this.resolveImportAlias(source);
-			}
-		}
+		const commandsPaths = await glob('**/command.*');
+		CommandTransformer.queueProcess(commandsPaths);
 		
-		// FIXME: me a error here
-		if(!absolutePath) return;
+		return absolutePath!;
+	}
 
-		const relativePath = await this.transformModule(absolutePath, dirpath);
+	protected resolveRelativeImport(source: string, filepath: string) {
+		const dirpath = dirname(filepath);
+		return Module.resolvePath(source, dirpath)!;
+	}
 
+	protected async resolveImportPath(path: NodePath<T.ImportDeclaration>, filepath: string): Promise<string> {
+		const source = path.node.source.value;
+	
+		let module: Module | undefined;
+		if (source.startsWith('.')) {
+			const path = this.resolveRelativeImport(source, filepath);
+			module = this.graph.addModule(path);
+		} else {
+			let path: string;
+			if(REGEX.FLAME_MODULE.test(source)) path = await this.resolveFlameModuleImport(source);
+			else path = this.resolveImportAlias(source);
+			module = this.graph.addModule(path);
+		}
+	
+		if (!module) {
+			throw new FlameError('Cannot resolve import declaration', { path: filepath, ...getErrorLocation(path) });
+		}
+	
+		await this.transformModule(module);
+		return module.buildPath;
+	}
+	
+	protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
+		const absolutePath = await this.resolveImportPath(path, filepath);
+		const dirpath = dirname(filepath);
+	
+		const relativePath = Module.pathToRelative(absolutePath, dirpath);
+	
 		path.get('source').set('value', relativePath);
 	}
-
+	
 	constructor(protected graph: Graph, protected config: Config) {
-		// FIXME: if tsconfig not exists, this will throw an error
-		this.tsconfig = JSONC.parse(
-			readFileSync(j(config.cwd, "tsconfig.json"), "utf8")
-		);
+		try {
+			this.tsconfig = JSONC.parse(
+				readFileSync(j(config.cwd, "tsconfig.json"), "utf8")
+			);
+		} catch {
+			throw new FlameError('Cannot find tsconfig.json of your project');
+		}
 	}
 }
 
 class ManagerTransformer extends BaseTransformer {
-	OUT_DIR: string;
 	parent!: Transformer;
 
 	async transformDir(dirpath: string) {
@@ -156,39 +174,11 @@ class ManagerTransformer extends BaseTransformer {
 		for (const dirent of dirents) {
 			const path = j(dirent.parentPath ?? dirpath, dirent.name);
 
-			if (dirent.isFile()) await this.transformModule(path);
-			else await this.transformDir(path);
-		}
-	}
-
-	async transformExternDir(dirpath: string) {
-		const dirents = await fs.readdir(dirpath, { withFileTypes: true });
-
-		for (const dirent of dirents) {
-			const path = j(dirent.parentPath ?? dirpath, dirent.name);
-
-			if (!FLAME_MANAGER.test(path)) continue;
-
-			const name = dirent.name.split('-').slice(1).join('-');
-
-			try {
-				const { main } = JSON.parse(await fs.readFile(j(path, 'package.json'), 'utf-8'));
-
-				if (!isRootPath(main)) {
-					await glob(j(path, '/**/command.{ts,js,tsx,jsx}')).then(async paths => {
-						for (const p of paths) await this.parent.command.transformModule(p);
-					});
-				} else {
-					await this.transformModule(j(path, main));
-				}
-
-			} catch (e: any) {
-				if (e.code == 'ENOENT') {
-					throw new Error(`Cannot find package.json of extern manager '${name}'.`);
-				}
-
-				throw e;
+			if (dirent.isFile()) {
+				const module = this.graph.addModule(path);
+				await this.transformModule(module);
 			}
+			else await this.transformDir(path);
 		}
 	}
 
@@ -198,13 +188,19 @@ class ManagerTransformer extends BaseTransformer {
 		this.plugins = [
 			ComptimeDecoratorsPlugin(decorators, graph)
 		]
-
-		this.OUT_DIR = j(config.buildPath, 'managers');
 	}
 }
 
 class CommandTransformer extends BaseTransformer {
+	private static files = new Array<Module>;
+	static queueProcess(paths: string[]) {
+		
+	}
+	
 	parent!: Transformer
+	presets = [
+		["@babel/preset-react", { pragma: "jsx", pragmaFrag: "Fragment" }]
+	];
 
 	protected getVisitor(filepath: string): Visitor {
 		return {
@@ -216,74 +212,71 @@ class CommandTransformer extends BaseTransformer {
 		};
 	}
 
+
 	async mergeDir(path: string) {
-		const commands = await this.transformDir(path);
+		await this.transformDir(path);
 
-		let body = new Array<T.Statement>;
+		const body = template.statements(`
+			import { jsx, Fragment } from 'diseact';
+			import { CommandMap } from '@flame-oh/core/internal';
 
-		const buildAsyncWrapper = template.statement(`
-            __map__.register(async () => {
-                %%body%%
-			});
-        `);
+			const __map__ = new CommandMap();
 
-		for (const command of commands) {
-			body.push(buildAsyncWrapper({
-				body: command.program.body,
-			}))
-		}
-		
-		body.unshift(
-			...template.statements(`
-				import { CommandMap } from '@flame-oh/core/internal';
+			${CommandTransformer.files.map(
+				m => template.statement(`
+					__map__.register(async () => {
+						%%body%%
+					});
+				`)({ 
+					body: m.content!.program.body
+				})
+			)}
 
-				const __map__ = new CommandMap();
-			`)()
-		);
+			export default __map__;
+		`)();
 
-		body.push(
-			T.exportDefaultDeclaration(
-				T.identifier("__map__")
-			)
-		);
-
-
-		this.graph.addModule(path + '.js', T.program(body));
+		this.graph.addModule(path + '.js', T.file(T.program(body)));
 	}
 
 	async transformDir(dirpath: string) {
 		const dirents = await fs.readdir(dirpath, { withFileTypes: true });
-		const files = new Array<T.File>;
 
 		for (const dirent of dirents) {
 			const path = j(dirent.parentPath ?? dirpath, dirent.name);
 
-			if (dirent.isFile()) files.push((await this.transformFile(path)).ast!);
-			else files.push(...await this.transformDir(path));
+			if (dirent.isFile()) {
+				const module = this.graph.addModule(path);
+				CommandTransformer.files.push(await this.transformModule(module))
+			}
+			else await this.transformDir(path)
 		}
-
-		return files;
 	}
 
+	// TODO: refazer isso tendo como base o BaseTransformer.transformImportDeclaration
+	// E adicionar uma nova checagem para corrigir corretamente os paths de comandos externos por diretório.
+	// passar o buildPath para dentro do modulo também.
+	// protected resolveRelativeImport(source: string, filepath: string) {
+	// 	const currentBuildFile = basename(Module.pathToRelative(filepath, this.config.entryPath));
+	// 	const absImport = Module.resolvePath(source, dirname(filepath))!;
+	// 	const relToEntry = relative(this.config.entryPath, absImport);
+	// 	const builtImport = join(this.config.buildPath, relToEntry);
+	// 	let relFromNewSelf = relative(dirname(join(this.config.buildPath, currentBuildFile)), builtImport);
+	// 	relFromNewSelf = Module.normalizePath(relFromNewSelf);
+
+	// 	if (!relFromNewSelf.startsWith('.')) {
+	// 		relFromNewSelf = '.' + posix.sep + relFromNewSelf;
+	// 	}
+	// 	const finalImportPath = relFromNewSelf.replace(SUPPORTED_EXTENSIONS, '.js');
+
+	// 	return finalImportPath;
+	// }
+
 	protected async transformImportDeclaration(path: NodePath<T.ImportDeclaration>, filepath: string) {
-		let importPath = path.get('source').node.value;
-
-		if (importPath.startsWith('.')) {
-			const currentBuildFile = basename(Module.pathToRelative(filepath, this.config.entryPath));
-			const absImport = Module.resolvePath(importPath, dirname(filepath))!;
-			const relToEntry = relative(this.config.entryPath, absImport);
-			const builtImport = join(this.config.buildPath, relToEntry);
-			let relFromNewSelf = relative(dirname(join(this.config.buildPath, currentBuildFile)), builtImport);
-			relFromNewSelf = Module.normalizePath(relFromNewSelf);
-
-			if (!relFromNewSelf.startsWith('.')) {
-				relFromNewSelf = '.' + posix.sep + relFromNewSelf;
-			}
-			const finalImportPath = relFromNewSelf.replace(SUPPORTED_EXTENSIONS, '.js');
-
-			path.get('source').set('value', finalImportPath);
-		}
-
+		const absolutePath = await this.resolveImportPath(path, filepath);	
+		const relativePath = Module.pathToRelative(absolutePath, this.config.buildPath);
+	
+		path.get('source').set('value', relativePath);
+		
 		toDynamicImport(path);
 	}
 
@@ -314,6 +307,7 @@ class CommandTransformer extends BaseTransformer {
 	}
 }
 
+// TODO: mover o run e o emitIndex para o ./index.ts (compiler)
 class Transformer extends BaseTransformer {
 	plugins: PluginItem[] = [
 		ReplacerPlugin()
@@ -332,19 +326,18 @@ class Transformer extends BaseTransformer {
 	}
 
 	async run() {
-		// const flamePath = findNodeModulesDir(this.config.cwd, '@flame-oh');
-
+		console.log('RUNNING MANAGERS NOW')
+		await this.manager.transformDir(j(this.config.entryPath, 'managers')),
+		console.log('RUNNING COMMANDS NOW')
 		await Promise.all([
-			this.manager.transformDir(j(this.config.entryPath, 'managers')),
 			this.command.mergeDir(j(this.config.entryPath, 'commands')),
-			// this.manager.transformExternDir(flamePath)
 		]);
 		await this.emitIndex(this.config.entryPath);
 	}
 
 	private async emitIndex(path: string) {
 		const imports = this.graph.injections.map(i => {
-			const modPath = Module.toBuildPath(i.module.path, path);
+			const modPath = Module.pathToRelative(i.module.buildPath, this.config.buildPath);
 
 			const decl = (
 				T.importDeclaration([
@@ -392,7 +385,6 @@ class Transformer extends BaseTransformer {
 		const result = await this.transformFile(
 			j(__dirname, 'static', 'client.template.js'),
 			{
-				ast: true,
 				visitor: {}
 			}
 		);

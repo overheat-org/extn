@@ -1,4 +1,5 @@
 #!/usr/bin/sh
 
 cd test
-node ../dist/cli.js $1
+node --inspect=0.0.0.0:9229 ../dist/main.js . --hot
+cd ..

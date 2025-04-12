@@ -32,6 +32,8 @@ class Config {
         this.#entryPath = j(Module.normalizePath(this.cwd), value);
     };
 
+	extensions = [".js", ".jsx", ".ts", ".tsx"]
+
     intents: BitFieldResolvable<GatewayIntentsString, number> = ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
 
     constructor(obj: Partial<Config>) {

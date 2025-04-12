@@ -4,12 +4,14 @@ import Config from "../config";
 import Graph from "./graph";
 import Transformer from "./transformer";
 import { join } from 'path';
+import { Module } from './module';
 
 class Compiler {
     graph: Graph
     transformer: Transformer;
 
     constructor(public config: Config) {
+        Module.config = config;
         this.graph = new Graph(config),
         this.transformer = new Transformer(this.graph, config)
     }

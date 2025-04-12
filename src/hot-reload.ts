@@ -4,6 +4,7 @@ import { createEnvFileOption } from './compiler/env';
 import { join } from 'path';
 import { spawn } from 'child_process';
 
+// TODO: Fazer o logger
 function HotReload(compiler: Compiler) {
     console.log('enabled hot reload')
     
