@@ -128,13 +128,13 @@ class ModuleResolver {
 		const fromFlame = () => {
 			const ALL_BEFORE_FLAME_MODULE = new RegExp(`^.*node_modules/${REGEX.FLAME_MODULE.source}\/`);
 
-			path = path.replace(ALL_BEFORE_FLAME_MODULE, this.config.buildPath);
+			path = path.replace(ALL_BEFORE_FLAME_MODULE, this.config.buildPath).replace(REGEX.SUPPORTED_EXTENSIONS, ".js");
 
 			return path;
 		}
 
 		const fromEntry = () => {
-			path = path.replace(this.config.entryPath, this.config.buildPath);
+			path = path.replace(this.config.entryPath, this.config.buildPath).replace(REGEX.SUPPORTED_EXTENSIONS, ".js");
 
 			return path;
 		}
