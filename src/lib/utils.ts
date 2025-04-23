@@ -3,6 +3,7 @@ import KeyvSqlite from '@keyv/sqlite';
 
 export class Storage<V = any> extends _Keyv<V> {
     constructor(namespace: string) {
+        console.log(process.cwd())
         super(new KeyvSqlite(`sqlite://${process.cwd()}/database/data.sqlite`), { namespace });
     }
 }

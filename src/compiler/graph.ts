@@ -1,14 +1,8 @@
 import * as T from '@babel/types';
 import fs from 'fs/promises';
 import Config from '../config';
-import _generate from '@babel/generator';
-import { Module } from "./module";
-import { REGEX } from '../consts';
-import { join } from 'path';
-
-const generate: typeof _generate = typeof _generate == 'object'
-    ? (_generate as any).default
-    : _generate;
+import { CommandModule, Module } from "./module";
+import Transformer from './transformer';
 
 class Injection {
     readonly id: T.Identifier;
@@ -28,42 +22,80 @@ class Injection {
 
 // TODO: registrar os symbols 
 export class Graph {
-    modules = new Map<string, Module>;
+    private modulesByEntry = new Map<string, Module>;
+    modules = new Set<Module>;
     injections = new Array<Injection>;
+    commands = new Array<CommandModule>;
 
-    addModule(path: string, content?: T.File | string) {
+    addModule(module: Module): Module
+    addModule(path: string, content?: T.File): Module
+    addModule(...args: unknown[]) {
+        let module: Module;
+        
+        if(typeof args[0] == 'string') {
+            const [path, content] = args as [string, T.File | undefined];
+
+            module = new Module(path, content); 
+        }
+        else {
+            module = args[0] as Module;
+        }
+
+        if(module.entryPath) this.modulesByEntry.set(module.entryPath, module);
+        this.modules.add(module);
+
+        return module;
+    }
+    
+    removeModule(module: Module): boolean;
+    removeModule(path: string): boolean;
+    removeModule(arg: string | Module): boolean {
+        let path: string;
+        let target: Module;
+    
+        if (typeof arg === "string") {
+            path = Module.normalizePath(arg);
+            target = this.modulesByEntry.get(path)!;
+        } else {
+            path = arg.entryPath;
+            target = arg;
+        }
+    
+        const removedMap = this.modulesByEntry.delete(path);
+        const removedSet = this.modules.delete(target);
+    
+        return removedMap || removedSet;
+    }
+    
+    getModule(path: string) {
         path = Module.normalizePath(path);
+        
+        return this.modulesByEntry.get(path);
+    }
 
-        const module = new Module(path, content);
+    addCommand(module: CommandModule): CommandModule
+    addCommand(path: string, content?: T.File): CommandModule
+    addCommand(...args: unknown[]) {
+        let module: CommandModule;
+        
+        if(typeof args[0] == 'string') {
+            const [path, content] = args as [string, T.File | undefined];
 
-        this.modules.set(path, module);
+            module = new CommandModule(path, content); 
+        } else {
+            module = args[0] as CommandModule;
+        }
+        
+        this.commands.push(module);
 
         return module;
     }
 
-    getModule(path: string) {
-        path = Module.normalizePath(path);
-        
-        return this.modules.get(path);
-    }
-
-    addInject(id: string, module: Module) {
+    addInjection(id: string, module: Module) {
         this.injections.push(
             new Injection(id, module)
         );
     }
-
-    async build() {
-        for(const module of this.modules.values()) {
-            if(module.content) {
-                const content = generate(module.content, { comments: false }).code;
-                
-                await fs.writeFile(module.buildPath, content, { recursive: true });
-            }
-        }
-    }
-
-    constructor(public config: Config) {}
 }
 
 export default Graph;

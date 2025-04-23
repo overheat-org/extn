@@ -1,3 +1,4 @@
+import '@flame-oh/manager-commerce';
 import { Client } from "discord.js";
 import { useState } from "diseact";
 import { Manager, Storage } from '@flame-oh/core';

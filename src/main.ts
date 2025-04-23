@@ -10,7 +10,7 @@ import { createEnvFileOption } from './compiler/env';
 
 (async () => {
     let [runtime, _, path, ...args] = process.argv;
-    
+
     if(path) path = resolve(process.cwd(), path);
 
     let config: Config;
@@ -23,11 +23,11 @@ import { createEnvFileOption } from './compiler/env';
 
             if(extension == '.js') {
                 const module = await import(`file://${resolve(path, filename)}`);
-                config = new Config({ cwd: path, ...module.default });
+                config = new Config({ ...module.default, cwd: path });
             } else {
                 config = new Config({
+                    ...JSON.parse(await readFile(join(path, filename), 'utf-8')),
                     cwd: path,
-                    ...JSON.parse(await readFile(join(path, filename), 'utf-8'))
                 });
             }
         }
@@ -39,7 +39,7 @@ import { createEnvFileOption } from './compiler/env';
         HotReload(compiler);
     }
     else {
-        await compiler.run();
+        await compiler.compile();
         
         const args = new Array<string>;
 

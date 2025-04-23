@@ -6,8 +6,8 @@
       "request": "launch",
       "name": "Launch and Debug with TypeScript",
       "skipFiles": ["<node_internals>/**"],
-      "program": "${workspaceFolder}/dist/main.js",  // Caminho para o arquivo JS gerado
-      "args": ["."],
+      "program": "${workspaceFolder}/src/main.ts",  // Caminho para o arquivo JS gerado
+      "args": [".", "--hot"],
       "preLaunchTask": "Run test script",  // Script que roda antes do launch
       "runtimeArgs": ["--inspect-brk"],  // Habilita o modo de depuração
       "outFiles": [
@@ -16,7 +16,9 @@
       "sourceMaps": true, // Habilita o uso de source maps
       "env": {
         "NODE_ENV": "development"
-      }
+      },
+      "resolveSourceMapLocations": ["${workspaceFolder}/dist/**/*.js", "${workspaceFolder}/src/**/*"],
+      "cwd": "${workspaceFolder}/test"
     }
   ]
 }

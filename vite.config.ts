@@ -11,6 +11,7 @@ export default defineConfig({
         noExternal: true,
     },
     build: {
+        minify: false,
         sourcemap: true,
         lib: {
             entry: [
@@ -29,29 +30,7 @@ export default defineConfig({
             external: (id) => {
                 return id.startsWith('node:') || (!id.startsWith('.') && !path.isAbsolute(id));
             },
-            plugins: [
-                {
-                    name: 'include-template-folders',
-                    buildStart() {
-                        const templateDirs = glob.sync('src/**/static');
-
-                        for (const dir of templateDirs) {
-                            const files = fs.readdirSync(dir);
-
-                            for (const file of files) {
-                                const filePath = path.join(dir, file);
-                                if (fs.statSync(filePath).isFile()) {
-                                    this.emitFile({
-                                        type: 'asset',
-                                        fileName: path.relative('src', filePath),
-                                        source: fs.readFileSync(filePath, 'utf-8')
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            ]
+            treeshake: false
         }
     },
 });

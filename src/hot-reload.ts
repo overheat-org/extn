@@ -19,7 +19,7 @@ function HotReload(compiler: Compiler) {
         if (isFirstRun) isFirstRun = false;
         else console.log('reloading');
 
-        await compiler.run();
+        await compiler.compile();
 
         const args = new Array<string>;
 

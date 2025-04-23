@@ -1,10 +1,10 @@
 import * as T from '@babel/types';
-import type { DecoratorDeclaration } from "@meta-oh/comptime-decorators/babel";
 import { createConstructor, getConstructor, getDecoratorParams, getErrorLocation, resolveName } from "./utils";
 import { NodePath } from "@babel/traverse";
 import Graph from './graph';
 import { template } from '@babel/core';
 import { FlameError, FlameErrorLocation } from './reporter';
+import type { DecoratorDeclaration } from './transformer';
 
 const errors = {
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
@@ -19,12 +19,12 @@ const errors = {
 const CALL_EXPECTED = (location: FlameErrorLocation, n: string) => new FlameError(`The decorator '${n}' is expecting call expression`, location);
 
 export default {
-    inject(path, graph: Graph) {
+    inject(path) {
         const classDecl = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
         if (!classDecl) {
 			const locStart = path.node.loc?.start!;
 
-			throw new FlameError(errors.EXPECTED_CLASS, { path: this.path, ...locStart });
+			throw new FlameError(errors.EXPECTED_CLASS, { path: this.module.entryPath, ...locStart });
 		};
 
         if (!path.removed) path.remove();
@@ -61,19 +61,18 @@ export default {
             default: {
                 const locStart = classDecl.node.loc?.start!;
 
-                throw new FlameError(errors.SHOULD_BE_GLOBAL, { path: this.path, ...locStart });
+                throw new FlameError(errors.SHOULD_BE_GLOBAL, { path: this.module.entryPath, ...locStart });
             }
         }
-
-        const module = graph.getModule(this.path)!;
-        graph.addInject(className, module);
+        
+        this.graph.addInjection(className, this.module);
     },
     event(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
         if (!methodDecl) {
 			const locStart = path.node.loc?.start!;
 
-			throw new FlameError(errors.EXPECTED_METHOD, { path: this.path, ...locStart });
+			throw new FlameError(errors.EXPECTED_METHOD, { path: this.module.entryPath, ...locStart });
 		};
 
         const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
@@ -87,7 +86,7 @@ export default {
             if (!key.isIdentifier()) {
 				const locStart = key.node.loc?.start!;
 
-				throw new FlameError("Expected a comptime known class method name", { path: this.path, ...locStart });
+				throw new FlameError("Expected a comptime known class method name", { path: this.module.entryPath, ...locStart });
 			};
 
             methodName = key.node.name;
@@ -98,7 +97,7 @@ export default {
 				
 				throw new FlameError(
 					"The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
-					{ path: this.path, ...locStart }
+					{ path: this.module.entryPath, ...locStart }
 				)
 			};
             
@@ -127,16 +126,16 @@ export default {
     api(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;
         if (!methodDecl) {
-			throw new FlameError(errors.EXPECTED_METHOD, getErrorLocation(path, this.path));
+			throw new FlameError(errors.EXPECTED_METHOD, getErrorLocation(path, this.module.entryPath));
 		};
 
         let method: string;
         {
             const expr = path.get('expression');
-            if(!expr.isCallExpression()) throw CALL_EXPECTED(getErrorLocation(expr, this.path), "api");
+            if(!expr.isCallExpression()) throw CALL_EXPECTED(getErrorLocation(expr, this.module.entryPath), "api");
             
             const callee = expr.get('callee');
-            if(!callee.isMemberExpression()) throw new FlameError("The decorator 'api' should have a member expression", getErrorLocation(callee, this.path));
+            if(!callee.isMemberExpression()) throw new FlameError("The decorator 'api' should have a member expression", getErrorLocation(callee, this.module.entryPath));
 
             method = `__${resolveName(callee.get('property'))}__`;
         }
@@ -192,7 +191,7 @@ export default {
             if(!classDeclPath) {
 				const locStart = path.node.loc?.start!;
 
-				throw new FlameError(errors.EXPECTED_CLASS, { path: this.path, ...locStart });
+				throw new FlameError(errors.EXPECTED_CLASS, { path: this.module.entryPath, ...locStart });
 			};
         
             classDeclPath.addComment('inner', "@singleton entity");

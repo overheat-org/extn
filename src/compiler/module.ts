@@ -4,6 +4,7 @@ import { basename, extname, isAbsolute, normalize, relative, resolve, posix } fr
 import { REGEX } from '../consts';
 import Config from '../config';
 import { readJSONFile } from './utils';
+import { parse } from '@babel/parser';
 
 /**
  * ModuleResolver class provides utility methods to resolve and manipulate file paths.
@@ -157,19 +158,23 @@ class ModuleResolver {
 
 
 export class Module extends ModuleResolver {
-	public filename: string;
-	public content?: T.File;
-	public buildPath: string;
+	public buildPath!: string;
 
 	constructor(
-		public entryPath: string,
-		content?: T.File | string,
-		options?: { filename?: string }
+		public entryPath = "",
+		public content: T.File = T.file(T.program([])),
 	) {
 		super();
 
-		this.entryPath = Module.normalizePath(entryPath);
-		this.filename = options?.filename ?? basename(this.entryPath);
-		this.buildPath = Module.toBuildPath(entryPath);
+		if(entryPath) {
+			this.entryPath = Module.normalizePath(entryPath);
+			this.buildPath = Module.toBuildPath(entryPath);
+		}
+	}
+
+	get filename() {
+		return basename(this.entryPath ?? this.buildPath);
 	}
 }
+
+export class CommandModule extends Module {}

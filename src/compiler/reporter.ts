@@ -1,4 +1,4 @@
-export type FlameErrorLocation = { path?: string, line: number, column: number }
+export type FlameErrorLocation = { path?: string, line?: number, column?: number }
 
 export class FlameError extends Error {
 	constructor(message: string, location?: FlameErrorLocation) {

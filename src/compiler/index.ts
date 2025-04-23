@@ -3,23 +3,28 @@ import fs from 'fs/promises';
 import Config from "../config";
 import Graph from "./graph";
 import Transformer from "./transformer";
-import { join } from 'path';
+import { join, sep } from 'path';
 import { Module } from './module';
+import Builder from './builder';
+import Parser from './parser';
 
 class Compiler {
-    graph: Graph
-    transformer: Transformer;
+    parser: Parser;
+    builder: Builder;
 
     constructor(public config: Config) {
         Module.config = config;
-        this.graph = new Graph(config),
-        this.transformer = new Transformer(this.graph, config)
+        const graph = new Graph();
+        const transformer = new Transformer(config, graph);
+        this.parser = new Parser(config, graph, transformer);
+        this.builder = new Builder(config, graph, transformer);
     }
 
-    async run() {
+    async compile() {
         await this.prepareBuild();
-        await this.transformer.run();
-        await this.graph.build();
+        await this.parser.parseDir(this.config.entryPath + sep + 'commands');
+        await this.parser.parseDir(this.config.entryPath + sep + 'managers');
+        await this.builder.build();
     }
 
     private async prepareBuild() {

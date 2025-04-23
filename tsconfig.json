@@ -1,6 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "types": ["vite/client"],
     "module": "ESNext",
     "lib": ["ESNext"],
     "target": "ESNext",
@@ -12,6 +13,8 @@
     "strict": true,
     "noImplicitAny": false,
     "sourceMap": true,
+    "rootDir": "./src",
+
   },
   "include": ["./src/**/*"],  // Não incluir dist aqui
   "exclude": ["./dist/**/*", "./test/**/*"]  // Exclui o diretório dist
