@@ -3,8 +3,6 @@ import { PluginItem, transformFromAstAsync } from '@babel/core';
 import _traverse, { NodePath, Visitor } from "@babel/traverse";
 import Config from '../config';
 import { CommandModule, Module } from './module';
-import ImportResolver from './import-resolver';
-import { basename } from 'discord.js';
 import { toDynamicImport } from './utils';
 import decorators from './decorators';
 import Graph from './graph';
@@ -89,9 +87,13 @@ export class CommandTransformer extends BaseTransformer {
 		["@babel/preset-react", { pragma: "_jsx", pragmaFrag: "_Frag" }]
 	]
 
-	async transformImportSource(path: NodePath<T.ImportDeclaration>, module: Module) {
-		const relativePath = Module.pathToRelative(module.buildPath, this.config.buildPath);
-		path.get('source').set('value', relativePath);
+	async transformImportSource(path: NodePath<T.ImportDeclaration>, module?: Module) {		
+		if(path.removed) return;
+		
+		if(module) {
+			const relativePath = Module.pathToRelative(module.buildPath, this.config.buildPath);
+			path.get('source').set('value', relativePath);
+		}
 
 		toDynamicImport(path);
 	}

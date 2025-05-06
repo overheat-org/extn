@@ -1,12 +1,17 @@
-import fs from 'fs';
 import path from 'path';
-import { glob } from 'glob';
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'url';
+import dts from 'vite-plugin-dts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+    plugins: [
+        dts({
+          include: ['src/lib'],
+          outDir: 'types',
+        }),
+    ],
     ssr: {
         noExternal: true,
     },
