@@ -2,10 +2,42 @@ import fs from 'fs';
 import { resolve } from 'path';
 import _path from 'path/posix';
 import Config from '../config';
-import { NodePath } from '@babel/traverse';
 import * as T from '@babel/types';
-import { SUPPORTED_EXTENSIONS } from '../consts/regex';
 import { FlameErrorLocation } from './reporter';
+import _traverse, { NodePath, Visitor } from '@babel/traverse';
+const traverse: typeof _traverse = typeof _traverse == 'object'
+    ? (_traverse as any).default
+    : _traverse;
+    
+export async function asyncTraverse(ast: T.Node, visitor: AsyncVisitor) {
+    const promises: Promise<any>[] = [];
+    
+    const wrappedVisitor: any = {};
+    
+    for (const key of Object.keys(visitor)) {
+        const originalMethod = visitor[key as keyof AsyncVisitor];
+        
+        if (originalMethod && typeof originalMethod === 'function') {
+            wrappedVisitor[key] = function(path: NodePath<any>) {
+                const result = originalMethod(path);
+                if (result instanceof Promise) {
+                    promises.push(result);
+                }
+            };
+        } else {
+            wrappedVisitor[key] = originalMethod;
+        }
+    }
+    
+    traverse(ast, wrappedVisitor as Visitor);
+    
+    await Promise.all(promises);
+}
+
+export type AsyncVisitor = {
+    [K in keyof Visitor]?: (path: NodePath<any>) => Promise<void> | void;
+};
+  
 
 export function readJSONFile<T = any>(path: string) {
     const file = fs.readFileSync(path, 'utf-8');
@@ -49,7 +81,7 @@ export function createConstructor(
         T.blockStatement(body)
     );
 
-    if(Super) {
+    if (Super) {
         constructorMethod.body.body.push(T.expressionStatement(T.callExpression(T.identifier('super'), [])))
     }
 
@@ -68,6 +100,32 @@ export function getDecoratorParams(path: NodePath<T.Decorator>) {
     if (!expr.isCallExpression()) return;
 
     return expr.get('arguments');
+}
+
+export function getClassDeclaration(path: NodePath<T.ClassMethod | T.Decorator>) {
+    let decl = path.findParent(p =>
+        p.isClassDeclaration() ||
+        p.isClassExpression() ||
+        p.isExportNamedDeclaration() ||
+        p.isExportDefaultDeclaration()
+    );
+
+    if (
+        decl?.isExportNamedDeclaration() ||
+        decl?.isExportDefaultDeclaration()
+    ) {
+        const inner = decl.get('declaration');
+        if (
+            inner &&
+            !Array.isArray(inner) &&
+            (inner.isClassDeclaration?.())
+        ) {
+            return inner;
+        }
+        return null;
+    }
+
+    return decl as NodePath<T.ClassDeclaration> | null;
 }
 
 export function getErrorLocation(path: NodePath, filepath?: string): FlameErrorLocation {

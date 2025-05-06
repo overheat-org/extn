@@ -1,39 +1,44 @@
 import * as T from '@babel/types'
-import { parse, ParseResult } from '@babel/parser';
-import _traverse, { NodePath, Visitor } from '@babel/traverse';
+import { parse } from '@babel/parser';
+import _traverse, { NodePath } from '@babel/traverse';
 import { CommandModule, Module } from './module';
 import Graph from './graph';
 import fs from 'fs/promises';
 import { REGEX } from '../consts';
-import { getErrorLocation } from './utils';
+import { asyncTraverse, AsyncVisitor, getErrorLocation } from './utils';
 import { FlameError } from './reporter';
 import Config from '../config';
 import { dirname, join } from 'path';
 import Transformer from './transformer';
 import ImportResolver from './import-resolver';
 
-const traverse: typeof _traverse = typeof _traverse == 'object'
-    ? (_traverse as any).default
-    : _traverse;
-
 function ModuleVisitorFactory(parser: Parser, module: Module) {
     const { transformer, importResolver } = parser;
 
     return {
-        ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
-            importResolver.resolve(path.node.source.value, module.entryPath).then(async absolutePath => {
-                if(!absolutePath) return;
+        async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
+            const absolutePath = await importResolver.resolve(path.node.source.value, module.entryPath);
+            if(!absolutePath) return;
 
-                const importedModule = await parser.parseFile(absolutePath);
-                
+            const importedModule = await parser.parseFile(absolutePath);
+
+            if(!path.node) return;
+            
+            if(
+                path.node.specifiers.length == 0 &&
+                (REGEX.IS_COMMAND_FILE.test(path.node.source.value) || REGEX.FLAME_MODULE.test(path.node.source.value))
+            ) {
+                path.remove();
+            }
+            else {
                 transformer.module.transformImportSource(path, importedModule, dirname(module.buildPath));
-            });
+            }
         },
     
-        Decorator(path: NodePath<T.Decorator>) {
-            transformer.module.transformDecorator(path, module);
+        async Decorator(path: NodePath<T.Decorator>) {
+            await transformer.module.transformDecorator(path, module);
         }
-    } as Visitor
+    } as AsyncVisitor
 }
 
 function CommandVisitorFactory(parser: Parser, module: Module) {
@@ -41,14 +46,13 @@ function CommandVisitorFactory(parser: Parser, module: Module) {
     
     return {
         ...ModuleVisitorFactory(parser, module),
-        ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
-            importResolver.resolve(path.node.source.value, module.entryPath).then(async absolutePath => {
-                if(!absolutePath) return;
-    
-                const importedModule = await parser.parseFile(absolutePath);
+        async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
+            const absolutePath = await importResolver.resolve(path.node.source.value, module.entryPath)
+            const importedModule = absolutePath ? await parser.parseFile(absolutePath) : undefined;
 
-                transformer.command.transformImportSource(path, importedModule);
-            });
+            if(!path.node) return;
+            
+            transformer.command.transformImportSource(path, importedModule);
         },
         
         EnumDeclaration(path: NodePath<T.EnumDeclaration>) {
@@ -70,7 +74,7 @@ function CommandVisitorFactory(parser: Parser, module: Module) {
         ExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
             path.replaceWith(T.returnStatement(path.node.declaration as T.Expression));
         },
-    } as Visitor
+    } as AsyncVisitor
 }
 
 class Parser {
@@ -81,8 +85,6 @@ class Parser {
     }
 
     async parseDir(path: string) {
-        void 0;
-        
         for(const dirent of await fs.readdir(path, { withFileTypes: true })) {
             if(dirent.isFile()) {
                 await this.parseFile(join(path, dirent.name));
@@ -95,30 +97,49 @@ class Parser {
 
     async parseFile(filePath: string) {
         filePath = Module.normalizePath(filePath);
+        console.log({filePath})
+
+        {
+            const module = this.graph.getModule(filePath);
+            if(module) return module;
+        }
+
         
         const content = await fs.readFile(filePath, 'utf-8');
-        let ast: ParseResult<T.File>
+        let ast: T.File
 
         try {
-            ast = parse(content, { 
+            const result = parse(content, { 
                 sourceType: 'module',
-                plugins: ["decorators", "typescript", "jsx"]
+                plugins: ["decorators", "typescript", "jsx"],
+                errorRecovery: true
             });
+
+            if((result.errors ?? []).length > 0) {
+                throw result.errors;
+            }
+
+            ast = result;
         } catch(e) {
             throw new FlameError(`Error on file parser: \n${e}`, { path: filePath })
         }
         
         const isCommand = REGEX.IS_COMMAND.test(filePath);
-        const VisitorFactory = isCommand ? CommandVisitorFactory : ModuleVisitorFactory;
-        const _Module = isCommand ? CommandModule : Module;
-
-        const module = new _Module(filePath, ast);
-        const visitor = VisitorFactory(this, module);
+        let module: Module | CommandModule;
+        let visitor: AsyncVisitor;
         
-        traverse(ast, visitor);
-
-        if(isCommand) this.graph.addCommand(module);
-        else this.graph.addModule(module);
+        if(isCommand) {
+            module = new CommandModule(filePath, ast);
+            visitor = CommandVisitorFactory(this, module);
+            this.graph.addCommand(module);
+        }
+        else {
+            module = new Module(filePath, ast);
+            visitor = ModuleVisitorFactory(this, module);
+            this.graph.addModule(module);
+        }
+        
+        await asyncTraverse(ast, visitor);
 
         return module;
     }
