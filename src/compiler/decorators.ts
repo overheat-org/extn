@@ -1,7 +1,6 @@
 import * as T from '@babel/types';
-import { createConstructor, getConstructor, getDecoratorParams, getErrorLocation, resolveName } from "./utils";
+import { createConstructor, getClassDeclaration, getConstructor, getDecoratorParams, getErrorLocation, resolveName } from "./utils";
 import { NodePath } from "@babel/traverse";
-import Graph from './graph';
 import { template } from '@babel/core';
 import { FlameError, FlameErrorLocation } from './reporter';
 import type { DecoratorDeclaration } from './transformer';
@@ -20,11 +19,9 @@ const CALL_EXPECTED = (location: FlameErrorLocation, n: string) => new FlameErro
 
 export default {
     inject(path) {
-        const classDecl = path.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+        const classDecl = getClassDeclaration(path);
         if (!classDecl) {
-			const locStart = path.node.loc?.start!;
-
-			throw new FlameError(errors.EXPECTED_CLASS, { path: this.module.entryPath, ...locStart });
+			throw new FlameError(errors.EXPECTED_CLASS, getErrorLocation(path, this.module.entryPath));
 		};
 
         if (!path.removed) path.remove();
@@ -59,9 +56,7 @@ export default {
 
                 
             default: {
-                const locStart = classDecl.node.loc?.start!;
-
-                throw new FlameError(errors.SHOULD_BE_GLOBAL, { path: this.module.entryPath, ...locStart });
+                throw new FlameError(errors.SHOULD_BE_GLOBAL, getErrorLocation(classDecl, this.module.entryPath));
             }
         }
         
@@ -75,7 +70,7 @@ export default {
 			throw new FlameError(errors.EXPECTED_METHOD, { path: this.module.entryPath, ...locStart });
 		};
 
-        const classDecl = methodDecl.parentPath.parentPath as NodePath<T.ClassDeclaration>;
+        const classDecl = getClassDeclaration(methodDecl)!;
 
         let once = false;
         // TODO: transform eventName in enum value if eventName exists on discord enum
