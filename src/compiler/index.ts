@@ -22,8 +22,10 @@ class Compiler {
 
     async compile() {
         await this.prepareBuild();
+        console.log('parsing')
         await this.parser.parseDir(this.config.entryPath + sep + 'commands');
         await this.parser.parseDir(this.config.entryPath + sep + 'managers');
+        console.log('building')
         await this.builder.build();
     }
 

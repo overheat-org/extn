@@ -7,7 +7,7 @@
         "strictPropertyInitialization": false,
         "paths": {
             "@utils/*": ["./src/utils/*"]
-        }
+        },
     },
     "include": [
         "src/**/*",

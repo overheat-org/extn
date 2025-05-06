@@ -7,38 +7,38 @@ const meta = new Storage('meta');
 
 @inject
 export class Init extends Manager {
-  @event
-  async OnceReady() {
-    console.log('READY');
-    const r = plus(5, (await meta.get('meta')) ?? 0);
-    await meta.set('meta', r);
-    console.log(r);
+    @event
+    async OnceReady() {
+        console.log('READY');
+        const r = plus(5, (await meta.get('meta')) ?? 0);
+        await meta.set('meta', r);
+        console.log(r);
 
-    // const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
+        // const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
 
-    // render(channel as TextChannel, <Counter />)
-  }
-  constructor(private client: Client) {
-    super();
-  }
+        // render(channel as TextChannel, <Counter />)
+    }
+    constructor(private client: Client) {
+        super();
+    }
 }
 
 function Counter() {
-  const [count, setCount] = useState(0);
-  const handleIncrement = () => {
-    setCount(c => c + 1);
-  };
-  const handleDecrement = () => {
-    setCount(c => c - 1);
-  };
-  return <message>
+    const [count, setCount] = useState(0);
+    const handleIncrement = () => {
+        setCount(c => c + 1);
+    };
+    const handleDecrement = () => {
+        setCount(c => c - 1);
+    };
+    return <message>
         <embed>
             <title>Counter</title>
             <description>Count: {count}</description>
         </embed>
 
-        <button isSuccess label='+' onClick={handleIncrement} />
+        <button success label='+' onClick={handleIncrement} />
 
-        <button isDanger label='-' onClick={handleDecrement} />
+        <button danger label='-' onClick={handleDecrement} />
     </message>;
 }

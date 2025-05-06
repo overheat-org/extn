@@ -18,6 +18,18 @@ fs.promises.writeFile = async function (file, data, options) {
     return originalWriteFile(file, data, options);
 };
 
+RegExp.merge = (...args) => {
+    const source = args.map(r => r.source).join('');
+    const flags = [...new Set(args.flatMap(r => r.flags.split('')))].sort().join('');
+    return new RegExp(source, flags);
+};
+
+declare global {
+    interface RegExpConstructor {
+        merge(...args: RegExp[]): RegExp
+    }
+}
+
 declare module "fs/promises" {
     function writeFile(
         file: PathLike | FileHandle,

@@ -14,8 +14,6 @@ class ModuleResolver {
 
 	/**
 	 * Normalizes a given path by converting all path separators to POSIX style (`/`).
-	 * @param {string} path - The path to be normalized.
-	 * @returns {string} The normalized path with POSIX separators.
 	 */
 	static normalizePath(path: string) {
 		return normalize(path).split(/[/\\]/).join(posix.sep);
@@ -24,9 +22,6 @@ class ModuleResolver {
 	/**
 	 * Resolves a given file path, considering if it's an absolute path or relative to a parent path.
 	 * If the path is relative, it will be resolved against the parent path.
-	 * @param {string} path - The path to resolve.
-	 * @param {string} [parentPath] - The parent path to resolve against (if the path is relative).
-	 * @returns {string} The resolved file path.
 	 */
 	static resolvePath(path: string, parentPath?: string) {
 		if (isAbsolute(path) && !parentPath) {
@@ -49,10 +44,6 @@ class ModuleResolver {
 	 *   1. package.json "exports"
 	 *   2. package.json "main"
 	 *   3. index file
-	 *
-	 * @param {string} path - The path to resolve.
-	 * @param {string[]} exts - List of extensions to try when resolving files.
-	 * @returns {string | undefined} - The resolved file path or undefined if not found.
 	 */
 	static resolveFile(path: string, exts: string[]): string | undefined {
 		path = this.normalizePath(path);
@@ -90,9 +81,6 @@ class ModuleResolver {
 
 	/**
 	 * Resolves a file path by appending possible extensions if none is present.
-	 * @param {string} path - The path to resolve.
-	 * @param {string[]} exts - List of extensions to try.
-	 * @returns {string | undefined} The path with the resolved extension or undefined if not found.
 	 */
 	static resolveExt(path: string, exts: string[]) {
 		// If the path already has an extension, do nothing
@@ -104,9 +92,6 @@ class ModuleResolver {
 
 	/**
 	 * Converts an absolute path to a relative path based on a parent path.
-	 * @param {string} path - The target path to convert to relative.
-	 * @param {string} parentPath - The parent path to calculate the relative path from.
-	 * @returns {string} The relative path.
 	 */
 	static pathToRelative(path: string, parentPath: string) {
 		let relativePath = relative(parentPath, path);
@@ -122,22 +107,22 @@ class ModuleResolver {
 	 * Converts a module path to its build path by replacing specific parts of the path.
 	 * If the path corresponds to a "flame" module, it replaces it with the build path.
 	 * Otherwise, it replaces the entry path with the build path.
-	 * @param {string} path - The module path to convert to the build path.
-	 * @returns {string} The resolved build path.
 	 */
 	static toBuildPath(path: string) {
 		const fromFlame = () => {
-			const ALL_BEFORE_FLAME_MODULE = new RegExp(`^.*node_modules/${REGEX.FLAME_MODULE.source}\/`);
+			const ALL_BEFORE_FLAME_MODULE = RegExp.merge(/^.*node_modules\//, REGEX.FLAME_MODULE);
+			const name = path.match(REGEX.FLAME_MODULE)![1];
 
-			path = path.replace(ALL_BEFORE_FLAME_MODULE, this.config.buildPath).replace(REGEX.SUPPORTED_EXTENSIONS, ".js");
-
-			return path;
+			return path
+				.replace(ALL_BEFORE_FLAME_MODULE, `${this.config.buildPath}/managers/${name}`)
+				.replace(/^.*?(manager\/[^/]+)\/(?:[^/]+\/)+([^/]+)$/, '$1/$2')
+				.replace(REGEX.SUPPORTED_EXTENSIONS, ".js");
 		}
 
 		const fromEntry = () => {
-			path = path.replace(this.config.entryPath, this.config.buildPath).replace(REGEX.SUPPORTED_EXTENSIONS, ".js");
-
-			return path;
+			return path
+				.replace(this.config.entryPath, this.config.buildPath)
+				.replace(REGEX.SUPPORTED_EXTENSIONS, ".js");
 		}
 
 		const fromCommand = () => {
