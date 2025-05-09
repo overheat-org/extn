@@ -52,10 +52,10 @@ export function findNodeModulesDir(startDir?: string, expectedPackage?: string, 
         const paths = [currentDir, 'node_modules'];
         if (expectedPackage) paths.push(expectedPackage);
 
-        const nodeModulesPath = _path.join(...paths);
+        const nodeModulesPath = _path.join(...paths, '/');
         if (fs.existsSync(nodeModulesPath)) return nodeModulesPath;
 
-        currentDir = _path.dirname(currentDir);
+        currentDir = _path.dirname(_path.resolve(currentDir));
         depth++;
     }
 

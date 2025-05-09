@@ -85,7 +85,7 @@ class Parser {
     }
 
     async parseDir(path: string) {
-        for(const dirent of await fs.readdir(path, { withFileTypes: true })) {
+        for(const dirent of await fs.readdir(path, { withFileTypes: true }).catch(() => [])) {
             if(dirent.isFile()) {
                 await this.parseFile(join(path, dirent.name));
             }
