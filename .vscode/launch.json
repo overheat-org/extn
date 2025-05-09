@@ -18,7 +18,7 @@
         "NODE_ENV": "development"
       },
       "resolveSourceMapLocations": ["${workspaceFolder}/dist/**/*.js", "${workspaceFolder}/src/**/*"],
-      "cwd": "${workspaceFolder}/test"
+      "cwd": "${workspaceFolder}/test",
     }
   ]
 }
