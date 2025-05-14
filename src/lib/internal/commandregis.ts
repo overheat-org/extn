@@ -1,5 +1,6 @@
-export class CommandMap {
-    values: Record<string, any> = {};
+export class CommandRegister {
+    list = new Array<any>;
+    map: Record<string, any> = {};
     private pending = new Set<Promise<any>>();
 
     get finished(): boolean {
@@ -9,7 +10,9 @@ export class CommandMap {
     register(callback: () => Promise<{ __map__: any }>) {
         const p = callback()
             .then(command => {
-                Object.assign(this.values, command.__map__);
+                Object.assign(this.map, command.__map__);
+                this.list.push(command);
+
                 return command;
             })
             .catch(err => {

@@ -1,8 +1,9 @@
 import { Client, ClientOptions as _ClientOptions } from "discord.js";
 import { InteractionExecutor } from "diseact";
+import { CommandRegister } from "../internal";
 
 interface ClientOptions extends _ClientOptions {
-    commands: Promise< { default: { values: any } }>
+    commands: Promise<{ default: CommandRegister }>,
     managers: any[]
 }
 
@@ -27,13 +28,27 @@ export class FlameClient extends Client {
         });
 
         options.commands.then(mod => {
-            const map = mod.default;
-            this.executor.putCommands(map);
+            const register = mod.default as CommandRegister;
+            this.executor.commandMap = register.map;
+            this.onReady().then(async () => {
+                let guild = process.env.GUILD_ID ? this.guilds.cache.get(process.env.GUILD_ID) : undefined;
+
+    
+                if(guild) {
+                    await guild.commands.set(register.list);
+                }
+                else {
+                    await this.application?.commands.set(register.list);
+                }
+            });
+        });
+
+        queueMicrotask(() => {
+            for(const arg of options.managers) {
+                new arg(this);
+            }
         });
         
-        for(const arg of options.managers) {
-            new arg(this);
-        }
     }
 
     public login(): Promise<string> {

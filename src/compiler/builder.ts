@@ -56,9 +56,9 @@ class Builder {
         return T.program([
             ...template.statements(`
                 import { createElement as _jsx, Fragment as _Frag } from 'diseact/jsx-runtime';
-                import { CommandMap } from '@flame-oh/core/internal';
+                import { CommandRegister } from '@flame-oh/core/internal';
             
-                const __map__ = new CommandMap();
+                const __map__ = new CommandRegister();
             `)(),
             ...registrations,
             template.statement(`export default __map__;`)()
