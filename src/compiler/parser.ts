@@ -97,7 +97,6 @@ class Parser {
 
     async parseFile(filePath: string) {
         filePath = Module.normalizePath(filePath);
-        console.log({filePath})
 
         {
             const module = this.graph.getModule(filePath);

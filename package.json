@@ -1,6 +1,6 @@
 {
   "name": "@flame-oh/core",
-  "version": "5.3.3",
+  "version": "5.4.1",
   "type": "module",
   "exports": {
     ".": {
@@ -36,13 +36,16 @@
     "dotenv": "^16.4.7",
     "glob": "^11.0.1",
     "jsonc": "^2.0.0",
-    "keyv": "^5.1.3"
+    "keyv": "^5.1.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@babel/cli": "^7.25.6",
     "@flame-oh/core": "^3.3.0",
     "@types/babel__helper-plugin-utils": "^7.10.3",
     "@types/dotenv": "^6.1.1",
+    "@types/node": "^22.15.17",
     "typescript": "^5.6.2",
     "vite": "^6.1.0",
     "vite-plugin-dts": "^4.5.3"
@@ -50,7 +53,5 @@
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "bin": {
-    "flamecore": "./dist/cli.js"
-  }
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

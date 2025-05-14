@@ -7,3 +7,4 @@ node_modules
 .github
 webpack.config.js
 tsconfig*
+vite.config.ts
