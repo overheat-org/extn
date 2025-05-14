@@ -96,8 +96,8 @@ export default {
 				)
 			};
             
-            once = matches[0] == 'Once';
-            eventName = matches[1];
+            once = matches[1] == 'Once';
+            eventName = matches[2].charAt(0).toLowerCase() + matches[2].slice(1);
         }
 
 		const constructorPath = getConstructor(classDecl) ?? createConstructor(classDecl);
@@ -269,10 +269,16 @@ const generateEventListener = (once: boolean, event: string, fn: T.Expression) =
     // Gera o nome do evento como string
     const eventArgument = T.stringLiteral(event);
 
+    // Vincula a função `fn` ao contexto correto (se necessário)
+    const boundFn = T.callExpression(
+        T.memberExpression(fn, T.identifier('bind')),
+        [T.thisExpression()]
+    );
+
     // Gera a chamada do método: `this.client.once('event', fn)` ou `this.client.on('event', fn)`
     const callExpression = T.callExpression(listenerMethod, [
         eventArgument,
-        fn,
+        boundFn,
     ]);
 
     return callExpression;
