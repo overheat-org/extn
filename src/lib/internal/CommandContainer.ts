@@ -1,4 +1,4 @@
-export class CommandRegister {
+export class CommandContainer {
     list = new Array<any>;
     map: Record<string, any> = {};
     private pending = new Set<Promise<any>>();
@@ -7,7 +7,7 @@ export class CommandRegister {
         return this.pending.size === 0;
     }
 
-    register(callback: () => Promise<{ __map__: any }>) {
+    add(callback: () => Promise<{ __map__: any }>) {
         const p = callback()
             .then(command => {
                 Object.assign(this.map, command.__map__);

@@ -4,27 +4,29 @@ import Config from '../config';
 import { CommandModule, Module } from "./module";
 import Transformer from './transformer';
 
-class Injection {
-    readonly id: T.Identifier;
+export class ModuleSymbol {
+    readonly id: T.Identifier
     
     constructor(
-        id: string | T.Identifier,
-        public module: Module
+        public name: string,
+        public filePath: string
     ) {
-		if(T.isNode(id) && T.isIdentifier(id)) {
-			this.id = id;	
-		}
-		else {
-			this.id = T.identifier(id);
-		}
+        this.id = T.identifier(name);
     }
+}
+
+class Injectable {
+    constructor(
+        public symbol: ModuleSymbol,
+        public dependencies: ModuleSymbol[]
+    ) {}
 }
 
 // TODO: registrar os symbols 
 export class Graph {
     private modulesByEntry = new Map<string, Module>;
     modules = new Set<Module>;
-    injections = new Array<Injection>;
+    injectables = new Set<Injectable>;
     commands = new Array<CommandModule>;
 
     addModule(module: Module): Module
@@ -91,9 +93,9 @@ export class Graph {
         return module;
     }
 
-    addInjection(id: string, module: Module) {
-        this.injections.push(
-            new Injection(id, module)
+    addInjectable(id: string | T.Identifier, module: Module, dependencies: ModuleSymbol[]) {
+        this.injectables.add(
+            new Injectable(id, module, dependencies)
         );
     }
 }

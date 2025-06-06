@@ -5,7 +5,7 @@ import { Manager, Storage } from '@flame-oh/core';
 import { plus } from '@utils/math';
 const meta = new Storage('meta');
 
-@inject
+@manager
 export class Init extends Manager {
     @event
     async OnceReady() {

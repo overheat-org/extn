@@ -1,57 +1,75 @@
-import { Client, ClientOptions as _ClientOptions } from "discord.js";
-import { InteractionExecutor } from "diseact";
-import { CommandRegister } from "../internal";
+import fs from "fs";
+import { Client, ClientOptions, Events } from "discord.js";
+import DependencyManager from "../internal/DependencyManager";
+import CommandManager from "../internal/CommandManager";
+import { CONFIG_PATH } from "../../consts/regex";
+import path from "path";
 
-interface ClientOptions extends _ClientOptions {
-    commands: Promise<{ default: CommandRegister }>,
-    managers: any[]
-}
+// TODO: definir estrategias para ler o .flame, sem depender de passar no start o path correto.
+// 1. Se tiver .flame, TENTAR ler o dependency-graph e o commands
+// 2. Se tiver o arquivo de configuração, ler e descobrir o path do .flame
 
 export class FlameClient extends Client {
-    private executor = new InteractionExecutor();
-    
-    async onReady() {
-        const { promise, resolve } = Promise.withResolvers();
-
-        this.once('ready', resolve);
-
-        return await promise;
-    }
+    private dependencyManager = new DependencyManager();
+    private commandManager = new CommandManager();
 
     constructor(options: ClientOptions) {
         super(options);
 
-        this.on('interactionCreate', i => {
-            if(!i.isChatInputCommand() && !i.isAutocomplete()) return;
-            
-            this.executor.run(i);
-        });
-
-        options.commands.then(mod => {
-            const register = mod.default as CommandRegister;
-            this.executor.commandMap = register.map;
-            this.onReady().then(async () => {
-                let guild = process.env.GUILD_ID ? this.guilds.cache.get(process.env.GUILD_ID) : undefined;
-
-    
-                if(guild) {
-                    await guild.commands.set(register.list);
-                }
-                else {
-                    await this.application?.commands.set(register.list);
-                }
-            });
-        });
-
-        queueMicrotask(() => {
-            for(const arg of options.managers) {
-                new arg(this);
+        this.on(Events.InteractionCreate, interaction => {
+            if (interaction.isChatInputCommand() || interaction.isAutocomplete()) {
+                this.commandManager.run(interaction);
             }
         });
-        
+
+        this.once(Events.ClientReady, this.onReady);
     }
 
-    public login(): Promise<string> {
-        return super.login(process.env.TOKEN);
+    private async onReady(): Promise<void> {
+        this.commandManager.register(this);
+    }
+
+    private async bootstrap(): Promise<void> {      
+        const buildPath = await this.getBuildPath();
+
+        await Promise.all([
+            this.dependencyManager.resolve(buildPath),
+            this.commandManager.load(buildPath)
+        ]);
+    }
+
+    private async getBuildPath() {
+        const cwd = process.cwd();
+        const files = await fs.promises.readdir(cwd);
+        const configFile = files.find(f => CONFIG_PATH.test(f));
+
+        let buildPath: string | undefined;
+
+        if (configFile) {
+            const config = await import(path.resolve(cwd, configFile));
+            if (config.buildPath) {
+                buildPath = path.resolve(cwd, config.buildPath, ".flame");
+            }
+        }
+
+        if (!buildPath) {
+            const flamePath = path.resolve(cwd, ".flame");
+
+            try {
+                fs.promises.access(flamePath);
+                buildPath = flamePath;
+            }
+            catch {
+                throw new Error("Cannot find '.flame' directory or valid config file with 'buildPath'.");
+            }
+        }
+
+        return buildPath;
+    }
+
+
+    public async start(): Promise<string> {
+        await this.bootstrap();
+        return this.login(process.env.TOKEN!);
     }
 }

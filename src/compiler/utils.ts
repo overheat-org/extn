@@ -8,17 +8,17 @@ import _traverse, { NodePath, Visitor } from '@babel/traverse';
 const traverse: typeof _traverse = typeof _traverse == 'object'
     ? (_traverse as any).default
     : _traverse;
-    
+
 export async function asyncTraverse(ast: T.Node, visitor: AsyncVisitor) {
     const promises: Promise<any>[] = [];
-    
+
     const wrappedVisitor: any = {};
-    
+
     for (const key of Object.keys(visitor)) {
         const originalMethod = visitor[key as keyof AsyncVisitor];
-        
+
         if (originalMethod && typeof originalMethod === 'function') {
-            wrappedVisitor[key] = function(path: NodePath<any>) {
+            wrappedVisitor[key] = function (path: NodePath<any>) {
                 const result = originalMethod(path);
                 if (result instanceof Promise) {
                     promises.push(result);
@@ -28,16 +28,16 @@ export async function asyncTraverse(ast: T.Node, visitor: AsyncVisitor) {
             wrappedVisitor[key] = originalMethod;
         }
     }
-    
+
     traverse(ast, wrappedVisitor as Visitor);
-    
+
     await Promise.all(promises);
 }
 
 export type AsyncVisitor = {
     [K in keyof Visitor]?: (path: NodePath<any>) => Promise<void> | void;
 };
-  
+
 
 export function readJSONFile<T = any>(path: string) {
     const file = fs.readFileSync(path, 'utf-8');
@@ -126,6 +126,25 @@ export function getClassDeclaration(path: NodePath<T.ClassMethod | T.Decorator>)
     }
 
     return decl as NodePath<T.ClassDeclaration> | null;
+}
+
+export function getDeclaration(
+    path: NodePath<T.Identifier | T.TSTypeReference>
+): NodePath | null {
+    let name: string | undefined
+
+    if (path.isIdentifier()) {
+        name = path.node.name
+    } else if (
+        path.isTSTypeReference() &&
+        path.get('typeName').isIdentifier()
+    ) {
+        name = (path.get('typeName').node as any).name
+    }
+
+    if (!name) return null
+    const binding = path.scope.getBinding(name)
+    return binding?.path ?? null
 }
 
 export function getErrorLocation(path: NodePath, filepath?: string): FlameErrorLocation {

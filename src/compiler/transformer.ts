@@ -69,8 +69,10 @@ export class ModuleTransformer extends BaseTransformer {
 			module,
 			graph: this.graph
 		};
-
+		
 		callback.bind(context)(path);
+
+		if (!path.removed) path.remove();
 	}
 }
 

@@ -43,7 +43,6 @@
   },
   "devDependencies": {
     "@babel/cli": "^7.25.6",
-    "@flame-oh/core": "^3.3.0",
     "@types/babel__helper-plugin-utils": "^7.10.3",
     "@types/dotenv": "^6.1.1",
     "@types/node": "^22.15.17",

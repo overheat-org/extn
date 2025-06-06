@@ -1,9 +1,12 @@
 import * as T from '@babel/types';
-import { createConstructor, getClassDeclaration, getConstructor, getDecoratorParams, getErrorLocation, resolveName } from "./utils";
+import { createConstructor, getClassDeclaration, getConstructor, getDeclaration, getDecoratorParams, getErrorLocation, resolveName } from "./utils";
 import { NodePath } from "@babel/traverse";
 import { template } from '@babel/core';
 import { FlameError, FlameErrorLocation } from './reporter';
 import type { DecoratorDeclaration } from './transformer';
+import { ModuleSymbol } from './graph';
+import { Module } from './module';
+import { resolve } from 'path';
 
 const errors = {
     EXPECTED_CLASS: "This decorator only can be used on class declarations",
@@ -18,49 +21,51 @@ const errors = {
 const CALL_EXPECTED = (location: FlameErrorLocation, n: string) => new FlameError(`The decorator '${n}' is expecting call expression`, location);
 
 export default {
-    inject(path) {
+    injectable(path) {
         const classDecl = getClassDeclaration(path);
         if (!classDecl) {
 			throw new FlameError(errors.EXPECTED_CLASS, getErrorLocation(path, this.module.entryPath));
 		};
 
-        if (!path.removed) path.remove();
-
-        const className = classDecl.get('id').node!.name;
-        let parent = classDecl.parentPath;
-        let exported = false;
-
-        switch (true) {
-            case parent.isExportNamedDeclaration():
-                parent = parent.parentPath;
-                exported = true;
-
-            case parent.isProgram():
-                const program = parent as NodePath<T.Program>;
-
-                if (!exported) {
-                    if (
-                        !program.get('body').some(node =>
-                            node.isExportNamedDeclaration() &&
-                            node.get('specifiers').some(specifier =>
-                                specifier.isExportSpecifier() &&
-                                specifier.get('local').node.name === className
-                            )
-                        )
-                    ) {
-                        classDecl.replaceWith(T.exportNamedDeclaration(classDecl.node));
-                    };
-                }
-
-                break;
-
-                
-            default: {
-                throw new FlameError(errors.SHOULD_BE_GLOBAL, getErrorLocation(classDecl, this.module.entryPath));
-            }
+        if(!isExported(classDecl)) {
+            setExport(classDecl);
         }
-        
-        this.graph.addInjection(className, this.module);
+
+        const constructor = getConstructor(classDecl) ?? createConstructor(classDecl);
+        const constructorParams = constructor.get('params');
+
+        const dependencies = constructor.get('params').map((param, i) => {
+            if(!param.isTSParameterProperty()) {
+                throw new FlameError("Invalid param of class", getErrorLocation(path, this.module.entryPath));
+            };
+    
+            const parameter = param.get("parameter");
+            const typeAnnotation = parameter.get("typeAnnotation");
+    
+            if(!typeAnnotation.isTSTypeAnnotation()) {
+                throw ""
+            }
+    
+            const typeRef = typeAnnotation.get("typeAnnotation");
+    
+            if(!typeRef.isTSTypeReference()) {
+                throw new FlameError("Expected a injectable type reference", getErrorLocation(path, this.module.entryPath));
+            }
+
+            const typeDeclaration = getDeclaration(typeRef);
+
+            if(!typeDeclaration?.isImportDeclaration()) {
+                throw ""
+            }
+            
+            const source = typeDeclaration.node.source.value;
+
+            const filePath = resolve(this.module.entryPath, source);
+    
+            return new ModuleSymbol((typeRef.node.typeName as T.Identifier).name, filePath);
+        });
+
+        this.graph.addInjectable(classDecl.node.id!, this.module, dependencies);
     },
     event(path) {
         const methodDecl = path.findParent(p => p.isClassMethod()) as NodePath<T.ClassMethod>;

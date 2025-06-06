@@ -1,7 +1,7 @@
 import * as T from '@babel/types';
-import { template } from "@babel/core";
+import { NodePath, template } from "@babel/core";
 import Generator from "./generator";
-import Graph from "./graph";
+import Graph, { ModuleSymbol } from "./graph";
 import { Module } from "./module";
 import Transformer from "./transformer";
 import fs from 'fs/promises';
@@ -17,9 +17,12 @@ class Builder {
     }
 
     async build() {
-        await this.emitIndex();
-        await this.buildCommand();
-        await this.buildModules();
+        await Promise.all([
+            this.emitIndex(),
+            this.emitDependencyGraph(),
+            this.buildCommand(),
+            this.buildModules()
+        ])
     }
 
     private async buildModules() {
@@ -69,42 +72,119 @@ class Builder {
         const mappedInjectionImports = new Array<T.ImportDeclaration>;
         const mappedInjections = new Array<string>;
 
-        for (const injection of this.graph.injections) {
-            const modPath = Module.pathToRelative(injection.module.buildPath, this.config.buildPath);
+        for (const injection of this.graph.injectables) {
+            const modPath = Module.pathToRelative(injection.symbol.filePath, this.config.buildPath);
 
-            mappedInjections.push(injection.id.name);
+            mappedInjections.push(injection.symbol.name);
             mappedInjectionImports.push(
                 T.importDeclaration([
                     T.importSpecifier(
-                        injection.id,
-                        injection.id
+                        injection.symbol.id,
+                        injection.symbol.id
                     )
                 ], T.stringLiteral(modPath))
             )
         }
 
         const statements = template.statements(`
-                import { FlameClient } from '@flame-oh/core';
-                %%IMPORTS%%
-    
-                process.env = {
-                    ...process.env,
-                    ...${JSON.stringify(getEnvFile(this.config.cwd))}
-                }
-    
-                const client = new FlameClient({ 
-                    commands: import('./commands.js'),
-                    managers: [${mappedInjections.join(', ')}],
-                    intents: ${JSON.stringify(this.config.intents)}
-                });
-    
-                client.login();
-            `)({
+            import { FlameClient } from '@flame-oh/core';
+            %%IMPORTS%%
+
+            process.env = {
+                ...process.env,
+                ...${JSON.stringify(getEnvFile(this.config.cwd))}
+            }
+
+            const client = new FlameClient({ 
+                commands: import('./commands.js'),
+                managers: [${mappedInjections.join(', ')}],
+                intents: ${JSON.stringify(this.config.intents)}
+            });
+
+            client.login();
+        `)({
             IMPORTS: mappedInjectionImports,
         });
 
         const module = new Module("", T.file(T.program(statements, [], 'module')));
         module.buildPath = join(this.config.buildPath, 'index.js');
+
+        this.graph.addModule(module);
+    }
+
+    private async emitDependencyGraph() {
+        const symbols = new Set<ModuleSymbol>;
+
+        const resolveSymbol = (symbol: ModuleSymbol) => {
+            if(symbols.has(symbol)) return;
+
+            symbols.add(symbol);
+        }
+
+        /**
+         * Iterate each injectable, add all symbols to Set, and returns a AST structure that
+         * represents an object like it:
+         * 
+         * ```ts
+         * const object = {
+         *     entitity: Init
+         *     dependencies: [Client, Payment]
+         * }
+         * ```
+         */
+        const objects = Array.from(this.graph.injectables).map(i => {
+            resolveSymbol(i.symbol);
+            i.dependencies.forEach(s => resolveSymbol(s));
+
+            const dependenciesArray = T.arrayExpression(
+                i.dependencies.map(d => d.id)
+            );
+
+            const dependenciesProperty = T.objectProperty(
+                T.identifier("dependencies"), 
+                dependenciesArray
+            );
+
+            const entityProperty = T.objectProperty(
+                T.identifier("entity"), 
+                i.symbol.id
+            );            
+
+            return T.objectExpression([
+                entityProperty,
+                dependenciesProperty
+            ]);
+        });
+
+        const exportation = T.exportDefaultDeclaration(
+            T.arrayExpression(objects)
+        );
+
+        /**
+         * Get all symbols registered and returns a array with AST structure that represent
+         * the import declaration for each symbol mapped, like:
+         * 
+         * ```ts
+         * import { Init } from './managers/Init.js'
+         * ```
+         */
+        const imports = Array.from(symbols).map(symbol => {
+            const modPath = Module.pathToRelative(symbol.filePath, this.config.buildPath);
+
+            return T.importDeclaration(
+                [T.importSpecifier(symbol.id, symbol.id)],
+                T.stringLiteral(modPath)
+            );
+        });
+        
+        const ast = T.file(T.program([
+            ...imports,
+            exportation
+        ]));
+
+        const module = new Module("", ast);
+
+        module.buildPath = join(this.config.buildPath, 'dependency-graph.js');
 
         this.graph.addModule(module);
     }
