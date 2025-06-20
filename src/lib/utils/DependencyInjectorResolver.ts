@@ -2,18 +2,34 @@ import { Client } from "discord.js";
 import { FlameClient } from "../structures";
 import { FORWARD_SYMBOL } from "../../consts";
 
-type ClassLike = new (...args: any[]) => any;
+export type ClassLike = new (...args: any[]) => any;
 type Injectable = { entity: ClassLike; dependencies: ClassLike[] };
 
+class ClassMap<V> extends Map<ClassLike, V> {
+    get(key: ClassLike) {
+        return super.get(key.name as any);
+    }
+    delete(key: ClassLike): boolean {
+        return super.delete(key.name as any);
+    }
+    has(key: ClassLike): boolean {
+        return super.has(key.name as any);
+    }
+    set(key: ClassLike, value: any): this {
+        return super.set(key.name as any, value);
+    }
+}
+
+// TODO: Make it analyze each dependency at the same time without forward bugs
 export class DependencyInjectorResolver {
     private processingStack = new Set<ClassLike>();
-    private instanceFromDependency = new Map<ClassLike, any>();
-    private dependenciesFromEntity = new Map<ClassLike, ClassLike[]>();
+    public instanceFromDependency = new ClassMap<any>();
+    private dependenciesFromEntity = new ClassMap<ClassLike[]>();
     private unresolvedDependencies = new Set<ClassLike>();
 
-    constructor() {
-        this.register(Client);
-        this.register(FlameClient);
+    constructor(client: Client) {
+        this.instanceFromDependency.set(Client, client);
+        this.instanceFromDependency.set(FlameClient, client);
     }
 
     private register(entity: ClassLike, dependencies: ClassLike[] = []) {
@@ -24,9 +40,8 @@ export class DependencyInjectorResolver {
     }
 
     async resolve(): Promise<void> {
-        while (this.unresolvedDependencies.size) {
-            const toResolve = Array.from(this.unresolvedDependencies);
-            await Promise.all(toResolve.map(dep => this.resolveDependency(dep)));
+        for (const dep of Array.from(this.unresolvedDependencies)) {
+            await this.resolveDependency(dep);
         }
     }
 
@@ -49,7 +64,7 @@ export class DependencyInjectorResolver {
         }
 
         if (this.processingStack.has(entity)) {
-            return this.defineForward(entity);
+            throw new Error(`cycle detected at: ${entity.name}`)
         }
 
         this.processingStack.add(entity);
@@ -70,7 +85,7 @@ export class DependencyInjectorResolver {
         return instance;
     }
 
-    [Symbol.dispose](): void {
+    [Symbol.dispose]() {
         this.processingStack.clear();
         this.dependenciesFromEntity.clear();
         this.instanceFromDependency.clear();

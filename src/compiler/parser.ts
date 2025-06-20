@@ -1,88 +1,17 @@
 import * as T from '@babel/types'
 import { parse } from '@babel/parser';
-import _traverse, { NodePath } from '@babel/traverse';
-import { CommandModule, Module } from './module';
+import _traverse from '@babel/traverse';
+import { CommandModule, Module, NodeModule } from './module';
 import Graph from './graph';
 import fs from 'fs/promises';
 import { REGEX } from '../consts';
-import { asyncTraverse, AsyncVisitor, getErrorLocation } from './utils';
 import { FlameError } from './reporter';
-import Config from '../config';
-import { dirname, join } from 'path';
+import { join } from 'path';
 import Transformer from './transformer';
 import ImportResolver from './import-resolver';
 
-function ModuleVisitorFactory(parser: Parser, module: Module) {
-    const { transformer, importResolver } = parser;
-
-    return {
-        async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
-            const absolutePath = await importResolver.resolve(path.node.source.value, module.entryPath);
-            if(!absolutePath) return;
-
-            const importedModule = await parser.parseFile(absolutePath);
-
-            if(!path.node) return;
-            
-            if(
-                path.node.specifiers.length == 0 &&
-                (REGEX.IS_COMMAND_FILE.test(path.node.source.value) || REGEX.FLAME_MODULE.test(path.node.source.value))
-            ) {
-                path.remove();
-            }
-            else {
-                transformer.module.transformImportSource(path, importedModule, dirname(module.buildPath));
-            }
-        },
-    
-        async Decorator(path: NodePath<T.Decorator>) {
-            await transformer.module.transformDecorator(path, module);
-        }
-    } as AsyncVisitor
-}
-
-function CommandVisitorFactory(parser: Parser, module: Module) {
-    const { transformer, importResolver } = parser;
-    
-    return {
-        ...ModuleVisitorFactory(parser, module),
-        async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
-            const absolutePath = await importResolver.resolve(path.node.source.value, module.entryPath)
-            const importedModule = absolutePath ? await parser.parseFile(absolutePath) : undefined;
-
-            if(!path.node) return;
-            
-            transformer.command.transformImportSource(path, importedModule);
-        },
-        
-        EnumDeclaration(path: NodePath<T.EnumDeclaration>) {
-            throw new FlameError('Cannot use enum in command', getErrorLocation(path, module.entryPath));
-        },
-    
-        ClassDeclaration(path: NodePath<T.ClassDeclaration>) {
-            throw new FlameError('Cannot use class in command', getErrorLocation(path, module.entryPath));
-        },
-    
-        ExportNamedDeclaration(path: NodePath<T.ExportNamedDeclaration>) {
-            const node = path.node;
-    
-            if (node.specifiers.length == 0) return;
-    
-            throw new FlameError('Cannot export in command', getErrorLocation(path, module.entryPath));
-        },
-    
-        ExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
-            path.replaceWith(T.returnStatement(path.node.declaration as T.Expression));
-        },
-    } as AsyncVisitor
-}
-
 class Parser {
-    importResolver: ImportResolver;
-
-    constructor(public config: Config, private graph: Graph, public transformer: Transformer) {
-        this.importResolver = new ImportResolver(config);
-    }
+    constructor(private graph: Graph, public transformer: Transformer, public importResolver: ImportResolver) {}
 
     async parseDir(path: string) {
         for(const dirent of await fs.readdir(path, { withFileTypes: true }).catch(() => [])) {
@@ -95,6 +24,19 @@ class Parser {
         }
     }
 
+    async parsePath(path) {
+        path = Module.normalizePath(path);
+
+        if(path.includes('node_modules')) {
+            const module = NodeModule.from(path);
+            this.graph.addModule(module);
+            return module;
+        }
+        else {
+            return this.parseFile(path);
+        }
+    }
+
     async parseFile(filePath: string) {
         filePath = Module.normalizePath(filePath);
 
@@ -102,12 +44,11 @@ class Parser {
             const module = this.graph.getModule(filePath);
             if(module) return module;
         }
-
         
-        const content = await fs.readFile(filePath, 'utf-8');
         let ast: T.File
-
         try {
+            const content = await fs.readFile(filePath, 'utf-8');
+
             const result = parse(content, { 
                 sourceType: 'module',
                 plugins: ["decorators", "typescript", "jsx"],
@@ -124,23 +65,28 @@ class Parser {
         }
         
         const isCommand = REGEX.IS_COMMAND.test(filePath);
-        let module: Module | CommandModule;
-        let visitor: AsyncVisitor;
-        
-        if(isCommand) {
-            module = new CommandModule(filePath, ast);
-            visitor = CommandVisitorFactory(this, module);
-            this.graph.addCommand(module);
-        }
-        else {
-            module = new Module(filePath, ast);
-            visitor = ModuleVisitorFactory(this, module);
-            this.graph.addModule(module);
-        }
-        
-        await asyncTraverse(ast, visitor);
+        const module = isCommand
+            ? this.graph.getCommand(filePath) ?? CommandModule.from(filePath, ast)
+            : this.graph.getModule(filePath) ?? Module.from(filePath, ast);
+
+        if (isCommand) this.graph.addCommand(module);
+        else this.graph.addModule(module);
+
+        await this.parseDependencies(module);
 
         return module;
+    }
+
+    private async parseDependencies(module: Module) {
+        module.content.program.body.forEach(async n => {
+            if(!T.isImportDeclaration(n)) return;
+            if(!n.source || !T.isStringLiteral(n.source)) return;
+
+            const resolved = await this.importResolver.resolve(n.source.value, module.entryPath);
+            if (!resolved) return;
+
+            await this.parsePath(resolved);
+        });
     }
 }
 

@@ -1,8 +1,8 @@
 import * as T from '@babel/types';
-import { NodePath, template } from "@babel/core";
+import { template } from "@babel/core";
 import Generator from "./generator";
 import Graph, { ModuleSymbol } from "./graph";
-import { Module } from "./module";
+import { Module, NodeModule } from "./module";
 import Transformer from "./transformer";
 import fs from 'fs/promises';
 import Config from '../config';
@@ -20,21 +20,128 @@ class Builder {
         await Promise.all([
             this.emitIndex(),
             this.emitDependencyGraph(),
-            this.buildCommand(),
-            this.buildModules()
+            this.emitRoutes(),
+            this.emitCommands(),
+            this.emitEvents()
         ])
+        await this.buildModules()
     }
 
     private async buildModules() {
         for (const module of this.graph.modules) {
-            await this.transformer.transformModule(module);
+            if(module instanceof NodeModule) continue;
+            
+            await module.transform(this.transformer);
             const content = this.generator.generateModule(module);
 
             await fs.writeFile(module.buildPath, content, { recursive: true });
         }
     }
 
-    private async buildCommand() {
+    private emitEvents() {
+        const symbols = new Set<ModuleSymbol>;
+
+        const resolveSymbol = (symbol: ModuleSymbol) => {
+            if(symbols.has(symbol)) return;
+
+            symbols.add(symbol);
+        }
+
+        const objects = Array.from(this.graph.events).map(r => {
+            resolveSymbol(r.symbol.parent!);
+            
+            return T.objectExpression([
+                T.objectProperty(T.identifier("type"), T.stringLiteral(r.type)),
+                T.objectProperty(T.identifier("once"), T.booleanLiteral(r.once)),
+                T.objectProperty(T.identifier("handler"), T.stringLiteral(r.symbol.name)),
+                T.objectProperty(T.identifier("entity"), T.identifier(r.symbol.parent!.name))
+            ])
+        })
+
+        const exportation = T.exportDefaultDeclaration(
+            T.arrayExpression(objects)
+        );
+
+        const imports = Array.from(symbols).map(symbol => {
+            let modPath: string;
+            
+            if(symbol.module.entryPath.includes('node_modules')) {
+                modPath = symbol.module.basename;
+            } else {
+                modPath = Module.pathToRelative(symbol.module.buildPath, this.config.buildPath);
+            }
+
+            return T.importDeclaration(
+                [T.importSpecifier(symbol.id, symbol.id)],
+                T.stringLiteral(modPath)
+            );
+        });
+
+        const ast = T.file(T.program([
+            ...imports,
+            exportation
+        ]));
+
+        const module = Module.from("", ast);
+
+        module.buildPath = join(this.config.buildPath, 'events.js');
+
+        this.graph.addModule(module);
+    }
+
+    private emitRoutes() {
+        const symbols = new Set<ModuleSymbol>;
+
+        const resolveSymbol = (symbol: ModuleSymbol) => {
+            if(symbols.has(symbol)) return;
+
+            symbols.add(symbol);
+        }
+
+        const objects = Array.from(this.graph.routes).map(r => {
+            resolveSymbol(r.symbol.parent!);
+            
+            return T.objectExpression([
+                T.objectProperty(T.identifier("endpoint"), T.stringLiteral(r.endpoint)),
+                T.objectProperty(T.identifier("method"), T.stringLiteral(r.method)),
+                T.objectProperty(T.identifier("ipc"), T.booleanLiteral(r.ipc)),
+                T.objectProperty(T.identifier("handler"), T.stringLiteral(r.symbol.name)),
+                T.objectProperty(T.identifier("entity"), T.identifier(r.symbol.parent!.name))
+            ])
+        })
+
+        const exportation = T.exportDefaultDeclaration(
+            T.arrayExpression(objects)
+        );
+
+        const imports = Array.from(symbols).map(symbol => {
+            let modPath: string;
+            
+            if(symbol.module.entryPath.includes('node_modules')) {
+                modPath = symbol.module.basename;
+            } else {
+                modPath = Module.pathToRelative(symbol.module.buildPath, this.config.buildPath);
+            }
+
+            return T.importDeclaration(
+                [T.importSpecifier(symbol.id, symbol.id)],
+                T.stringLiteral(modPath)
+            );
+        });
+
+        const ast = T.file(T.program([
+            ...imports,
+            exportation
+        ]));
+
+        const module = Module.from("", ast);
+
+        module.buildPath = join(this.config.buildPath, 'routes.js');
+
+        this.graph.addModule(module);
+    }
+
+    private async emitCommands() {        
         const ast = T.file(
             await this.mergeCommands()
         );
@@ -45,68 +152,48 @@ class Builder {
     private async mergeCommands() {
         const registrations = await Promise.all(this.graph.commands.map(
             async m => {
-                await this.transformer.transformModule(m);
+                await m.transform(this.transformer);
 
                 return template.statement(`
-                __map__.register(async () => {
-                    %%body%%
+                    __container__.add(async () => {
+                        %%body%%
+                    });
+                `)({
+                    body: m.content.program.body
                 });
-            `)({
-                body: m.content.program.body
-            })}
+            }
         ));
 
         return T.program([
             ...template.statements(`
                 import { createElement as _jsx, Fragment as _Frag } from 'diseact/jsx-runtime';
-                import { CommandRegister } from '@flame-oh/core/internal';
+                import { CommandContainer } from '@flame-oh/core';
             
-                const __map__ = new CommandRegister();
+                const __container__ = new CommandContainer();
             `)(),
             ...registrations,
-            template.statement(`export default __map__;`)()
+            template.statement(`export default __container__;`)()
         ]);
     }
 
     private async emitIndex() {
-        const mappedInjectionImports = new Array<T.ImportDeclaration>;
-        const mappedInjections = new Array<string>;
-
-        for (const injection of this.graph.injectables) {
-            const modPath = Module.pathToRelative(injection.symbol.filePath, this.config.buildPath);
-
-            mappedInjections.push(injection.symbol.name);
-            mappedInjectionImports.push(
-                T.importDeclaration([
-                    T.importSpecifier(
-                        injection.symbol.id,
-                        injection.symbol.id
-                    )
-                ], T.stringLiteral(modPath))
-            )
-        }
-
         const statements = template.statements(`
             import { FlameClient } from '@flame-oh/core';
-            %%IMPORTS%%
 
             process.env = {
                 ...process.env,
                 ...${JSON.stringify(getEnvFile(this.config.cwd))}
             }
 
-            const client = new FlameClient({ 
-                commands: import('./commands.js'),
-                managers: [${mappedInjections.join(', ')}],
+            const client = new FlameClient({
+                entryUrl: import.meta.url,
                 intents: ${JSON.stringify(this.config.intents)}
             });
 
-            client.login();
-        `)({
-            IMPORTS: mappedInjectionImports,
-        });
+            client.start();
+        `, { placeholderPattern: false })();
 
-        const module = new Module("", T.file(T.program(statements, [], 'module')));
+        const module = Module.from("", T.file(T.program(statements, [], 'module')));
         module.buildPath = join(this.config.buildPath, 'index.js');
 
         this.graph.addModule(module);
@@ -120,7 +207,7 @@ class Builder {
 
             symbols.add(symbol);
         }
-
+        
         /**
          * Iterate each injectable, add all symbols to Set, and returns a AST structure that
          * represents an object like it:
@@ -132,7 +219,7 @@ class Builder {
          * }
          * ```
          */
-        const objects = Array.from(this.graph.injectables).map(i => {
+        const objects = Array.from(new Set([...this.graph.injectables, ...this.graph.managers])).map(i => {
             resolveSymbol(i.symbol);
             i.dependencies.forEach(s => resolveSymbol(s));
 
@@ -159,6 +246,7 @@ class Builder {
         const exportation = T.exportDefaultDeclaration(
             T.arrayExpression(objects)
         );
+        
 
         /**
          * Get all symbols registered and returns a array with AST structure that represent
@@ -169,20 +257,26 @@ class Builder {
          * ```
          */
         const imports = Array.from(symbols).map(symbol => {
-            const modPath = Module.pathToRelative(symbol.filePath, this.config.buildPath);
+            let modPath: string;
+            
+            if(symbol.module.entryPath.includes('node_modules')) {
+                modPath = symbol.module.basename;
+            } else {
+                modPath = Module.pathToRelative(symbol.module.buildPath, this.config.buildPath);
+            }
 
             return T.importDeclaration(
                 [T.importSpecifier(symbol.id, symbol.id)],
                 T.stringLiteral(modPath)
             );
         });
-        
+
         const ast = T.file(T.program([
             ...imports,
             exportation
         ]));
 
-        const module = new Module("", ast);
+        const module = Module.from("", ast);
 
         module.buildPath = join(this.config.buildPath, 'dependency-graph.js');
 

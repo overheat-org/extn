@@ -1,2 +1,2 @@
-export * from './client.js';
+export * from './Client.js';
 export * from './manager.base.js';

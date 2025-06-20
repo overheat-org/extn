@@ -1,41 +1,38 @@
 import fs from 'fs';
-import { resolve } from 'path';
 import _path from 'path/posix';
-import Config from '../config';
 import * as T from '@babel/types';
 import { FlameErrorLocation } from './reporter';
 import _traverse, { NodePath, Visitor } from '@babel/traverse';
+import { Module } from './module';
 const traverse: typeof _traverse = typeof _traverse == 'object'
     ? (_traverse as any).default
     : _traverse;
 
 export async function asyncTraverse(ast: T.Node, visitor: AsyncVisitor) {
-    const promises: Promise<any>[] = [];
+	const promises: Promise<any>[] = [];
 
-    const wrappedVisitor: any = {};
+	const wrappedVisitor: any = {};
 
-    for (const key of Object.keys(visitor)) {
-        const originalMethod = visitor[key as keyof AsyncVisitor];
+	for (const key of Object.keys(visitor)) {
+		const originalMethod = visitor[key as keyof AsyncVisitor];
 
-        if (originalMethod && typeof originalMethod === 'function') {
-            wrappedVisitor[key] = function (path: NodePath<any>) {
-                const result = originalMethod(path);
-                if (result instanceof Promise) {
-                    promises.push(result);
-                }
-            };
-        } else {
-            wrappedVisitor[key] = originalMethod;
-        }
-    }
+		if (originalMethod && typeof originalMethod === 'function') {
+			wrappedVisitor[key] = function (path: NodePath<any>) {
+				const result = originalMethod(path as any);
+				if (result && typeof result.then === 'function') {
+					promises.push(result);
+				}
+			};
+		}
+	}
 
-    traverse(ast, wrappedVisitor as Visitor);
+	traverse(ast, wrappedVisitor as Visitor);
 
-    await Promise.all(promises);
+	await Promise.all(promises);
 }
 
 export type AsyncVisitor = {
-    [K in keyof Visitor]?: (path: NodePath<any>) => Promise<void> | void;
+    [K in keyof Visitor]?: (path: NodePath<Extract<T.Node, { type: K }>>) => Promise<void> | void;
 };
 
 
@@ -62,127 +59,9 @@ export function findNodeModulesDir(startDir?: string, expectedPackage?: string, 
     throw new Error("Cannot find node_modules");
 }
 
-export function getConstructor(path: NodePath<T.Class>) {
-    return path.get('body').get('body').find(
-        (method) => method.isClassMethod({ kind: 'constructor' })
-    );
-}
-
-export function createConstructor(
-    classPath: NodePath<T.ClassDeclaration | T.ClassExpression>,
-    params: T.Identifier[] = [],
-    body: T.Statement[] = [],
-    Super = false,
-): NodePath<T.ClassMethod> {
-    const constructorMethod = T.classMethod(
-        'constructor',
-        T.identifier('constructor'),
-        params,
-        T.blockStatement(body)
-    );
-
-    if (Super) {
-        constructorMethod.body.body.push(T.expressionStatement(T.callExpression(T.identifier('super'), [])))
-    }
-
-    classPath.get('body').pushContainer('body', constructorMethod);
-
-    const constructorPath = classPath
-        .get('body')
-        .get('body')
-        .find((method) => method.isClassMethod({ kind: 'constructor' })) as NodePath<T.ClassMethod>;
-
-    return constructorPath;
-}
-
-export function getDecoratorParams(path: NodePath<T.Decorator>) {
-    const expr = path.get("expression");
-    if (!expr.isCallExpression()) return;
-
-    return expr.get('arguments');
-}
-
-export function getClassDeclaration(path: NodePath<T.ClassMethod | T.Decorator>) {
-    let decl = path.findParent(p =>
-        p.isClassDeclaration() ||
-        p.isClassExpression() ||
-        p.isExportNamedDeclaration() ||
-        p.isExportDefaultDeclaration()
-    );
-
-    if (
-        decl?.isExportNamedDeclaration() ||
-        decl?.isExportDefaultDeclaration()
-    ) {
-        const inner = decl.get('declaration');
-        if (
-            inner &&
-            !Array.isArray(inner) &&
-            (inner.isClassDeclaration?.())
-        ) {
-            return inner;
-        }
-        return null;
-    }
-
-    return decl as NodePath<T.ClassDeclaration> | null;
-}
-
-export function getDeclaration(
-    path: NodePath<T.Identifier | T.TSTypeReference>
-): NodePath | null {
-    let name: string | undefined
-
-    if (path.isIdentifier()) {
-        name = path.node.name
-    } else if (
-        path.isTSTypeReference() &&
-        path.get('typeName').isIdentifier()
-    ) {
-        name = (path.get('typeName').node as any).name
-    }
-
-    if (!name) return null
-    const binding = path.scope.getBinding(name)
-    return binding?.path ?? null
-}
-
-export function getErrorLocation(path: NodePath, filepath?: string): FlameErrorLocation {
-    return { ...path.node.loc?.start! ?? {}, path: filepath };
-}
-
-export function resolveName(path: NodePath) {
-    const node = path.node;
-
-    if (T.isObjectProperty(node)) {
-        if (node.computed && T.isStringLiteral(node.key)) {
-            const binding = path.scope.getBinding(node.key.value);
-            if (binding && T.isVariableDeclarator(binding.path.node) && T.isIdentifier(binding.path.node.id)) {
-                return binding.path.node.id.name;
-            }
-            return node.key.value;
-        } else if (!node.computed && T.isIdentifier(node.key)) {
-            return node.key.name;
-        }
-    }
-
-    if (T.isClassMethod(node)) {
-        if (node.computed && T.isStringLiteral(node.key)) {
-            const binding = path.scope.getBinding(node.key.value);
-            if (binding && T.isVariableDeclarator(binding.path.node) && T.isIdentifier(binding.path.node.id)) {
-                return binding.path.node.id.name;
-            }
-            return node.key.value;
-        } else if (!node.computed && T.isIdentifier(node.key)) {
-            return node.key.name;
-        }
-    }
-
-    if (T.isIdentifier(node)) {
-        return node.name;
-    }
-
-    throw new Error('Cannot resolve name of node');
+export function getErrorLocation(path: NodePath, module?: Module): FlameErrorLocation {
+    const loc = path?.node?.loc?.start;
+    return { ...(loc ?? {}), path: module?.entryPath };
 }
 
 // FIXME: poor solution

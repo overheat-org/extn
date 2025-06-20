@@ -2,6 +2,9 @@
   "name": "test",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "test": "node ../dist/main.js . --hot"
+  },
   "dependencies": {
     "@flame-oh/core": "file:..",
     "@flame-oh/manager-commerce": "^2.0.0",

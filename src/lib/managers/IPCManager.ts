@@ -1,4 +1,4 @@
-export class IPC {
+export class IPCManager {
     private endpoints = new Map<string, Map<string, (req: any) => Promise<any>>>();
 
     constructor() {
@@ -30,23 +30,23 @@ export class IPC {
         this.endpoints.get(path)!.set(method.toUpperCase(), handler);
     }
 
-    __get__(path: string, handler: (req: any) => Promise<any>) {
+    get(path: string, handler: (req: any) => Promise<any>) {
         this.registerEndpoint('GET', path, handler);
     }
 
-    __post__(path: string, handler: (req: any) => Promise<any>) {
+    post(path: string, handler: (req: any) => Promise<any>) {
         this.registerEndpoint('POST', path, handler);
     }
 
-    __put__(path: string, handler: (req: any) => Promise<any>) {
+    put(path: string, handler: (req: any) => Promise<any>) {
         this.registerEndpoint('PUT', path, handler);
     }
 
-    __delete__(path: string, handler: (req: any) => Promise<any>) {
+    delete(path: string, handler: (req: any) => Promise<any>) {
         this.registerEndpoint('DELETE', path, handler);
     }
 
-    __patch__(path: string, handler: (req: any) => Promise<any>) {
+    patch(path: string, handler: (req: any) => Promise<any>) {
         this.registerEndpoint('PATCH', path, handler);
     }
 }

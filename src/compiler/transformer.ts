@@ -1,127 +1,52 @@
-import * as T from '@babel/types';
-import { PluginItem, transformFromAstAsync } from '@babel/core';
-import _traverse, { NodePath, Visitor } from "@babel/traverse";
+import { transformFromAstAsync } from '@babel/core';
+import _traverse, { NodePath } from "@babel/traverse";
 import Config from '../config';
-import { CommandModule, Module } from './module';
-import { toDynamicImport } from './utils';
-import decorators from './decorators';
+import { Module } from './module';
+import { asyncTraverse, AsyncVisitor } from './utils';
 import Graph from './graph';
+import ImportResolver from './import-resolver';
 
-export type DecoratorDeclaration = (this: { module: Module, graph: Graph }, path: NodePath<T.Decorator>) => unknown;
+export class TransformStrategy {
+	visitor: AsyncVisitor = {};
+	protected config!: Config;
+	protected graph!: Graph;
+	protected importResolver!: ImportResolver;
 
-abstract class BaseTransformer  {
-	plugins: PluginItem[] = [];
-	presets: PluginItem[] = [];
+	constructor(protected module: Module) {
+		const proto = Object.getPrototypeOf(this);
+		for (const name of Object.getOwnPropertyNames(proto)) {
+			if (name === "constructor") continue;
 
-	protected getVisitor(module: Module): Visitor {
-		return {}
+			const fn = this[name];
+			if (typeof fn === "function") {
+				this.visitor[name] = fn.bind(this);
+			}
+		}
 	}
 
-	async transformModule(module: Module) {
-		const visitorPlugin = { visitor: this.getVisitor(module) };
+	async apply(config: Config, graph: Graph, importResolver: ImportResolver) {
+		this.config = config;
+		this.graph = graph;
+		this.importResolver = importResolver;
 
+		await asyncTraverse(this.module.content, this.visitor);
+	}
+}
+
+export class Transformer {
+	async transformModule(module: Module) {
+		await module.transformStrategy.apply(this.config, this.graph, this.importResolver);
 		const result = await transformFromAstAsync(module.content, undefined, {
-			plugins: [visitorPlugin, ...this.plugins],
-			presets: this.presets,
-			filename: module.filename,
+			presets: module.transformStrategy.presets,
+			filename: module.basename,
 			ast: true
 		});
 
-		if (!result || !result.ast) throw new Error("Transformation failed");
-
+		if (!result || !result.ast) throw new Error(`Transformation failed for module ${module.basename}`);
 		module.content = result.ast;
 	}
 
-	constructor(protected config: Config, protected graph: Graph) {}
-}
-
-export class ModuleTransformer extends BaseTransformer {
-	presets: PluginItem[] = [
-		"@babel/preset-typescript",
-		["@babel/preset-react", { runtime: "automatic", importSource: "diseact" }],
-	]
-
-	public transformImportSource(path: NodePath<T.ImportDeclaration>, module: Module, parent: string) {
-		const relativePath = Module.pathToRelative(module.buildPath, parent);
-		path.get('source').set('value', relativePath);
-	}
-
-	public async transformDecorator(path: NodePath<T.Decorator>, module: Module) {
-		const expr = path.node.expression;
-		let callback: DecoratorDeclaration | undefined;
-
-		switch (true) {
-			case T.isIdentifier(expr): {
-				callback = decorators[expr.name];
-				break;
-			}
-			case T.isCallExpression(expr)
-				&& T.isMemberExpression(expr.callee)
-				&& T.isIdentifier(expr.callee.object): {
-				callback = decorators[expr.callee.object.name];
-				break;
-			}
-		}
-
-		if (!callback) return;
-
-		const context = {
-			module,
-			graph: this.graph
-		};
-		
-		callback.bind(context)(path);
-
-		if (!path.removed) path.remove();
-	}
-}
-
-export class CommandTransformer extends BaseTransformer {
-	protected getVisitor(m: Module): Visitor {
-		return {
-			ExportDefaultDeclaration: this.transformExportDefaultDeclaration,
-			ExportNamedDeclaration: this.transformExportNamedDeclaration,
-		}
-	}
-	
-	presets: PluginItem[] = [
-		"@babel/preset-typescript",
-		["@babel/preset-react", { pragma: "_jsx", pragmaFrag: "_Frag" }]
-	]
-
-	async transformImportSource(path: NodePath<T.ImportDeclaration>, module?: Module) {		
-		if(path.removed) return;
-		
-		if(module) {
-			const relativePath = Module.pathToRelative(module.buildPath, this.config.buildPath);
-			path.get('source').set('value', relativePath);
-		}
-
-		toDynamicImport(path);
-	}
-
-	private transformExportNamedDeclaration(path: NodePath<T.ExportNamedDeclaration>) {
-		path.remove();
-	}
-	
-	private transformExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
-		path.replaceWith(T.returnStatement(path.node.declaration as T.Expression));
-	}
-};
-
-
-export class Transformer {
-	public command: CommandTransformer;
-	public module: ModuleTransformer;
-	
-	async transformModule(module: Module | CommandModule) {
-		return this[module instanceof CommandModule ? 'command' : 'module'].transformModule(module);
-	}
-
-	constructor(config: Config, graph: Graph) {
-		this.command = new CommandTransformer(config, graph);
-		this.module = new ModuleTransformer(config, graph);
-	}
+	constructor(private config: Config, private graph: Graph, private importResolver: ImportResolver) {}
 }
 
 export default Transformer;

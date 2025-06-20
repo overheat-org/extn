@@ -1,13 +1,17 @@
 {
     "compilerOptions": {
-        "lib": ["ESNext"],
+        "lib": [
+            "ESNext"
+        ],
         "jsx": "preserve",
         "jsxImportSource": "diseact",
         "baseUrl": "./",
         "strictPropertyInitialization": false,
         "paths": {
-            "@utils/*": ["./src/utils/*"]
-        },
+            "@utils/*": [
+                "./src/utils/*"
+            ]
+        }
     },
     "include": [
         "src/**/*",

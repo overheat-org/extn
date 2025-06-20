@@ -1,24 +1,17 @@
-import '@flame-oh/manager-commerce';
+// import '@flame-oh/manager-commerce';
 import { Client } from "discord.js";
 import { useState } from "diseact";
 import { Manager, Storage } from '@flame-oh/core';
-import { plus } from '@utils/math';
+import { Payment } from './Payment';
 const meta = new Storage('meta');
 
 @manager
 export class Init extends Manager {
     @event
     async OnceReady() {
-        console.log('READY');
-        const r = plus(5, (await meta.get('meta')) ?? 0);
-        await meta.set('meta', r);
-        console.log(r);
-
-        // const channel = this.client.guilds.cache.first()!.channels.cache.find(c => c.id == '1260342618743767171')!;
-
-        // render(channel as TextChannel, <Counter />)
+        console.log(`READY AT ${this.client.user.tag}`);
     }
-    constructor(private client: Client) {
+    constructor(private client: Client, private payment: Payment) {
         super();
     }
 }

@@ -1,6 +1,7 @@
 import { join as j } from 'path/posix';
 import { readdirSync, readFileSync } from 'fs';
 import { parse } from 'dotenv';
+import { env } from 'process';
 
 export const EnvName = {
     COMMON: '.env',
@@ -25,9 +26,9 @@ const ENV_REGEX = /^\.env(?:\.(development|production))?$/;
 
 export function getEnvFile(cwd = process.cwd()) {
 	const envPath = readdirSync(cwd)
-		.find(d => d.match(ENV_REGEX)?.[0] == process.env.NODE_ENV)
+		.find(d => d.match(ENV_REGEX)?.[1] == process.env.NODE_ENV)
 		?? ".env";
-	
+
 	try {
 		const file = readFileSync(j(cwd, envPath));
 		return parse(file);

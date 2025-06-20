@@ -1,81 +1,109 @@
-import { Client } from "discord.js";
-
 declare global {
     /**
      * @kind Decorator
-     * @description Use function to handle a function. The first work determines if event will be once or on, respectively Once and Or. The rest of name, is about the type of event 
-     * 
+     * @description Marks a method as a Discord event handler.
+     * The method name must start with "Once" or "On" followed by the event name (e.g., OnceReady, OnMessageCreate).
+     *
      * @example
-     * ```javascript
-     * *@inject*
-     * class InitManager {
+     * ```ts
+     * *@manager*
+     * class Init {
      *     *@event*
      *     OnceReady() {
-     *          console.log('Ready')
+     *         console.log('Bot is ready');
      *     }
      * }
      * ```
      */
-    function event(target: (...args: any[]) => void, context: ClassMethodDecoratorContext<any>): void
+    function event(
+        target: (...args: any[]) => void,
+        context: ClassMethodDecoratorContext<any>
+    ): void;
 
     /**
      * @kind Decorator
-     * @description Mark a Manager to be instantiate on core to get Discord Client
-     * 
+     * @description Marks a class as injectable. Its dependencies will be resolved at compile-time based on the constructor parameters.
+     *
      * @example
-     * ```javascript
-     * *@inject*
-     * class InitManager {
-     *     constructor(client) {
-     *          client.once('ready', console.log)
+     * ```ts
+     * *@injectable*
+     * class PaymentService {
+     *     constructor(private api: ApiService) {}
+     * }
+     * ```
+     */
+    function injectable(
+        constructor: new (...args: any[]) => unknown,
+        context: ClassDecoratorContext
+    ): void;
+
+    /**
+     * @kind Decorator
+     * @description Marks a class as a singleton entry-point, Its dependencies will be resolved at compile-time based on the constructor parameters.
+     *
+     * @example
+     * ```ts
+     * *@manager*
+     * class Init {
+     *     constructor(private client: Client) {}
+     * }
+     * ```
+     */
+    function manager(
+        constructor: new (...args: any[]) => unknown,
+        context: ClassDecoratorContext
+    ): void;
+
+    /**
+     * @kind Decorator Group
+     * @description Defines a class method as an HTTP route (for use in web servers or IPC with HTTP-like syntax).
+     *
+     * @example
+     * ```ts
+     * class Init {
+     *     *@http.post('/api/start')*
+     *     start({ body }) {
+     *         // handle request
      *     }
      * }
      * ```
      */
-    function inject(constructor: new (client: Client ) => unknown, context: ClassDecoratorContext): void
+    const http: HTTPBased;
 
     /**
-     * @kind Decorator
-     * @description Force class to have a unique instance for each data group
-     * 
+     * @kind Decorator Group
+     * @description Defines a method as an IPC route using HTTP-like methods (e.g., GET, POST).
+     *
      * @example
-     * ```javascript
-     * *@singleton*
-     * class Product {
-     *      // If this product id has already fetched, will returns this instance
-     *      // Else, will be created a new instance
-     *      static find(id) {}
+     * ```ts
+     * class Init {
+     *     *@api.get('/bot/status')*
+     *     status({ respond }) {
+     *         respond({ online: true });
+     *     }
      * }
      * ```
      */
-    function singleton(constructor: new () => unknown, context: ClassDecoratorContext): void
+    const api: HTTPBased;
 
-    /**
-     * @kind Decorator
-     * @description Defines a class method as http server route
-     * 
-     * @example
-     * ```javascript
-     * class InitManager {
-     *      *@http.post('/api/init')*
-     *      onInitApi({ request, response, body }) {
-     *          
-     *      }
-     * }
-     */
-    const http: {
-        get:     HTTP_Decorator,
-        head:    HTTP_Decorator,
-        post:    HTTP_Decorator,
-        put:     HTTP_Decorator,
-        delete:  HTTP_Decorator,
-        connect: HTTP_Decorator,
-        options: HTTP_Decorator,
-        trace:   HTTP_Decorator,
-        patch:   HTTP_Decorator,
+    interface HTTPBased {
+        get:     HTTPDecorator;
+        head:    HTTPDecorator;
+        post:    HTTPDecorator;
+        put:     HTTPDecorator;
+        delete:  HTTPDecorator;
+        connect: HTTPDecorator;
+        options: HTTPDecorator;
+        trace:   HTTPDecorator;
+        patch:   HTTPDecorator;
     }
-    
-    type HTTP_Decorator = (route: string) => (target: (...args: any []) => void, context: ClassMethodDecoratorContext<any>) =>void
+
+    type HTTPDecorator = (
+        route: string
+    ) => (
+        target: (...args: any[]) => void,
+        context: ClassMethodDecoratorContext<any>
+    ) => void;
 }
 
 export {};

@@ -1,10 +1,14 @@
 import * as T from '@babel/types';
-import { existsSync, stat, statSync } from 'fs';
-import { basename, extname, isAbsolute, normalize, relative, resolve, posix } from 'path';
+import { existsSync, statSync } from 'fs';
+import { basename, extname, isAbsolute, normalize, relative, resolve, posix, dirname } from 'path';
 import { REGEX } from '../consts';
 import Config from '../config';
-import { readJSONFile } from './utils';
-import { parse } from '@babel/parser';
+import { asyncTraverse, AsyncVisitor, getErrorLocation, readJSONFile, toDynamicImport } from './utils';
+import Transformer, { TransformStrategy } from './transformer';
+import { NodePath } from '@babel/traverse';
+import { PluginItem } from '@babel/core';
+import { FlameError } from './reporter';
+import { DecoratorAnalyzer } from './analyzer';
 
 /**
  * ModuleResolver class provides utility methods to resolve and manipulate file paths.
@@ -132,34 +136,217 @@ class ModuleResolver {
 		if (REGEX.FLAME_MODULE.test(path)) {
 			return fromFlame();
 		}
-		else if(REGEX.IS_COMMAND.test(path)) {
+		else if (REGEX.IS_COMMAND.test(path)) {
 			return fromCommand();
-		} 
+		}
 		else {
 			return fromEntry();
 		}
 	}
 }
 
+class TransformModuleStrategy extends TransformStrategy {
+	presets: PluginItem[] = [
+		"@babel/preset-typescript",
+		["@babel/preset-react", { runtime: "automatic", importSource: "diseact" }],
+	]
 
-export class Module extends ModuleResolver {
+	async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
+		if (path.removed) return;
+
+		const absolutePath = await this.importResolver.resolve(path.node.source.value, this.module.entryPath);
+		if (!absolutePath) return;
+
+		const module = this.graph.getModule(absolutePath);
+		if (!module) return;
+
+		if (
+			path.node.specifiers.length == 0 &&
+			(
+				REGEX.IS_COMMAND_FILE.test(path.node.source.value) || 
+				REGEX.FLAME_MODULE.test(path.node.source.value)
+			)
+		) {
+			path.remove();
+		}
+		else {
+			if(!(Module instanceof NodeModule)) return;
+			
+			const relativePath = Module.pathToRelative(module.buildPath, dirname(module.buildPath));
+			path.get('source').set('value', relativePath);
+		}
+	}
+
+	Decorator(path: NodePath<T.Decorator>) {
+		const expr = path.get('expression');
+
+		let name: string | undefined;
+
+		if (expr.isIdentifier()) {
+			name = expr.node.name;
+		} else if (expr.isCallExpression()) {
+			const callee = expr.get('callee');
+			if (callee.isIdentifier()) {
+				name = callee.node.name;
+			} else if (callee.isMemberExpression()) {
+				const object = callee.get('object');
+				if (object.isIdentifier()) {
+					name = object.node.name;
+				}
+			}
+		} else if (expr.isMemberExpression()) {
+			const object = expr.get('object');
+			if (object.isIdentifier()) {
+				name = object.node.name;
+			}
+		}
+
+		if (name && /^[a-z]/.test(name)) {
+			path.remove();
+		}
+	}
+}
+
+interface BaseModule {
+	readonly transformStrategy?: TransformStrategy;
+	readonly entryPath: string;
+	readonly content?: T.File;
+	transform?: (transformer: Transformer) => Promise<void>;
+}
+
+export class Module extends ModuleResolver implements BaseModule {
+	readonly transformStrategy = new TransformModuleStrategy(this);
+	readonly analyzers = [
+		new DecoratorAnalyzer(this),
+	]
+
+	private static instances = new Map<string, Module>();
+
 	public buildPath!: string;
 
-	constructor(
+	protected constructor(
 		public entryPath = "",
 		public content: T.File = T.file(T.program([])),
 	) {
 		super();
 
-		if(entryPath) {
-			this.entryPath = Module.normalizePath(entryPath);
+		if (entryPath) {
 			this.buildPath = Module.toBuildPath(entryPath);
 		}
 	}
 
-	get filename() {
+	static from(entryPath: string, content?: T.File) {
+		const normalized = Module.normalizePath(entryPath);
+		if (entryPath && this.instances.has(normalized)) {
+			return this.instances.get(normalized)!;
+		}
+		const instance = new this(normalized, content);
+		this.instances.set(normalized, instance);
+		return instance;
+	}
+
+	get basename() {
 		return basename(this.entryPath ?? this.buildPath);
+	}
+
+	traverse(visitors: AsyncVisitor) {
+		return asyncTraverse(this.content, visitors);
+	}
+
+	transform(transformer: Transformer) {
+		return transformer.transformModule(this);
 	}
 }
 
-export class CommandModule extends Module {}
+export class NodeModule implements BaseModule {
+	private static instances = new Map<string, NodeModule>();
+
+	private constructor(
+		public entryPath: string,
+	) { }
+
+	static from(entryPath: string) {
+		const normalized = Module.normalizePath(entryPath);
+		if (entryPath && this.instances.has(normalized)) {
+			return this.instances.get(normalized)!;
+		}
+		const instance = new this(normalized);
+		this.instances.set(normalized, instance);
+		return instance;
+	}
+
+	get basename() {
+		return basename(this.entryPath);
+	}
+}
+
+class TransformCommandModuleStrategy extends TransformStrategy {
+	presets: PluginItem[] = [
+		"@babel/preset-typescript",
+		["@babel/preset-react", { pragma: "_jsx", pragmaFrag: "_Frag" }]
+	]
+
+	async _importSource(path: NodePath<T.ImportDeclaration>) {
+		if (path.removed) return;
+
+		if (module) {
+			const relativePath = Module.pathToRelative(this.module.buildPath, this.config.buildPath);
+			path.get('source').set('value', relativePath);
+		}
+
+		toDynamicImport(path);
+	}
+
+	async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
+		if (path.removed) return;
+
+		const absolutePath = await this.importResolver.resolve(path.node.source.value, this.module.entryPath)
+		if (!absolutePath) return;
+
+		const module = this.graph.getModule(absolutePath);
+		if (!module) return;
+
+		if(!(module instanceof NodeModule)) {
+			const relativePath = Module.pathToRelative(module.buildPath, this.config.buildPath);
+			path.get('source').set('value', relativePath);
+		}
+
+		toDynamicImport(path);
+	}
+
+	EnumDeclaration(path: NodePath<T.EnumDeclaration>) {
+		throw new FlameError('Cannot use enum in command', getErrorLocation(path, this.module));
+	}
+
+	ClassDeclaration(path: NodePath<T.ClassDeclaration>) {
+		throw new FlameError('Cannot use class in command', getErrorLocation(path, this.module));
+	}
+
+	ExportNamedDeclaration(path: NodePath<T.ExportNamedDeclaration>) {
+		const node = path.node;
+
+		if (node.specifiers.length == 0) return;
+
+		throw new FlameError('Cannot export in command', getErrorLocation(path, this.module));
+	}
+
+	ExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
+		path.replaceWith(T.returnStatement(path.node.declaration as T.Expression));
+	}
+}
+
+export class CommandModule extends Module {
+	readonly transformStrategy = new TransformCommandModuleStrategy(this);
+
+	private static instances = new Map<string, Module>();
+
+	static from(entryPath: string, content?: T.File) {
+		const normalized = Module.normalizePath(entryPath);
+		if (entryPath && this.instances.has(normalized)) {
+			return this.instances.get(normalized)!;
+		}
+		const instance = new this(normalized, content);
+		this.instances.set(normalized, instance);
+		return instance;
+	}
+}

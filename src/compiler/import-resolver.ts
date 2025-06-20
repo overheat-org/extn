@@ -5,6 +5,7 @@ import { dirname, join, sep } from 'path';
 import Config from "../config";
 import { REGEX } from "../consts";
 import { readFileSync } from "fs";
+import { jsonc as JSONC } from "jsonc";
 
 type TsConfig = { compilerOptions: CompilerOptions }
 
@@ -14,16 +15,28 @@ class ImportResolver {
     constructor(private config: Config) {
         try {
             const data = readFileSync(join(config.cwd, 'tsconfig.json'), 'utf-8');
-            this.tsconfig = JSON.parse(data);
-        } catch {
-            console.error('error: tsconfig.json not found');
+            this.tsconfig = JSONC.parse(data);
+        } catch(err) {
+            console.error('error: tsconfig.json not found\n', err);
         }
     }
 
     async resolve(source: string, filepath?: string): Promise<string | undefined> {
         if (source.startsWith('.')) return this.resolveRelativeImport(source, filepath!);
         else if (REGEX.FLAME_MODULE.test(source)) return this.resolveFlameModuleImport(source);
-        else return this.resolveImportAlias(source);
+        else if (this.isImportAlias(source)) return this.resolveImportAlias(source);
+        else return this.resolveNodeModuleImport(source);
+    }
+
+    private resolveNodeModuleImport(path: string): string | undefined {
+        try {
+            const nodeModulesDir = findNodeModulesDir(this.config.cwd, path);
+            if (!nodeModulesDir) return;
+
+            return nodeModulesDir;
+        }
+        catch {
+} 
     }
 
     private resolveImportAlias(path: string) {
@@ -57,6 +70,25 @@ class ImportResolver {
                 if (candidate) return candidate;
             }
         }
+    }
+
+    private isImportAlias(path: string): boolean {
+        const { paths } = this.tsconfig?.compilerOptions ?? {};
+        if (!paths) return false;
+
+        for (const alias in paths) {
+            if (!Array.isArray(paths[alias]) || !paths[alias].length) continue;
+
+            if (alias.includes('*')) {
+                const pattern = '^' + alias.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace('*', '(.*)') + '$';
+                const regex = new RegExp(pattern);
+                if (regex.test(path)) return true;
+            } else if (path.startsWith(alias)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private resolveFlameModuleImport(path: string) {

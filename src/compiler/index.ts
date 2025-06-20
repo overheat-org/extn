@@ -7,17 +7,22 @@ import { join, sep } from 'path';
 import { Module } from './module';
 import Builder from './builder';
 import Parser from './parser';
+import ImportResolver from './import-resolver';
+import AnalyzerRunner from './analyzer';
 
 class Compiler {
     parser: Parser;
     builder: Builder;
+    analyzer: AnalyzerRunner;
 
     constructor(public config: Config) {
         Module.config = config;
+        const importResolver = new ImportResolver(config);
         const graph = new Graph();
-        const transformer = new Transformer(config, graph);
-        this.parser = new Parser(config, graph, transformer);
+        const transformer = new Transformer(config, graph, importResolver);
+        this.parser = new Parser(graph, transformer, importResolver);
         this.builder = new Builder(config, graph, transformer);
+        this.analyzer = new AnalyzerRunner(graph, importResolver);
     }
 
     async compile() {
@@ -25,6 +30,7 @@ class Compiler {
         console.log('parsing')
         await this.parser.parseDir(this.config.entryPath + sep + 'commands');
         await this.parser.parseDir(this.config.entryPath + sep + 'managers');
+        await this.analyzer.analyze();
         console.log('building')
         await this.builder.build();
     }
