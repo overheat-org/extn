@@ -8,8 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
     plugins: [
         dts({
-          include: ['src/lib'],
-          outDir: 'types',
+            include: ['src/lib'],
+            outDir: 'types',
+            entryRoot: 'src/lib'
         }),
     ],
     ssr: {
