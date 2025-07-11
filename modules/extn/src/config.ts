@@ -1,4 +1,4 @@
-import { InlineConfig, UserConfig } from "vite";
+import { UserConfig } from "vite";
 import { BuiltinFunctionHooks } from "./hooks/declarations/function";
 import * as fs from 'fs';
 import { join as j } from 'path';
