@@ -1,5 +1,6 @@
 import { Plugin } from 'rollup';
 import { name, version } from '../package.json';
+import Evaluator from './evaluation/manager';
 
 /** 
  * @internal 
@@ -9,9 +10,10 @@ import { name, version } from '../package.json';
 class BridgePlugin {
 	name = name;
 	version = version;
-
+    evaluator = new Evaluator();
+    
 	transform(code: string, id: string) {
-		
+        this.evaluator.evaluate(code);
 	}
 
 	static setup() {
@@ -20,7 +22,7 @@ class BridgePlugin {
 		return {
 			name,
 			version,
-			transform: instance.transform
+			transform: instance.transform,
 		} satisfies Plugin;
 	}
 

@@ -1,37 +1,15 @@
-import * as T from '@babel/types'; 
-import babel from '@babel/parser';
-import traverse, { NodePath } from '@babel/traverse';
+import * as T from '@babel/types';
+import { NodePath } from "@babel/traverse";
+import { Evaluation } from "../evaluation/base";
+import CompilationHooks from "../hooks/compilation";
 import generate from '@babel/generator';
-import CompilationHooks from './hooks/compilation';
 
-/** @internal */
-abstract class Analyzer {
-	__analyze__(code: string) {
-		return this.analyze?.(code);
-	}
-
-	abstract analyze(code: string): Promise<void> | void;
-
-	protected parse(code: string) {
-		const result = babel.parse(code, {
-			tokens: true,
-		});
-		if (!result) throw new Error("Parse failed");
-
-		result.errors?.forEach(console.error);
-
-		let programPath!: NodePath
-		
-		traverse(result.program, {
-			Program: p => void (programPath = p, p.stop())
-		});
-
-		return programPath;
-	}
+declare global {
+    function comptime(callback: CompilationHooks): any
 }
 
 /** @internal */
-class ComptimeApiAnalyzer extends Analyzer {
+export class ComptimeExprEvaluation extends Evaluation {
 	analyze(code: string) {
 		if(!code.includes('comptime')) return;
 

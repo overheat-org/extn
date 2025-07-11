@@ -5,6 +5,10 @@
 		"strictNullChecks": true,
 		"stripInternal": true,
 		"module": "esnext",
-		"moduleResolution": "bundler"
-	}
+		"moduleResolution": "bundler",
+        "noEmit": true,
+	},
+    "include": [
+        "src/**/*"
+    ]
 }
