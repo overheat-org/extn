@@ -43,7 +43,7 @@ export class ConfigManager {
 	data!: Config;
 	private cwd = process.cwd();
 	private configEvaluator = new ConfigEvaluator();
-	private configRegex = /^\.mburc|mbu\.config\.(j|t)s(on)?$/;
+	private configRegex = /^\.extnrc|extn\.config\.(j|t)s(on)?$/;
 
 	async setup() {
 		const configPath = await this.getConfigPath();
@@ -70,10 +70,10 @@ export class ConfigManager {
 		if(/\.(j|t)s$/.test(path)) {
 			return await import(path);
 		}
-		else if(/\.json|\.*rc$/.test(path)) {
+		else if(/\.json|\.\w+rc$/.test(path)) {
 			return JSON.parse(data);
 		}
-		else throw new Error("Config ext not recognized");
+		else throw new Error("Config extension not recognized");
 	}
 
 	constructor(private configData?: string) {}

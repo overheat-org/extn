@@ -61,6 +61,7 @@ class ComptimeApiAnalyzer extends Analyzer {
 	 * example:
 	 * ```js
 	 * comptime(compilation => {});
+	 * ```
 	 */
 	analyzeComptimeExpression(path: NodePath<T.CallExpression>) {
 		const [callbackNode] = path.get("arguments");
