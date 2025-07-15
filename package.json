@@ -1,0 +1,8 @@
+{
+	"name": "extn",
+	"private": true,
+	"workspaces": [
+		"modules/extn",
+		"modules/cli"
+	]
+}
