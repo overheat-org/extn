@@ -6,7 +6,7 @@ import Graph, { ModuleSymbol } from "./graph";
 import ImportResolver from "./import-resolver";
 import { NodePath } from '@babel/traverse';
 
-export abstract class Analyzer {
+export abstract class BaseAnalyzer {
     protected graph!: Graph;
     protected importResolver!: ImportResolver;
     private toInit = new Array();
@@ -115,7 +115,7 @@ enum DecoratorTarget {
     PARAM
 }
 
-export class DecoratorAnalyzer extends Analyzer {
+export class DecoratorAnalyzer extends BaseAnalyzer {
     private dependencyAnalyzer = this.init(DependencyAnalyzer);
 
     private HTTP_METHODS = ["get", "head", "post", "put", "delete", "connect", "options", "trace", "patch"];
@@ -125,16 +125,8 @@ export class DecoratorAnalyzer extends Analyzer {
         }
     }
 
-    async analyze() {
-        await this.module.traverse({
-            Decorator: async path => {
-                const name = this.resolveName(path) ?? "";
-                if (!/^[a-z]/.test(name)) return;
-                const key = `analyze${name.replace(/^./, c => c.toUpperCase())}`;
-
-                this[key]?.(path);
-            }
-        });
+    async analyze(code: string) {
+        /@[a-zA-Z]+[\s\n]/.test(code);
     }
 
     analyzeDecorator(path: NodePath<T.Decorator>) {
@@ -335,7 +327,7 @@ export class DecoratorAnalyzer extends Analyzer {
     }
 }
 
-export class DependencyAnalyzer extends Analyzer {
+export class DependencyAnalyzer extends BaseAnalyzer {
     analyze() { }
 
     analyzeClass(path: NodePath<T.ClassDeclaration>) {
@@ -400,7 +392,9 @@ export class DependencyAnalyzer extends Analyzer {
 class AnalyzerRunner {
     constructor(private graph: Graph, private importResolver: ImportResolver) { }
 
-    async analyze() {
+    async analyze(code: string) {
+        
+
         for (const module of this.graph.modules) {
             if (!module.analyzers) continue;
 

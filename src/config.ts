@@ -1,48 +1,90 @@
-import type { BitFieldResolvable, GatewayIntentsString } from 'discord.js';
-import { join as j } from 'path/posix';
-import { Module } from './compiler/module';
+import fs from "fs";
+import { BitFieldResolvable, GatewayIntentsString } from "discord.js";
+import { UserConfig } from "vite";
+import { join as j } from "path"
+import BridgePlugin from "./plugin";
 
-class Config {
-    static DEFAULT = {
-        entryPath: './src',
-        buildPath: './.flame'
-    } as Config 
+export interface Config {
+    entryPath?: string
+    buildPath?: string
+    cwd?: string
+    intents?: BitFieldResolvable<GatewayIntentsString, number>
+    vite?: UserConfig
+}
 
-    cwd!: string;
+/**
+ * @internal
+ * 
+ * Walk around config object and execute instructions based in
+ */
+class ConfigEvaluator {
+    config!: Config;
 
-    #buildPath!: string;
-    get buildPath() {
-        return this.#buildPath;
+    eval(config: Config) {
+        this.config = config;
+
+        this.evalPaths(
+            config.entryPath,
+            config.buildPath,
+            config.cwd
+        )
+
+        this.evalVite(config.vite ??= {});
     }
-    set buildPath(value) {
-        this.#buildPath = toAbsolutePath(value, this.cwd);
-    }
-    
-    #entryPath!: string;
-    get entryPath() {
-        return this.#entryPath;
-    }
-    set entryPath(value) {
-        this.#entryPath = toAbsolutePath(value, this.cwd);
+
+    evalPaths(entry, build, cwd) {
+        
     }
 
-	extensions = [".js", ".jsx", ".ts", ".tsx"]
+    evalVite(config: UserConfig) {
+        (config.plugins ??= []).push(BridgePlugin.setup(this.config));
+        const input = ((config.build ??= {}).rollupOptions ??= {}).input ??= [];
 
-    intents: BitFieldResolvable<GatewayIntentsString, number> = ['Guilds', 'GuildMembers', 'GuildMessages', 'MessageContent']
-
-    constructor(obj: Partial<Config>) {
-        this.cwd = obj.cwd ?? Config.DEFAULT.cwd;
-        this.entryPath = obj.entryPath ?? Config.DEFAULT.entryPath;
-        this.buildPath = obj.buildPath ?? Config.DEFAULT.buildPath;
+        (input as Array<any>).push("virtual:main");
     }
 }
 
-function toAbsolutePath(path: string, parentPath: string) {
-    return Module.normalizePath(
-        path.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(path)
-            ? path
-            : j(parentPath, path)
-    );
-}
+/**
+ * @internal
+ * 
+ * Get config file based in cwd path and evaluate
+ */
+export class ConfigManager {
+    data!: Config;
+    private cwd = process.cwd();
+    private configEvaluator = new ConfigEvaluator();
+    private configRegex = /^\.flamerc|flame\.config\.(j|t)s(on)?$/;
 
-export default Config;
+    async setup() {
+        const configPath = await this.getConfigPath();
+        let configData = this.configData
+            ?? configPath
+            ? await fs.promises.readFile(configPath, 'utf-8')
+            : undefined;
+
+        const config = configData ? await this.parseConfigData(configData, configPath) : {};
+
+        this.data = config;
+        this.configEvaluator.eval(config);
+    }
+
+    private async getConfigPath() {
+        const files = await fs.promises.readdir(this.cwd);
+        const fileName = files.find(f => this.configRegex.test(f));
+        if (!fileName) return;
+
+        return j(this.cwd, fileName);
+    }
+
+    private async parseConfigData(data: string, path: string) {
+        if (/\.(j|t)s$/.test(path)) {
+            return await import(path);
+        }
+        else if (/\.json|\.\w+rc$/.test(path)) {
+            return JSON.parse(data);
+        }
+        else throw new Error("Config extension not recognized");
+    }
+
+    constructor(private configData?: string) { }
+}
