@@ -4,7 +4,6 @@ import { Config } from "./config";
 export default {
     main: config => `
         import { FlameClient } from '@flame-oh/core';
-        import.meta.glob('./managers/**/*');
 
         process.env = {
             ...process.env,
