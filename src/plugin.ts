@@ -3,6 +3,7 @@ import { name, version } from '../package.json';
 import virtual from "./virtual";
 import { Config } from './config';
 import Transformer from './transformer';
+import Graph from './graph';
 
 // TODO: checar se o id é o path absoluto, se nao temos um bo
 
@@ -15,7 +16,8 @@ class BridgePlugin {
     name = name;
     version = version;
 
-    private transformer = new Transformer();
+    private graph = new Graph();
+    private transformer = new Transformer(this.graph);
 
     transform(code: string, id: string) {
         this.transformer.transform(id, code);
