@@ -28,10 +28,9 @@ interface Symbol {
     parent?: Symbol
 }
 
-
 class Graph {
     private symbolsByModule = new Map<string, Set<WeakRef<Symbol>>>();
-    private symbolsById = new Map<string, WeakRef<Symbol>>();
+    private symbolsByKey = new Map<string, WeakRef<Symbol>>();
 
     private getSymbolKey(symbol: Symbol): string {
         return `${symbol.path}:${symbol.id}`;
@@ -39,7 +38,7 @@ class Graph {
 
     addSymbol(symbol: Symbol) {
         const key = this.getSymbolKey(symbol);
-        this.symbolsById.set(key, new WeakRef(symbol));
+        this.symbolsByKey.set(key, new WeakRef(symbol));
 
         let set = this.symbolsByModule.get(symbol.path);
         if (!set) {
@@ -52,7 +51,7 @@ class Graph {
 
     resolveSymbol(symbol: Symbol) {
         const key = this.getSymbolKey(symbol);
-        const existing = this.symbolsById.get(key)?.deref();
+        const existing = this.symbolsByKey.get(key)?.deref();
         return existing ?? this.addSymbol(symbol);
     }
 

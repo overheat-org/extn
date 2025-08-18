@@ -17,4 +17,8 @@ export default {
 
         client.start();
     `
-} satisfies { [key: string]: (config: Config) => unknown | unknown }
+} satisfies VirtualModules;
+
+type VirtualModules = { 
+	[key: string]: (config: Config) => unknown | unknown
+}
