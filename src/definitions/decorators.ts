@@ -1,11 +1,12 @@
 import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
 import { HTTP_METHODS } from '../consts';
+import { DecoratorDefinition } from './base';
 
 export default [
 	{
 		name: 'injectable',
-		tranform: {
+		transform: {
 			async class(ast) {
 				const dependencies = await this.analyzer.analyzeClassDependencies(ast.target);
 				const symbol = this.graph.resolveSymbol(ast.target, ast.path);
@@ -108,5 +109,5 @@ export default [
 				)
 			}
 		}
-	}
-];
+	},
+] as DecoratorDefinition[];

@@ -5,141 +5,156 @@ import Transformer from "./transformer";
 import * as T from "@babel/types";
 
 abstract class AnalyzerStep {
-	abstract analyze(id: string, code: string): void;
+    abstract analyze(id: string, code: string): void;
 
-	protected async parse(code: string) {
-		return {} as NodePath<T.Program>;
-	}
+    protected async parse(code: string) {
+        return {} as NodePath<T.Program>;
+    }
 
-	constructor(
-		protected transformer: Transformer, 
-		protected graph: Graph
-	) {}
+    constructor(
+        protected transformer: Transformer,
+        protected graph: Graph
+    ) { }
 }
 
 class DecoratorAnalyzer extends AnalyzerStep {
-	CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
+    CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
 
-	async analyze(id: string, code: string) {
-		if(!this.CONTENT_REGEX.test(code)) return;
+    async analyze(id: string, code: string) {
+        if (!this.CONTENT_REGEX.test(code)) return;
 
-		const program = await this.parse(code);
+        const program = await this.parse(code);
 
-		program.traverse({
-			Decorator: async path => {
-				const expr = path.get('expression');
+        program.traverse({
+            Decorator: async path => {
+                const expr = path.get('expression');
 
-				let name!: string;
-				let property: NodePath<T.MemberExpression['property']> | undefined;
-				let params: Array<NodePath<T.CallExpression['arguments'][number]>>;
+                let name!: string;
+                let property: NodePath<T.MemberExpression['property']> | undefined;
+                let params: Array<NodePath<T.CallExpression['arguments'][number]>>;
 
-				const typeMap = {
-					Identifier(path: NodePath<T.Identifier>) {
-						name = path.get('name');
-					},
-					MemberExpression(path: NodePath<T.MemberExpression>) {
-						const object = path.get('object');
+                const typeMap = {
+                    Identifier(path: NodePath<T.Identifier>) {
+                        name = path.get('name');
+                    },
+                    MemberExpression(path: NodePath<T.MemberExpression>) {
+                        const object = path.get('object');
 
-						property = path.get('property');
+                        property = path.get('property');
 
-						typeMap[object.node.type].call(this, object);
-					},
-					CallExpression(path: NodePath<T.CallExpression>) {
-						const callee = path.get('callee');
+                        typeMap[object.node.type].call(this, object);
+                    },
+                    CallExpression(path: NodePath<T.CallExpression>) {
+                        const callee = path.get('callee');
 
-						params = path.get("arguments");
+                        params = path.get("arguments");
 
-						typeMap[callee.node.type].call(this, callee);
-					}
-				}
+                        typeMap[callee.node.type].call(this, callee);
+                    }
+                }
 
-				let decorator: Decorator | undefined = undefined;
-				for (const d of Object.values(decorators)) {
-					if (property) {
-						if (!(d instanceof Container) || d.name !== this.resolveName(property)) continue;
+                let decorator: Decorator | undefined = undefined;
+                for (const d of Object.values(decorators)) {
+                    if (property) {
+                        if (!(d instanceof Container) || d.name !== this.resolveName(property)) continue;
 
-						decorator = d.decorators[name];
-					}
+                        decorator = d.decorators[name];
+                    }
 
-					if (!(d instanceof Decorator) || d.name !== name) continue;
+                    if (!(d instanceof Decorator) || d.name !== name) continue;
 
-					decorator = d;
-				}
+                    decorator = d;
+                }
 
-				if (!decorator) return;
+                if (!decorator) return;
 
-				let params = new Array;
-				const expr = path.get('expression')
+                let params = new Array;
+                const expr = path.get('expression')
 
-				if (expr.isCallExpression()) {
+                if (expr.isCallExpression()) {
 
-				}
-				decorator.transform.call(this, {
-					module: this.module,
-					target: path.parentPath,
-					params: path.get('expression'),
-					path,
-				});
-			}
-		});
-	}
+                }
+                decorator.transform.call(this, {
+                    module: this.module,
+                    target: path.parentPath,
+                    params: path.get('expression'),
+                    path,
+                });
+            }
+        });
+    }
 
-	analyzeDecorator(path: NodePath<T.Decorator>) {
-		const target = path.parentPath;
-		let name!: string;
-		let property: NodePath<T.MemberExpression['property']> | undefined;
-		let params = new Array<NodePath<T.CallExpression['arguments'][number]>>;
+    analyzeDecorator(path: NodePath<T.Decorator>) {
+        const target = path.parentPath;
+        let name!: string | string[];
+        let params = new Array<NodePath<T.CallExpression['arguments'][number]>>;
 
-		const typeMap = {
-			Identifier(path: NodePath<T.Identifier>) {
-				name = path.get('name');
-			},
-			MemberExpression(path: NodePath<T.MemberExpression>) {
-				const object = path.get('object');
+        const typeMap = {
+            Identifier(path: NodePath<T.Identifier>) {
+                const _name = path.get("name");
 
-				property = path.get('property');
+                if(Array.isArray(name)) {
+                    name.push(_name);
+                }
+                else if(typeof name == 'string') {
+                    name = [name, _name];
+                }
+                else {
+                    name = _name;
+                }
+            },
+            MemberExpression(path: NodePath<T.MemberExpression>) {
+                const object = path.get('object');
 
-				typeMap[object.node.type](this);
-			},
-			CallExpression(path: NodePath<T.CallExpression>) {
-				const callee = path.get('callee');
+                property = path.get('property');
 
-				params = path.get("arguments");
+                typeMap[object.node.type](this);
+            },
+            CallExpression(path: NodePath<T.CallExpression>) {
+                const callee = path.get('callee');
 
-				typeMap[callee.node.type](this);
-			}
-		}
-		
-		return { name, target, property, params }
-	}
+                params = path.get("arguments");
+
+                typeMap[callee.node.type](this);
+            }
+        }
+
+        this.transformer.transformDecorator({
+            name,
+            target,
+            params
+        })
+    }
 }
 
 class CommandAnalyzer extends AnalyzerStep {
-	PATH_REGEX = /^\$[A-Za-z][\w-]*\.(t|j)sx?$/;
-	
-	analyze(id: string, code: string) {
-		if(!this.PATH_REGEX.test(id)) return;
+    PATH_REGEX = /^\$[A-Za-z][\w-]*\.(t|j)sx?$/;
 
-		const command = this.transformer.transformCommand(code);
-		this.graph.addCommand(command);
-	}
+    async analyze(id: string, code: string) {
+        if (!this.PATH_REGEX.test(id)) return;
+
+        const ast = await this.parse(code);
+        const command = this.transformer.transformCommand(ast);
+        this.graph.addCommand(command);
+    }
 }
 
+/** @internal */
 class Analyzer {
-	private steps: AnalyzerStep[];
+    private steps: AnalyzerStep[];
 
-	analyzeModule(id: string, code: string) {
-		this.steps.forEach(step => step.analyze(id, code));
-	}
+    analyzeModule(id: string, code: string) {
+        this.steps.forEach(step => step.analyze(id, code));
+    }
 
-	async analyzeClassDependencies(node: NodePath) {}
+    async analyzeClassDependencies(node: NodePath) { }
 
-	constructor(transformer: Transformer, graph: Graph) {
-		this.steps = [
-			new DecoratorAnalyzer(transformer, graph),
-			new CommandAnalyzer(transformer, graph),
-		];
-	}
+    constructor(transformer: Transformer, graph: Graph) {
+        this.steps = [
+            new DecoratorAnalyzer(transformer, graph),
+            new CommandAnalyzer(transformer, graph),
+        ];
+    }
 }
 
 export default Analyzer;

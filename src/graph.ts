@@ -28,6 +28,7 @@ interface Symbol {
     parent?: Symbol
 }
 
+/** @internal */
 class Graph {
     private symbolsByModule = new Map<string, Set<WeakRef<Symbol>>>();
     private symbolsByKey = new Map<string, WeakRef<Symbol>>();

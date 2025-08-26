@@ -1,6 +1,7 @@
 import { Config } from "./config";
 import fs from "fs";
 
+/** @internal */
 class Scanner {
     async scan() {
         const scanned = [
@@ -19,6 +20,8 @@ class Scanner {
 	private scanCommands() {
         const { entryPath } = this.config;
 
+        // TODO: merge commands and throw to entries config
+
         return this.scanDir(`${entryPath}/commands`, 1);
 	}
 
@@ -28,7 +31,7 @@ class Scanner {
         return this.scanDir(`${entryPath}/managers`, 1);
 	}
 
-	    async scanDir(path: string, depth?: number) {
+    async scanDir(path: string, depth?: number) {
         const files = await fs.promises.readdir(path, { withFileTypes: true });
         const result = new Array<string>
 

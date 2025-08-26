@@ -3,6 +3,7 @@ import { BitFieldResolvable, GatewayIntentsString } from "discord.js";
 import { UserConfig } from "vite";
 import { join as j } from "path"
 import BridgePlugin from "./plugin";
+import Scanner from "./scanner";
 
 export interface Config {
     entryPath?: string
@@ -42,6 +43,8 @@ class ConfigEvaluator {
 
         (input as Array<any>).push("virtual:main");
     }
+
+    evalRollupOptions() {}
 }
 
 /**
@@ -55,7 +58,7 @@ export class ConfigManager {
     private configEvaluator = new ConfigEvaluator();
     private configRegex = /^\.flamerc|flame\.config\.(j|t)s(on)?$/;
 
-    async setup() {
+   async setup() {
         const configPath = await this.getConfigPath();
         let configData = this.configData
             ?? configPath
@@ -86,5 +89,6 @@ export class ConfigManager {
         else throw new Error("Config extension not recognized");
     }
 
-    constructor(private configData?: string) { }
+    constructor(private configData?: string) {
+    }
 }

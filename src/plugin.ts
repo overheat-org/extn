@@ -5,8 +5,6 @@ import { Config } from './config';
 import Transformer from './transformer';
 import Graph from './graph';
 
-// TODO: checar se o id é o path absoluto, se nao temos um bo
-
 /** 
  * @internal 
  * 
@@ -20,7 +18,7 @@ class BridgePlugin {
     private transformer = new Transformer(this.graph);
 
     transform(code: string, id: string) {
-        this.transformer.transform(id, code);
+        this.transformer.transformModule(id, code);
     }
 
     load(id: string) {
