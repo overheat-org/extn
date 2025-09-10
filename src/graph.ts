@@ -95,6 +95,12 @@ class Graph {
     addEvent(event: Event) {
         this.events.add(event);
     }
+
+	commands = new Set<unknown>();
+
+	addCommand(command: unknown) {
+		this.commands.add(command);
+	}
 }
 
 export default Graph;
