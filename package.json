@@ -33,7 +33,7 @@
     "axios": "^1.9.0",
     "chokidar": "^4.0.3",
     "discord.js": "^14.16.2",
-    "diseact": "^5.0.3",
+    "diseact": "^0.1.6",
     "dotenv": "^16.4.7",
     "glob": "^11.0.1",
     "jsonc": "^2.0.0",
