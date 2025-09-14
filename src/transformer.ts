@@ -3,82 +3,178 @@ import { NodePath } from "@babel/traverse";
 import Analyzer from "./analyzer";
 import Graph from "./graph";
 import decorators from "./definitions/decorators";
-import { DecoratorDefinition, DecoratorTransform } from "./definitions/base";
+import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, TransformType } from "./definitions/base";
+import { FlameError, getErrorLocation } from "./reporter";
 
-export interface DecoratorNodeWrapper {
-    name: string | string[];
-    property: NodePath<T.MemberExpression['property']>
-    params: NodePath<T.CallExpression['arguments'][number]>[]
+type BaseDecoratorNodeWrapper = {
+	name: string | string[]
+	params: NodePath<T.CallExpression['arguments'][number]>[]
 }
+
+type ClassDecoratorNodeWrapper = BaseDecoratorNodeWrapper 
+	& Pick<DecoratorTransformContext<TransformType.Class>, 'node' | 'parentNode'>
+	& { kind: 'class' }
+
+type MethodDecoratorNodeWrapper = BaseDecoratorNodeWrapper
+	& Pick<DecoratorTransformContext<TransformType.Member>, 'node' | 'parentNode'>
+	& { kind: 'method' }
+
+type ParamDecoratorNodeWrapper = BaseDecoratorNodeWrapper
+	& Pick<DecoratorTransformContext<TransformType.Param>, 'node' | 'parentNode'>
+	& { kind: 'param'}
+	
+export type DecoratorNodeWrapper = BaseDecoratorNodeWrapper & (
+	| ClassDecoratorNodeWrapper
+	| MethodDecoratorNodeWrapper
+	| ParamDecoratorNodeWrapper
+);
+
 
 /** @internal */
 class Transformer {
-    private analyzer: Analyzer;
+	private analyzer: Analyzer;
 
-    async transformModule(id: string, code: string) {
-        const steps = this.analyzer.analyzeModule(id, code);
-        let index = 0;
-
-        while(index < steps.length) {
-            const step = steps[index];
-
-            await step(id, code);
-
-            index++;
-        }
-    }
-
-	transformDecorator(node: DecoratorNodeWrapper) {
-        let definitions = decorators;
-        let lastDef: DecoratorDefinition | undefined = undefined;
-
-        const handleName = (part: string) => {
-            lastDef = definitions.find(d => d.name == part);
-            definitions = lastDef?.children ?? [];
-        }
-
-        Array.isArray(node.name)
-            ? node.name.forEach(handleName)
-            : handleName(node.name)
-
-        this.handleTransformDecorator(
-            lastDef?.transform,
-            node
-        )
+	async transformModule(id: string, code: string) {
+		this.analyzer.analyzeModule(id, code);
 	}
 
-    private handleTransformDecorator(transform: DecoratorTransform, node: DecoratorNodeWrapper) {
-        if(typeof transform != "object") return transform.call(this, node);
+	public transformDecorator(node: DecoratorNodeWrapper) {
+		let definitions = decorators;
+		let lastDef: DecoratorDefinition | undefined = undefined;
 
-        if(
-            transform.class && 
-            node.target.isClassDeclaration()
-        ) {
-            transform.class.call(this, node);
-        }
+		const handleName = (part: string) => {
+			lastDef = definitions.find(d => d.name == part);
+			definitions = lastDef?.children ?? [];
+		}
 
-        if(
-            transform.member &&
-            node.target.isClassMethod()
-        ) {
-            transform.member.call(this, node);
-        }
+		Array.isArray(node.name)
+			? node.name.forEach(handleName)
+			: handleName(node.name)
 
-        if(
-            transform.param &&
-            node.target.isIdentifier()
-        ) {
-            transform.param.call(this, node);
-        }
-    }
-
-	transformCommand(node: NodePath<Program>) {
-        
+		if(!lastDef) return;
+			
+		this.handleTransformDecorator(
+			(lastDef as DecoratorDefinition).transform!,
+			node
+		)
 	}
 
-    constructor(public graph: Graph) {
-        this.analyzer = new Analyzer(this, this.graph);
-    }
+	private handleTransformDecorator(transform: DecoratorTransform, wrapper: DecoratorNodeWrapper) {
+		const base = { 
+			graph: this.graph, 
+			analyzer: this.analyzer, 
+		}; 
+
+		if (typeof transform != "object") return transform.call(this, {
+			...base,
+			node: wrapper.node, 
+			parentNode: wrapper.parentNode, 
+		});
+		
+		if (
+			transform.class &&
+			wrapper.kind == 'class'
+		) {
+			transform.class.call(this, { 
+				...base,
+				node: wrapper.node, 
+				parentNode: wrapper.parentNode, 
+			});
+		}
+
+		if (
+			transform.member &&
+			wrapper.kind == 'method'
+		) {
+			transform.member.call(this, { 
+				...base,
+				node: wrapper.node, 
+				parentNode: wrapper.parentNode, 
+			});
+		}
+
+		if (
+			transform.param &&
+			wrapper.kind == 'param'
+		) {
+			transform.param.call(this, { 
+				...base,
+				node: wrapper.node, 
+				parentNode: wrapper.parentNode, 
+			});
+		}
+	}
+
+	public transformCommand(id: string, node: NodePath<T.Program>) {
+		const { transformImportDeclarationToDynamic } = this;
+
+		const map = {
+			async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
+				if (path.removed) return;
+
+				transformImportDeclarationToDynamic(path);
+			},
+
+			EnumDeclaration(path: NodePath<T.EnumDeclaration>) {
+				throw new FlameError('Cannot use enum in command', getErrorLocation(path, id));
+			},
+
+			ClassDeclaration(path: NodePath<T.ClassDeclaration>) {
+				throw new FlameError('Cannot use class in command', getErrorLocation(path, id));
+			},
+
+			ExportNamedDeclaration(path: NodePath<T.ExportNamedDeclaration>) {
+				const node = path.node;
+
+				if (node.specifiers.length == 0) return;
+
+				throw new FlameError('Cannot export in command', getErrorLocation(path, id));
+			},
+
+			ExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
+				path.replaceWith(T.returnStatement(path.node.declaration as T.Expression));
+			}
+		}
+
+		for(const child of node.get("body")) map[child.type](child);
+	}
+
+	transformImportDeclarationToDynamic(path: NodePath<T.ImportDeclaration>) {
+		const source = path.node.source.value;
+		const specifiers = path.node.specifiers;
+
+		const importExpressions = specifiers.map(specifier => {
+			if (T.isImportDefaultSpecifier(specifier)) {
+				return T.variableDeclaration("const", [
+					T.variableDeclarator(
+						specifier.local,
+						T.memberExpression(
+							T.awaitExpression(T.callExpression(T.import(), [T.stringLiteral(source)])),
+							T.identifier("default")
+						)
+					)
+				]);
+			}
+
+			if (T.isImportSpecifier(specifier)) {
+				return T.variableDeclaration("const", [
+					T.variableDeclarator(
+						specifier.local,
+						T.memberExpression(
+							T.awaitExpression(T.callExpression(T.import(), [T.stringLiteral(source)])),
+							specifier.imported
+						)
+					)
+				]);
+			}
+		});
+
+		path.replaceWithMultiple(importExpressions as any);
+	}
+
+	constructor(public graph: Graph) {
+		this.analyzer = new Analyzer(this, this.graph);
+	}
 }
 
 export default Transformer;

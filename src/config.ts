@@ -3,7 +3,6 @@ import { BitFieldResolvable, GatewayIntentsString } from "discord.js";
 import { UserConfig } from "vite";
 import { join as j } from "path"
 import BridgePlugin from "./plugin";
-import Scanner from "./scanner";
 
 export interface Config {
     entryPath?: string

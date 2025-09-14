@@ -1,5 +1,4 @@
 import { NodePath } from "@babel/traverse";
-import { Decorator } from "./definitions/base";
 import Graph from "./graph";
 import Transformer from "./transformer";
 import * as T from "@babel/types";
@@ -26,65 +25,11 @@ class DecoratorAnalyzer extends AnalyzerStep {
         const program = await this.parse(code);
 
         program.traverse({
-            Decorator: async path => {
-                const expr = path.get('expression');
-
-                let name!: string;
-                let property: NodePath<T.MemberExpression['property']> | undefined;
-                let params: Array<NodePath<T.CallExpression['arguments'][number]>>;
-
-                const typeMap = {
-                    Identifier(path: NodePath<T.Identifier>) {
-                        name = path.get('name');
-                    },
-                    MemberExpression(path: NodePath<T.MemberExpression>) {
-                        const object = path.get('object');
-
-                        property = path.get('property');
-
-                        typeMap[object.node.type].call(this, object);
-                    },
-                    CallExpression(path: NodePath<T.CallExpression>) {
-                        const callee = path.get('callee');
-
-                        params = path.get("arguments");
-
-                        typeMap[callee.node.type].call(this, callee);
-                    }
-                }
-
-                let decorator: Decorator | undefined = undefined;
-                for (const d of Object.values(decorators)) {
-                    if (property) {
-                        if (!(d instanceof Container) || d.name !== this.resolveName(property)) continue;
-
-                        decorator = d.decorators[name];
-                    }
-
-                    if (!(d instanceof Decorator) || d.name !== name) continue;
-
-                    decorator = d;
-                }
-
-                if (!decorator) return;
-
-                let params = new Array;
-                const expr = path.get('expression')
-
-                if (expr.isCallExpression()) {
-
-                }
-                decorator.transform.call(this, {
-                    module: this.module,
-                    target: path.parentPath,
-                    params: path.get('expression'),
-                    path,
-                });
-            }
+            Decorator: async path => this.analyzeDecorator(id, path)
         });
     }
 
-    analyzeDecorator(path: NodePath<T.Decorator>) {
+    analyzeDecorator(id: string, path: NodePath<T.Decorator>) {
         const target = path.parentPath;
         let name!: string | string[];
         let params = new Array<NodePath<T.CallExpression['arguments'][number]>>;
@@ -106,8 +51,6 @@ class DecoratorAnalyzer extends AnalyzerStep {
             MemberExpression(path: NodePath<T.MemberExpression>) {
                 const object = path.get('object');
 
-                property = path.get('property');
-
                 typeMap[object.node.type](this);
             },
             CallExpression(path: NodePath<T.CallExpression>) {
@@ -119,22 +62,34 @@ class DecoratorAnalyzer extends AnalyzerStep {
             }
         }
 
+		const targetMap = {
+			ClassDeclaration: "class",
+			ClassMethod: "method",
+			Identifier: "param"
+		} as { [k in T.Node['type']]: string }
+
         this.transformer.transformDecorator({
             name,
-            target,
-            params
+            parentNode: target,
+            params,
+			node: path,
+			kind: targetMap[target.node.type]
         })
     }
 }
 
 class CommandAnalyzer extends AnalyzerStep {
-    PATH_REGEX = /^\$[A-Za-z][\w-]*\.(t|j)sx?$/;
+    COMMAND_FILE_REGEX = /^\$[A-Za-z][\w-]*\.(t|j)sx?$/;
+	COMMAND_DIR_REGEX = /commands\/[A-Za-z]\.(t|j)sx?$/;
 
     async analyze(id: string, code: string) {
-        if (!this.PATH_REGEX.test(id)) return;
+        if (
+			!this.COMMAND_DIR_REGEX.test(id) &&
+			!this.COMMAND_FILE_REGEX.test(id)
+		) return;
 
         const ast = await this.parse(code);
-        const command = this.transformer.transformCommand(ast);
+        const command = this.transformer.transformCommand(id, ast);
         this.graph.addCommand(command);
     }
 }

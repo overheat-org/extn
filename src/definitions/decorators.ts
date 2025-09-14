@@ -7,20 +7,20 @@ export default [
 	{
 		name: 'injectable',
 		transform: {
-			async class(ast) {
-				const dependencies = await this.analyzer.analyzeClassDependencies(ast.target);
-				const symbol = this.graph.resolveSymbol(ast.target, ast.path);
-				this.graph.addInjectable(symbol, dependencies);
+			async class({ analyzer, graph, parentNode, node }) {
+				const dependencies = await analyzer.analyzeClassDependencies(parentNode);
+				const symbol = graph.resolveSymbol({ kind: '', id, node, parentNode });
+				graph.addInjectable(symbol, dependencies);
 			}
 		}
 	},
 	{
 		name: 'manager',
 		transform: {
-			async class(ast) {
-				const dependencies = await this.analyzeClassDependencies(ast.target);
-				const symbol = this.graph.resolveSymbol(ast.target, this.module);
-				this.graph.addManager(symbol, dependencies);
+			async class({ analyzer, graph, parentNode, node }) {
+				const dependencies = await analyzer.analyzeClassDependencies(parentNode);
+				const symbol = graph.resolveSymbol(node);
+				graph.addManager(symbol, dependencies);
 			}
 		}
 	},
@@ -29,15 +29,15 @@ export default [
 		children: HTTP_METHODS.map(method => ({
 			name: method,
 			transform: {
-				method(ast) {
+				method(ctx) {
 					const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
-					const endpoint = this.analyzeHttpRoute(ast, ERROR_EXAMPLE);
+					const endpoint = analyzer.analyzeHttpRoute(ast, ERROR_EXAMPLE);
 
 					const classDecl = ast.target;
 
-					const symbol = this.graph.resolveSymbol(ast.target, this.module);
+					const symbol = graph.resolveSymbol(ast.target, ast.path);
 
-					this.graph.addRoute({
+					graph.addRoute({
 						endpoint,
 						method,
 						symbol,

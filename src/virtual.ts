@@ -1,18 +1,17 @@
-import { getEnvFile } from "./compiler/env";
 import { Config } from "./config";
 
 export default {
-    main: config => `
+    main: ctx => `
         import { FlameClient } from '@flame-oh/core';
 
         process.env = {
             ...process.env,
-            ...${JSON.stringify(getEnvFile(config.cwd))}
+            ...${JSON.stringify(ctx.env)}
         }
 
         const client = new FlameClient({
             entryUrl: import.meta.url,
-            intents: ${JSON.stringify(config.intents)}
+            intents: ${JSON.stringify(ctx.config.intents)}
         });
 
         client.start();

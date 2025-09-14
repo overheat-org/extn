@@ -24,8 +24,8 @@ interface Injectable {
 interface Symbol {
     kind: string
     id: string
-    path: string
-    parent?: Symbol
+    node: string
+    parentNode?: Symbol
 }
 
 /** @internal */
@@ -34,17 +34,17 @@ class Graph {
     private symbolsByKey = new Map<string, WeakRef<Symbol>>();
 
     private getSymbolKey(symbol: Symbol): string {
-        return `${symbol.path}:${symbol.id}`;
+        return `${symbol.node}:${symbol.id}`;
     }
 
     addSymbol(symbol: Symbol) {
         const key = this.getSymbolKey(symbol);
         this.symbolsByKey.set(key, new WeakRef(symbol));
 
-        let set = this.symbolsByModule.get(symbol.path);
+        let set = this.symbolsByModule.get(symbol.node);
         if (!set) {
             set = new Set();
-            this.symbolsByModule.set(symbol.path, set);
+            this.symbolsByModule.set(symbol.node, set);
         }
         set.add(new WeakRef(symbol));
         return symbol;
@@ -81,8 +81,6 @@ class Graph {
     addManager(manager: Manager) {
         this.managers.add(manager);
     }
-
-    commands = new Set<unknown>;
 
     routes = new Set<Route>;
 
