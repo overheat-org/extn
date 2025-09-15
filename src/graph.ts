@@ -1,3 +1,6 @@
+import { NodePath } from "@babel/traverse"
+import { resolveNodeId } from "./utils"
+
 interface Event {
     symbol: Symbol
     type: string
@@ -24,7 +27,7 @@ interface Injectable {
 interface Symbol {
     kind: string
     id: string
-    node: string
+    node: NodePath
     parentNode?: Symbol
 }
 
@@ -50,10 +53,24 @@ class Graph {
         return symbol;
     }
 
-    resolveSymbol(symbol: Symbol) {
+    resolveSymbol(symbol: Symbol | NodePath) {
+        if(symbol instanceof NodePath) {
+            symbol = this.resolveSymbolFromNode(symbol);
+        }
+
         const key = this.getSymbolKey(symbol);
         const existing = this.symbolsByKey.get(key)?.deref();
         return existing ?? this.addSymbol(symbol);
+    }
+
+    private resolveSymbolFromNode(node: NodePath) {
+        const symbol: Symbol = {
+            node,
+            id: resolveNodeId(node).name,
+            kind: node.type
+        }
+
+        return symbol;
     }
 
     getSymbolsByModule(path: string) {
