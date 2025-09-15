@@ -1,12 +1,11 @@
 {
-	"name": "extn",
+	"name": "@extn/core",
 	"description": "Build tools with meta programming",
 	"type": "module",
-	"version": "1.0.0",
-    "main": "./lib/index.js",
+	"version": "0.1.0",
 	"license": "ISC",
 	"scripts": {
-        "build": "vite build"
+		"build": "vite build"
 	},
 	"author": {
 		"name": "Nexus",
@@ -19,11 +18,18 @@
 		"typescript": "^5.8.3"
 	},
 	"dependencies": {
-		"@babel/traverse": "^7.28.0",
 		"@babel/core": "^7.28.0",
 		"@babel/generator": "^7.28.0",
 		"@babel/parser": "^7.28.0",
+		"@babel/traverse": "^7.28.0",
 		"@babel/types": "^7.28.0",
+		"type-fest": "^4.41.0",
 		"vite": "^7.0.4"
+	},
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
 	}
 }

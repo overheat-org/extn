@@ -22,7 +22,7 @@ class BridgePlugin {
 		return {
 			name,
 			version,
-			transform: instance.transform,
+			transform: instance.transform
 		} satisfies Plugin;
 	}
 

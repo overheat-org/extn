@@ -1,6 +1,6 @@
 abstract class BuiltinFunction {
-	name: string;
-	description?: string;
+	readonly name: string;
+	readonly description?: string;
 }
 
 export default BuiltinFunction;

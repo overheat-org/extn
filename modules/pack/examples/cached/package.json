@@ -1,0 +1,9 @@
+{
+	"name": "cached",
+	"private": true,
+	"version": "0.0.1",
+	"description": "Example extension for caching",
+	"dependencies": {
+		"extn": "../../"
+	}
+}

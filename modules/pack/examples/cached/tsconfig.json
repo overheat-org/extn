@@ -1,0 +1,9 @@
+{
+	"compilerOptions": {
+
+	},
+	"include": [
+		"src/**/*",
+		"node_modules/extn"
+	]
+}
