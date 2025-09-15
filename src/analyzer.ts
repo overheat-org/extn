@@ -70,7 +70,7 @@ class DecoratorAnalyzer extends AnalyzerStep {
 
         this.transformer.transformDecorator({
             name,
-            parentNode: target,
+            targetNode: target,
             params,
 			node: path,
 			kind: targetMap[target.node.type]

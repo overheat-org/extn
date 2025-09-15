@@ -12,15 +12,15 @@ type BaseDecoratorNodeWrapper = {
 }
 
 type ClassDecoratorNodeWrapper = BaseDecoratorNodeWrapper 
-	& Pick<DecoratorTransformContext<TransformType.Class>, 'node' | 'parentNode'>
+	& Pick<DecoratorTransformContext<TransformType.Class>, 'node' | 'targetNode'>
 	& { kind: 'class' }
 
 type MethodDecoratorNodeWrapper = BaseDecoratorNodeWrapper
-	& Pick<DecoratorTransformContext<TransformType.Member>, 'node' | 'parentNode'>
+	& Pick<DecoratorTransformContext<TransformType.Method>, 'node' | 'targetNode'>
 	& { kind: 'method' }
 
 type ParamDecoratorNodeWrapper = BaseDecoratorNodeWrapper
-	& Pick<DecoratorTransformContext<TransformType.Param>, 'node' | 'parentNode'>
+	& Pick<DecoratorTransformContext<TransformType.Param>, 'node' | 'targetNode'>
 	& { kind: 'param'}
 	
 export type DecoratorNodeWrapper = BaseDecoratorNodeWrapper & (
@@ -68,7 +68,7 @@ class Transformer {
 		if (typeof transform != "object") return transform.call(this, {
 			...base,
 			node: wrapper.node, 
-			parentNode: wrapper.parentNode, 
+			targetNode: wrapper.targetNode, 
 		});
 		
 		if (
@@ -78,18 +78,18 @@ class Transformer {
 			transform.class.call(this, { 
 				...base,
 				node: wrapper.node, 
-				parentNode: wrapper.parentNode, 
+				targetNode: wrapper.targetNode, 
 			});
 		}
 
 		if (
-			transform.member &&
+			transform.method &&
 			wrapper.kind == 'method'
 		) {
-			transform.member.call(this, { 
+			transform.method.call(this, { 
 				...base,
 				node: wrapper.node, 
-				parentNode: wrapper.parentNode, 
+				targetNode: wrapper.targetNode, 
 			});
 		}
 
@@ -100,7 +100,7 @@ class Transformer {
 			transform.param.call(this, { 
 				...base,
 				node: wrapper.node, 
-				parentNode: wrapper.parentNode, 
+				targetNode: wrapper.targetNode, 
 			});
 		}
 	}

@@ -2,112 +2,106 @@ import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
 import { HTTP_METHODS } from '../consts';
 import { DecoratorDefinition } from './base';
+import { FlameError } from '../reporter';
+import { resolveNodeId } from '../utils';
 
 export default [
-	{
-		name: 'injectable',
-		transform: {
-			async class({ analyzer, graph, parentNode, node }) {
-				const dependencies = await analyzer.analyzeClassDependencies(parentNode);
-				const symbol = graph.resolveSymbol({ kind: '', id, node, parentNode });
-				graph.addInjectable(symbol, dependencies);
-			}
-		}
-	},
-	{
-		name: 'manager',
-		transform: {
-			async class({ analyzer, graph, parentNode, node }) {
-				const dependencies = await analyzer.analyzeClassDependencies(parentNode);
-				const symbol = graph.resolveSymbol(node);
-				graph.addManager(symbol, dependencies);
-			}
-		}
-	},
-	{
-		name: 'http',
-		children: HTTP_METHODS.map(method => ({
-			name: method,
-			transform: {
-				method(ctx) {
-					const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
-					const endpoint = analyzer.analyzeHttpRoute(ast, ERROR_EXAMPLE);
+    {
+        name: 'injectable',
+        transform: {
+            async class({ analyzer, graph, targetNode: parentNode, node }) {
+                const dependencies = await analyzer.analyzeClassDependencies(parentNode);
+                const symbol = graph.resolveSymbol(node);
+                graph.addInjectable(symbol, dependencies);
+            }
+        }
+    },
+    {
+        name: 'manager',
+        transform: {
+            async class({ analyzer, graph, targetNode: parentNode, node }) {
+                const dependencies = await analyzer.analyzeClassDependencies(parentNode);
+                const symbol = graph.resolveSymbol(node);
+                graph.addManager(symbol, dependencies);
+            }
+        }
+    },
+    {
+        name: 'http',
+        children: HTTP_METHODS.map(method => ({
+            name: method,
+            transform: {
+                method({ analyzer, graph, node, targetNode: methodNode }) {
+                    const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
+                    const endpoint = analyzer.analyzeHttpRoute(node, ERROR_EXAMPLE);
 
-					const classDecl = ast.target;
+                    const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+                    const symbol = graph.resolveSymbol(methodNode, classNode);
 
-					const symbol = graph.resolveSymbol(ast.target, ast.path);
+                    graph.addRoute({
+                        endpoint,
+                        method,
+                        symbol,
+                        ipc: false
+                    });
+                }
+            }
+        }) as DecoratorDefinition)
+    },
+    {
+        name: "event",
+        transform: {
+            method({ graph, node, targetNode: methodNode }) {
+                const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+                const symbol = graph.resolveSymbol(methodNode, classNode);
 
-					graph.addRoute({
-						endpoint,
-						method,
-						symbol,
-						ipc: false
-					});
-				}
-			}
-		}))
-	},
-	{
-		name: "event",
-		transform: {
-			method(ast) {
-				const classDecl = ast.target.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassMethod>;
+                const key = methodNode.get('key');
+                if (!key.isIdentifier()) {
+                    const locStart = key.node.loc?.start!;
 
-				const parentSymbol = ModuleSymbol.from(this.resolveName(classDecl), this.module);
-				const symbol = ModuleSymbol.from(this.resolveName(ast.target), this.module, parentSymbol);
+                    throw new FlameError("Expected a comptime known class method name", { path: id, ...locStart });
+                };
 
-				const key = ast.target.get('key');
-				if (!key.isIdentifier()) {
-					const locStart = key.node.loc?.start!;
+                const methodName = key.node.name;
 
-					throw new FlameError("Expected a comptime known class method name", { path: this.module.entryPath, ...locStart });
-				};
+                const NAME_ERROR = new FlameError(
+                    "The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
+                    { path: id, ...key.node.loc?.start! }
+                );
 
-				const methodName = key.node.name;
+                const matches = methodName.match(/^(On|Once)([A-Z][a-zA-Z]*)$/);
+                if (!matches) throw NAME_ERROR;
 
-				const NAME_ERROR = new FlameError(
-					"The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
-					{ path: this.module.entryPath, ...key.node.loc?.start! }
-				);
+                const once = { Once: true, On: false }[matches[1]];
+                if(!once) throw NAME_ERROR;
 
-				const matches = methodName.match(/^(On|Once)([A-Z][a-zA-Z]*)$/);
-				if (!matches) throw NAME_ERROR;
+                const type = matches[2].charAt(0).toLowerCase() + matches[2].slice(1);
 
-				const once = { 
-					Once: true,
-					On: false, 
-					undefined() {
-						throw NAME_ERROR;
-					}
-				}[matches[1]];
+                graph.addEvent({
+                    once,
+                    type,
+                    symbol
+                });
+            }
+        }
+    },
+    {
+        name: 'serializable',
+        transform: {
+            class({ node, targetNode: parentNode }) {
+                const className = resolveNodeId(parentNode).name;
 
-				const type = matches[2].charAt(0).toLowerCase() + matches[2].slice(1);
-
-				this.graph.addEvent({
-					once,
-					type,
-					symbol
-				});
-			}
-		}
-	},
-	{
-		name: 'serializable',
-		transform: {
-			class(ast) {
-				const className = this.resolveName(ast.target.get('id') as NodePath<T.Identifier>);
-
-				ast.path.insertAfter(
-					T.assignmentExpression(
-						"=",
-						T.memberExpression(
-							T.identifier(className),
-							T.identifier("__serializable__")
-						),
-						T.booleanLiteral(true)
-					)
-				)
-			}
-		}
-	},
+                node.insertAfter(
+                    T.assignmentExpression(
+                        "=",
+                        T.memberExpression(
+                            T.identifier(className),
+                            T.identifier("__serializable__")
+                        ),
+                        T.booleanLiteral(true)
+                    )
+                )
+            }
+        }
+    },
 ] as DecoratorDefinition[];

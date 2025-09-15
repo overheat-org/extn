@@ -11,18 +11,18 @@ export interface DecoratorDefinition {
 
 export enum TransformType {
 	Class,
-	Member,
+	Method,
 	Param
 }
 
 type ParentNodeTypeMap<T> = T extends TransformType.Class
 	? ClassDeclaration
-	: T extends TransformType.Member
+	: T extends TransformType.Method
 		? ClassMethod
 		: Identifier;
 
 export interface DecoratorTransformContext<T extends TransformType> {
-	parentNode: NodePath<ParentNodeTypeMap<T>>;
+	targetNode: NodePath<ParentNodeTypeMap<T>>;
 	node: NodePath<Decorator>;
 	graph: Graph;
 	analyzer: Analyzer;
@@ -30,10 +30,10 @@ export interface DecoratorTransformContext<T extends TransformType> {
 
 export type DecoratorTransform = {
     class?: (ctx: DecoratorTransformContext<TransformType.Class>) => void
-    member?: (ctx: DecoratorTransformContext<TransformType.Member>) => void
+    method?: (ctx: DecoratorTransformContext<TransformType.Method>) => void
     param?: (ctx: DecoratorTransformContext<TransformType.Param>) => void
 } | ((ctx: DecoratorTransformContext<
 	| TransformType.Class 
-	| TransformType.Member
+	| TransformType.Method
 	| TransformType.Param
 >) => void);
