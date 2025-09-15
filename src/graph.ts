@@ -28,7 +28,7 @@ interface Symbol {
     kind: string
     id: string
     node: NodePath
-    parentNode?: Symbol
+    parent?: Symbol
 }
 
 /** @internal */
@@ -53,14 +53,20 @@ class Graph {
         return symbol;
     }
 
-    resolveSymbol(symbol: Symbol | NodePath) {
+    resolveSymbol(symbol: Symbol | NodePath, parent?: Symbol | NodePath) {
         if(symbol instanceof NodePath) {
             symbol = this.resolveSymbolFromNode(symbol);
         }
 
+        if(parent instanceof NodePath) {
+            parent = this.resolveSymbolFromNode(parent);
+        }
+
         const key = this.getSymbolKey(symbol);
         const existing = this.symbolsByKey.get(key)?.deref();
-        return existing ?? this.addSymbol(symbol);
+        if(existing && parent) existing.parent = parent;
+        
+        return existing ?? this.addSymbol({ ...symbol, parent });
     }
 
     private resolveSymbolFromNode(node: NodePath) {
