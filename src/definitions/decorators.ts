@@ -2,14 +2,15 @@ import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
 import { HTTP_METHODS } from '../consts';
 import { DecoratorDefinition } from './base';
-import { FlameError } from '../reporter';
+import { FlameError, getErrorLocation } from '../reporter';
 import { resolveNodeId } from '../utils';
+import { HttpBasedErrors } from '../analyzer';
 
 export default [
     {
         name: 'injectable',
         transform: {
-            async class({ analyzer, graph, targetNode: parentNode, node }) {
+            async class({ id, analyzer, graph, targetNode: parentNode, node }) {
                 const dependencies = analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addInjectable(symbol, dependencies);
@@ -19,7 +20,7 @@ export default [
     {
         name: 'manager',
         transform: {
-            async class({ analyzer, graph, targetNode: parentNode, node }) {
+            async class({ id, analyzer, graph, targetNode: parentNode, node }) {
                 const dependencies = analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addManager(symbol, dependencies);
@@ -31,10 +32,25 @@ export default [
         children: HTTP_METHODS.map(method => ({
             name: method,
             transform: {
-                method({ analyzer, graph, node, targetNode: methodNode }) {
-                    const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
-                    const endpoint = analyzer.analyzeHttpRoute(node, ERROR_EXAMPLE);
+                method({ id, analyzer, graph, node, params, targetNode: methodNode }) {
+					const httpData = analyzer.analyzeHttpRoute(node, params);
+					
+					const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
+					const ERROR_PATTERN = (msg: string) => new FlameError(
+						`Wrong syntax for decorator: ${msg}\n\n${ERROR_EXAMPLE}`,
+						getErrorLocation(node, id)						
+					)
 
+					switch (httpData) {
+						case HttpBasedErrors.ROUTE_EXPECTED: 
+							throw ERROR_PATTERN("this decorator expects a route in params");
+
+						case HttpBasedErrors.ROUTE_PATH_STRING_EXPECTED: 
+							throw ERROR_PATTERN("this decorator expects a string of a route path in params");
+					}
+					
+					const { endpoint } = httpData;
+					
                     const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
                     const symbol = graph.resolveSymbol(methodNode, classNode);
 
@@ -51,7 +67,7 @@ export default [
     {
         name: "event",
         transform: {
-            method({ graph, node, targetNode: methodNode }) {
+            method({ id, graph, targetNode: methodNode }) {
                 const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
                 const symbol = graph.resolveSymbol(methodNode, classNode);
 
