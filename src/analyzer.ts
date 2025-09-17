@@ -113,16 +113,16 @@ class DependencyAnalyzer {
     analyzeConstructor(id: string, node: NodePath<T.ClassMethod>) {
         const params = node.get('params');
 
-        return Promise.all(params.map(p => {
+        return params.map(p => {
             if (!p.isTSParameterProperty()) {
                 throw new FlameError("This parameter cannot be injectable", getErrorLocation(node, id));
             }
 
             return this.analyzeParameter(id, p);
-        }));
+        });
     }
 
-    async analyzeParameter(id: string, node: NodePath<T.TSParameterProperty>) {
+    analyzeParameter(id: string, node: NodePath<T.TSParameterProperty>) {
         const parameter = node.get("parameter");
         const typeAnnotation = parameter.get("typeAnnotation");
 
@@ -154,8 +154,8 @@ class Analyzer {
 		]);
 	}
 
-	async analyzeClassDependencies(id: string, node: NodePath<T.ClassDeclaration>) {
-		return await this.dependencyAnalyzer.analyze(id, node);
+	analyzeClassDependencies(id: string, node: NodePath<T.ClassDeclaration>) {
+		return this.dependencyAnalyzer.analyze(id, node);
 	}
 
 	constructor(transformer: Transformer, graph: Graph) {
