@@ -2,7 +2,6 @@ import fs from "fs";
 import { BitFieldResolvable, GatewayIntentsString } from "discord.js";
 import { UserConfig } from "vite";
 import { join as j } from "path"
-import BridgePlugin from "./plugin";
 
 export interface Config {
     entryPath?: string
@@ -37,7 +36,6 @@ class ConfigEvaluator {
     }
 
     evalVite(config: UserConfig) {
-        (config.plugins ??= []).push(BridgePlugin.setup(this.config));
         const input = ((config.build ??= {}).rollupOptions ??= {}).input ??= [];
 
         (input as Array<any>).push("virtual:main");
