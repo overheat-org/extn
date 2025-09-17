@@ -89,7 +89,7 @@ export default [
                 if (!matches) throw NAME_ERROR;
 
                 const once = { Once: true, On: false }[matches[1]];
-                if(!once) throw NAME_ERROR;
+                if(once === undefined) throw NAME_ERROR;
 
                 const type = matches[2].charAt(0).toLowerCase() + matches[2].slice(1);
 
