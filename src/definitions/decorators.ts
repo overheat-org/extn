@@ -89,7 +89,7 @@ export default [
         name: 'serializable',
         transform: {
             class({ node, targetNode: parentNode }) {
-                const className = resolveNodeId(parentNode).name;
+                const className = resolveNodeId(parentNode).node.name;
 
                 node.insertAfter(
                     T.assignmentExpression(
