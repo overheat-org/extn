@@ -7,6 +7,7 @@ import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, Tra
 import { FlameError, getErrorLocation } from "./reporter";
 
 type BaseDecoratorNodeWrapper = {
+	id: string
 	name: string | string[]
 	params: NodePath<T.CallExpression['arguments'][number]>[]
 }
@@ -21,7 +22,7 @@ type MethodDecoratorNodeWrapper = BaseDecoratorNodeWrapper
 
 type ParamDecoratorNodeWrapper = BaseDecoratorNodeWrapper
 	& Pick<DecoratorTransformContext<TransformType.Param>, 'node' | 'targetNode'>
-	& { kind: 'param'}
+	& { kind: 'param' }
 	
 export type DecoratorNodeWrapper = BaseDecoratorNodeWrapper & (
 	| ClassDecoratorNodeWrapper
@@ -60,7 +61,9 @@ class Transformer {
 	}
 
 	private handleTransformDecorator(transform: DecoratorTransform, wrapper: DecoratorNodeWrapper) {
-		const base = { 
+		const base = {
+			id: wrapper.id,
+			params: wrapper.params,
 			graph: this.graph, 
 			analyzer: this.analyzer, 
 		}; 

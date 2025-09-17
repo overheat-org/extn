@@ -22,6 +22,8 @@ type ParentNodeTypeMap<T> = T extends TransformType.Class
 		: Identifier;
 
 export interface DecoratorTransformContext<T extends TransformType> {
+	id: string;
+	params: any[]
 	targetNode: NodePath<ParentNodeTypeMap<T>>;
 	node: NodePath<Decorator>;
 	graph: Graph;

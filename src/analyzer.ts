@@ -5,12 +5,17 @@ import * as T from "@babel/types";
 import { FlameError, getErrorLocation } from "./reporter";
 import { parse } from '@babel/parser';
 
+export enum HttpBasedErrors {
+	ROUTE_EXPECTED,
+	ROUTE_PATH_STRING_EXPECTED
+}
+
 class DecoratorAnalyzer {
 	constructor(
-		private transformer: Transformer
+		private transformer: Transformer,
 	) {}
 	
-	CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
+	private CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
 
 	async analyze(id: string, code: string) {
 		if (!this.CONTENT_REGEX.test(code)) return;
@@ -62,12 +67,22 @@ class DecoratorAnalyzer {
 		} as { [k in T.Node['type']]: string }
 
 		this.transformer.transformDecorator({
+			id: id,
 			name,
 			targetNode: target,
 			params,
 			node: path,
-			kind: targetMap[target.node.type]
+			kind: targetMap[target.node.type],
 		})
+	}
+
+	analyzeHttpBased(node: NodePath<T.Decorator>, params: any) {
+		const [routeParam] = params;
+
+		if (!routeParam) return HttpBasedErrors.ROUTE_EXPECTED;
+        if (!routeParam.isStringLiteral()) return HttpBasedErrors.ROUTE_PATH_STRING_EXPECTED;
+
+        return { endpoint: routeParam.node.value }
 	}
 }
 
@@ -77,8 +92,8 @@ class CommandAnalyzer {
 		private transformer: Transformer
 	) {}
 
-	COMMAND_FILE_REGEX = /^\$[A-Za-z][\w-]*\.(t|j)sx?$/;
-	COMMAND_DIR_REGEX = /commands\/[A-Za-z]\.(t|j)sx?$/;
+	private COMMAND_FILE_REGEX = /^\$[A-Za-z][\w-]*\.(t|j)sx?$/;
+	private COMMAND_DIR_REGEX = /commands\/[A-Za-z]\.(t|j)sx?$/;
 
 	async analyze(id: string, code: string) {
 		if (
@@ -158,6 +173,10 @@ class Analyzer {
 		return this.dependencyAnalyzer.analyze(id, node);
 	}
 
+	analyzeHttpRoute(node: NodePath<T.Decorator>, params: any) {
+		return this.decoratorAnalyzer.analyzeHttpBased(node, params);
+	}
+	
 	constructor(transformer: Transformer, graph: Graph) {
 		this.commandAnalyzer = new CommandAnalyzer(graph, transformer);
 		this.decoratorAnalyzer = new DecoratorAnalyzer(transformer);
