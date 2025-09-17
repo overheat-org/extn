@@ -72,7 +72,7 @@ class Graph {
     private resolveSymbolFromNode(node: NodePath) {
         const symbol: Symbol = {
             node,
-            id: resolveNodeId(node).name,
+            id: resolveNodeId(node).node.name,
             kind: node.type
         }
 
