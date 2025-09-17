@@ -95,14 +95,14 @@ class Graph {
 
     private injectables = new Set<Injectable>;
 
-    addInjectable(injectable: Injectable) {
-        this.injectables.add(injectable);
+    addInjectable(symbol: Symbol, dependencies: Symbol[]) {
+        this.injectables.add({ symbol, dependencies });
     }
 
     private managers = new Set<Manager>;
 
-    addManager(manager: Manager) {
-        this.managers.add(manager);
+    addManager(symbol: Symbol, dependencies: Symbol[]) {
+        this.managers.add({ symbol, dependencies });
     }
 
     routes = new Set<Route>;

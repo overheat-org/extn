@@ -10,7 +10,7 @@ export default [
         name: 'injectable',
         transform: {
             async class({ analyzer, graph, targetNode: parentNode, node }) {
-                const dependencies = await analyzer.analyzeClassDependencies(parentNode);
+                const dependencies = await analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addInjectable(symbol, dependencies);
             }
@@ -20,7 +20,7 @@ export default [
         name: 'manager',
         transform: {
             async class({ analyzer, graph, targetNode: parentNode, node }) {
-                const dependencies = await analyzer.analyzeClassDependencies(parentNode);
+                const dependencies = await analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addManager(symbol, dependencies);
             }
