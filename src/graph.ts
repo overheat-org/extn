@@ -24,10 +24,11 @@ interface Injectable {
     dependencies: Symbol[]
 }
 
-interface Symbol {
+export interface Symbol {
     kind: string
     id: string
     node: NodePath
+	path: string
     parent?: Symbol
 }
 
@@ -73,7 +74,8 @@ class Graph {
         const symbol: Symbol = {
             node,
             id: resolveNodeId(node).node.name,
-            kind: node.type
+            kind: node.type,
+			path: node.node.loc!.filename
         }
 
         return symbol;
@@ -93,34 +95,54 @@ class Graph {
         return validSymbols;
     }
 
-    private injectables = new Set<Injectable>;
+    _injectables = new Set<Injectable>;
+
+	get injectables(): Readonly<Set<Injectable>> {
+		return this._injectables;
+	}
 
     addInjectable(symbol: Symbol, dependencies: Symbol[]) {
-        this.injectables.add({ symbol, dependencies });
+        this._injectables.add({ symbol, dependencies });
     }
 
-    private managers = new Set<Manager>;
+    private _managers = new Set<Manager>;
+
+	get managers(): Readonly<Set<Manager>> {
+		return this._managers;
+	}
 
     addManager(symbol: Symbol, dependencies: Symbol[]) {
-        this.managers.add({ symbol, dependencies });
+        this._managers.add({ symbol, dependencies });
     }
 
-    routes = new Set<Route>;
+    _routes = new Set<Route>;
+
+	get routes(): Readonly<Set<Route>> {
+		return this._routes;
+	}
 
     addRoute(route: Route) {
-        this.routes.add(route);
+        this._routes.add(route);
     }
 
-    events = new Set<Event>;
+    _events = new Set<Event>;
+
+	get events(): Readonly<Set<Event>> {
+		return this._events;
+	}
 
     addEvent(event: Event) {
-        this.events.add(event);
+        this._events.add(event);
     }
 
-	commands = new Set<unknown>();
+	_commands = new Set<unknown>();
 
+	get commands(): Readonly<Set<unknown>> {
+		return this._commands;
+	}
+	
 	addCommand(command: unknown) {
-		this.commands.add(command);
+		this._commands.add(command);
 	}
 }
 
