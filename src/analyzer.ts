@@ -20,7 +20,7 @@ class DecoratorAnalyzer {
 	async analyze(id: string, code: string) {
 		if (!this.CONTENT_REGEX.test(code)) return;
 
-		const program = parseContent(code);
+		const program = parseContent(id, code);
 
 		program.traverse({
 			Decorator: async path => this.analyzeDecorator(id, path)
@@ -101,7 +101,7 @@ class CommandAnalyzer {
 			!this.COMMAND_FILE_REGEX.test(id)
 		) return;
 
-		const ast = parseContent(code);
+		const ast = parseContent(id, code);
 		const command = this.transformer.transformCommand(id, ast);
 		this.graph.addCommand(command);
 	}
@@ -184,9 +184,10 @@ class Analyzer {
 	}
 }
 
-function parseContent(content: string) {
+function parseContent(path: string, content: string) {
 	const { program } = parse(content, { 
 		sourceType: 'module',
+		sourceFilename: path,
 		plugins: ["decorators", "typescript", "jsx"],
 		errorRecovery: true
 	});
