@@ -36,7 +36,7 @@ class Transformer {
 	private analyzer: Analyzer;
 
 	async transformModule(id: string, code: string) {
-		this.analyzer.analyzeModule(id, code);
+		await this.analyzer.analyzeModule(id, code);
 	}
 
 	public transformDecorator(node: DecoratorNodeWrapper) {
@@ -113,8 +113,6 @@ class Transformer {
 
 		const map = {
 			async ImportDeclaration(path: NodePath<T.ImportDeclaration>) {
-				if (path.removed) return;
-
 				transformImportDeclarationToDynamic(path);
 			},
 
