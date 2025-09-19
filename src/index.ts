@@ -8,22 +8,18 @@ import BridgePlugin from './plugin';
 
 class Compiler {
     private configManager: ConfigManager;
+	graph = new Graph();
+	transformer = new Transformer(this.graph);
+	codegen = new CodeGenerator(this.graph);
     scanner!: Scanner;
-	graph!: Graph;
-	transformer!: Transformer;
-	codegen!: CodeGenerator;
     config!: Config;
 
     private async setup() {
         await this.configManager.setup();
         this.config = this.configManager.data;
         (this.config.vite!.plugins ??= []).push(BridgePlugin(this));
-
 		
-		this.graph = new Graph();
-		this.transformer = new Transformer(this.graph);
         this.scanner = new Scanner(this.config, this.transformer);
-		this.codegen = new CodeGenerator(this.graph);
     }
 
     async build() {
