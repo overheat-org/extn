@@ -1,3 +1,4 @@
+import { name, version } from './package.json';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'url';
@@ -22,7 +23,7 @@ export default defineConfig({
         lib: {
             entry: [
                 path.resolve(__dirname, 'src/lib/index.ts'),
-                path.resolve(__dirname, 'src/main.ts')
+                path.resolve(__dirname, 'src/index.ts')
             ],
             formats: ['es']
         },
@@ -39,4 +40,8 @@ export default defineConfig({
             treeshake: false
         }
     },
+	define: {
+		__NAME__: name,
+		__VERSION__: version
+	}
 });
