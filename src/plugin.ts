@@ -1,7 +1,9 @@
 import { Plugin } from 'rollup';
-import { name, version } from '../package.json';
 import virtual from "./virtual";
 import Compiler from '.';
+
+declare const __NAME__: string;
+declare const __VERSION__: string;
 
 /** 
  * @internal 
@@ -12,8 +14,8 @@ function BridgePlugin(compiler: Compiler) {
 	const { codegen, transformer, config } = compiler;
 	
 	return {
-		name,
-		version,
+		name: __NAME__,
+		version: __VERSION__,
 		buildEnd(options) {
 			codegen.generate(this);
 		},
