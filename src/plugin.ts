@@ -23,10 +23,11 @@ function BridgePlugin(compiler: Compiler) {
 			transformer.transformModule(id, code);
 		},
 		load(id) {
-			const handler = virtual?.[id];
+			console.log("LOAD", id);
+			const handler = virtual?.[`virtual:${id}`];
 
 			return typeof handler == "function" 
-				? handler(config)
+				? handler({config})
 				: handler;
 		},
 	} satisfies Plugin

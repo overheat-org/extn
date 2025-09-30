@@ -4,27 +4,36 @@ import CommandManager from "../managers/CommandManager";
 import { dirname } from "path";
 import CommunicationManager from "../managers/CommunicationManager";
 import EventManager from "../managers/EventManager";
+import ModuleManager from "../managers/ModuleManager";
+import ManifestManager from "../managers/ManifestManager";
 
 export class FlameClient extends Client {
+    private commandManager: CommandManager;
     private dependencyManager = new DependencyManager(this);
-    private commandManager = new CommandManager();
     private communicationManager = new CommunicationManager(this.dependencyManager);
-    private eventManager = new EventManager(this, this.dependencyManager, this.commandManager);
-    private entryUrl: string;
+    private eventManager: EventManager;
+	private moduleManager = new ModuleManager(this.dependencyManager);
+	private pending: Promise<void>;
 
     constructor(options: ClientOptions & { entryUrl: string }) {
         super(options);
 
-        this.entryUrl = dirname(options.entryUrl);
+        const entryUrl = dirname(options.entryUrl);
+
+		this.commandManager = new CommandManager(entryUrl);
+		this.eventManager = new EventManager(this, this.dependencyManager, this.commandManager);
+		this.pending = ManifestManager.loadFile(entryUrl);
     }
 
-    private async bootstrap(): Promise<void> {      
-        await this.dependencyManager.resolve(this.entryUrl),
+    private async bootstrap(): Promise<void> {
+		await this.pending;
+		await this.moduleManager.load();
+        await this.dependencyManager.load();
         
         await Promise.all([
-            this.commandManager.load(this.entryUrl),
-            this.communicationManager.load(this.entryUrl),
-            this.eventManager.load(this.entryUrl)
+            this.commandManager.load(),
+            this.communicationManager.load(),
+            this.eventManager.load()
         ]);
     }
 

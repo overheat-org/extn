@@ -1,6 +1,5 @@
 import { Client } from "discord.js";
 import { FlameClient } from "../structures";
-import { FORWARD_SYMBOL } from "../../consts";
 
 export type ClassLike = new (...args: any[]) => any;
 type Injectable = { entity: ClassLike; dependencies: ClassLike[] };
@@ -32,12 +31,18 @@ export class DependencyInjectorResolver {
         this.instanceFromDependency.set(FlameClient, client);
     }
 
-    private register(entity: ClassLike, dependencies: ClassLike[] = []) {
+    register(entity: ClassLike, dependencies: ClassLike[] = []) {
         if (!this.dependenciesFromEntity.has(entity)) {
             this.dependenciesFromEntity.set(entity, dependencies);
             this.unresolvedDependencies.add(entity);
         }
     }
+
+	addLooseDependency(dependency: ClassLike) {
+		if (!this.instanceFromDependency.has(dependency) && !this.dependenciesFromEntity.has(dependency)) {
+			this.unresolvedDependencies.add(dependency);
+		}
+	}
 
     async resolve(): Promise<void> {
         for (const dep of Array.from(this.unresolvedDependencies)) {
@@ -49,13 +54,13 @@ export class DependencyInjectorResolver {
         graph.forEach(({ entity, dependencies }) => this.register(entity, dependencies));
     }
 
-    private defineForward(entity: ClassLike): () => any {
-        const ref = { current: undefined };
-        const forwardFn = () => ref.current;
-        forwardFn[FORWARD_SYMBOL] = true;
-        this.instanceFromDependency.set(entity, ref);
-        return forwardFn;
-    }
+    // private defineForward(entity: ClassLike): () => any {
+    //     const ref = { current: undefined };
+    //     const forwardFn = () => ref.current;
+    //     forwardFn[FORWARD_SYMBOL] = true;
+    //     this.instanceFromDependency.set(entity, ref);
+    //     return forwardFn;
+    // }
 
     private async resolveDependency(entity: ClassLike): Promise<any> {
         if (this.instanceFromDependency.has(entity)) {

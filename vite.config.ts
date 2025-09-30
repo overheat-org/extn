@@ -23,7 +23,7 @@ export default defineConfig({
         lib: {
             entry: [
                 path.resolve(__dirname, 'src/lib/index.ts'),
-                path.resolve(__dirname, 'src/index.ts')
+                path.resolve(__dirname, 'src/cli.ts')
             ],
             formats: ['es']
         },
@@ -41,7 +41,7 @@ export default defineConfig({
         }
     },
 	define: {
-		__NAME__: name,
-		__VERSION__: version
+		__NAME__: JSON.stringify(name),
+		__VERSION__: JSON.stringify(version)
 	}
 });

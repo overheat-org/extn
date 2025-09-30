@@ -12,3 +12,10 @@ export const HTTP_METHODS = [
     "trace",
     "patch"
 ];
+
+export enum ManifestType {
+	Routes,
+	DependenciesGraph,
+	Events,
+	Modules
+}

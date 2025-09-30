@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "vite build",
-    "test": "cd test; node ../dist/main.js . --hot; cd .."
+    "test": "cd test; node ../dist/cli.js . --hot; cd .."
   },
   "repository": {
     "type": "git",

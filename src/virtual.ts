@@ -18,6 +18,11 @@ export default {
     `
 } satisfies VirtualModules;
 
+type VirtualModuleContext = {
+	config: Config
+	env: any
+}
+
 type VirtualModules = { 
-	[key: string]: (config: Config) => unknown | unknown
+	[key: string]: (context: VirtualModuleContext) => unknown | unknown
 }

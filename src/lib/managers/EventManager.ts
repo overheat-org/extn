@@ -2,28 +2,21 @@ import { Client, Events } from "discord.js";
 import DependencyManager from "./DependencyManager";
 import CommandManager from "./CommandManager";
 import { ClassLike } from "../utils/DependencyInjectorResolver";
+import ManifestManager from "./ManifestManager";
+import { ManifestType } from "../../consts";
 
-interface Event {
+export interface Event {
     type: any,
     once?: boolean,
     handler: string,
     entity: ClassLike
 }
 
-class EventManager {
-    async load(entryPath: string) {
-        try {
-            const { default: events }: { default: Event[] } = await import(`${entryPath}/events.js`);
+class EventManager extends ManifestManager {
+    async load() {
+		const events = this.manifest[ManifestType.Events];
 
-            events.forEach(this.loadEvent.bind(this));
-        } catch (err) {
-            if(err instanceof Error) {
-                throw new Error(`Failed to load events:${err.stack}`);
-            }
-            else {
-                throw err;
-            }
-        }
+		events.forEach(this.loadEvent.bind(this));
     }
 
     setup() {
@@ -47,7 +40,13 @@ class EventManager {
         this.client[event.once ? 'once' : 'on'](event.type, handler);
     }
 
-    constructor(private client: Client, private dependencyManager: DependencyManager, private commandManager: CommandManager) {}
+    constructor(
+		private client: Client, 
+		private dependencyManager: DependencyManager, 
+		private commandManager: CommandManager
+	) {
+		super();
+	}
 }
 
 export default EventManager;

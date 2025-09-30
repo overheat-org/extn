@@ -1,9 +1,11 @@
-import traverse, { NodePath } from "@babel/traverse";
+import _traverse, { NodePath } from "@babel/traverse";
 import Graph from "./graph";
 import Transformer from "./transformer";
 import * as T from "@babel/types";
 import { FlameError, getErrorLocation } from "./reporter";
 import { parse } from '@babel/parser';
+
+const traverse = 'default' in _traverse ? _traverse.default : _traverse as typeof _traverse;
 
 export enum HttpBasedErrors {
 	ROUTE_EXPECTED,

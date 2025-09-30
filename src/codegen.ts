@@ -1,20 +1,73 @@
 import * as T from '@babel/types';
 import { PluginContext, EmittedFile } from 'rollup';
 import Graph from './graph';
-import generate from '@babel/generator';
 import { Symbol } from './graph';
 import template from '@babel/template'
+import _generate from '@babel/generator';
+import { ManifestType } from './consts';
+
+const generate = ('default' in _generate ? _generate.default : _generate) as typeof _generate;
 
 class CodeGenerator {
 	generate(ctx: PluginContext) {
 		const files = [
 			this.generateCommands(),
-			this.generateEventsGraph(),
-			this.generateRoutesGraph(),
-			this.generateDependencyGraph()
+			this.generateManifest(),
 		] as EmittedFile[];
 
 		for (const file of files) ctx.emitFile(file);
+	}
+
+	generateManifest(): EmittedFile {
+		const allItems = [
+			{ 
+				key: ManifestType.Routes, 
+				items: this.graph.routes
+			},
+			{ 
+				key: ManifestType.DependenciesGraph, 
+				items: [...this.graph.modules, ...this.graph.managers, ...this.graph.injectables]
+			},
+			{ 
+				key: ManifestType.Events, 
+				items: this.graph.events
+			},
+			{
+				key: ManifestType.Modules,
+				items: this.graph.modules
+			}
+		];
+
+		const tracked = new Set<Symbol>();
+		const output: Record<string, T.ObjectExpression[]> = {};
+
+		for (const group of allItems) {
+			for (const item of group.items) {
+				(output[group.key] ??= []).push(item.toAST());
+				for (const s of item.getSymbols()) tracked.add(s);
+			}
+		}
+
+		const imports = [...tracked].map(s => this.generateImportDeclaration(s));
+
+		const ast = T.file(
+			T.program([
+				...imports,
+				T.exportDefaultDeclaration(
+					T.objectExpression(
+						Object.entries(output).map(([k, v]) =>
+							T.objectProperty(T.identifier(k), T.arrayExpression(v))
+						)
+					)
+				)
+			])
+		);
+
+		return {
+			type: "asset",
+			fileName: "manifest.js",
+			source: this.generateCode(ast),
+		}
 	}
 
 	generateCommands(): EmittedFile {
@@ -49,112 +102,17 @@ class CodeGenerator {
 
 	}
 
-	generateEventsGraph(): EmittedFile {
-		const tracked = new Set<Symbol>();
-		const objects = Array.from(this.graph.events).map(r => {
-			if (r.symbol.parent) tracked.add(r.symbol.parent);
-
-			return T.objectExpression([
-				T.objectProperty(T.identifier("type"), T.stringLiteral(r.type)),
-				T.objectProperty(T.identifier("once"), T.booleanLiteral(r.once)),
-				T.objectProperty(T.identifier("handler"), T.stringLiteral(r.symbol.id)),
-				T.objectProperty(T.identifier("entity"), T.identifier(r.symbol.parent?.id ?? "undefined"))
-			]);
-		});
-
-		const imports = [...tracked].map(s => this.generateImportDeclaration(s));
-
-		const ast = T.file(
-			T.program([
-				...imports,
-				T.exportDefaultDeclaration(T.arrayExpression(objects))
-			])
-		);
-
-		return {
-			type: "asset",
-			fileName: "events.js",
-			source: this.generateCode(ast),
-		};
-	}
-
-	generateRoutesGraph(): EmittedFile {
-		const tracked = new Set<Symbol>();
-		const objects = new Array<T.ObjectExpression>;
-
-		for (const r of this.graph.routes) {
-			if (r.symbol.parent) tracked.add(r.symbol.parent);
-
-			objects.push(
-				T.objectExpression([
-					T.objectProperty(T.identifier("endpoint"), T.stringLiteral(r.endpoint)),
-					T.objectProperty(T.identifier("method"), T.stringLiteral(r.method)),
-					T.objectProperty(T.identifier("ipc"), T.booleanLiteral(r.ipc)),
-					T.objectProperty(T.identifier("handler"), T.stringLiteral(r.symbol.id)),
-					T.objectProperty(T.identifier("entity"), T.identifier(r.symbol.parent?.id ?? "undefined"))
-				])
-			);
-		}
-
-		const imports = [...tracked].map(s => this.generateImportDeclaration(s));
-
-		const ast = T.file(
-			T.program([
-				...imports,
-				T.exportDefaultDeclaration(T.arrayExpression(objects))
-			])
-		);
-
-		return {
-			type: "asset",
-			fileName: "routes.js",
-			source: this.generateCode(ast),
-		};
-	}
-
-
-	generateDependencyGraph(): EmittedFile {
-		const tracked = new Set<Symbol>();
-		const objects = Array.from(new Set([...this.graph.injectables, ...this.graph.managers])).map(i => {
-			tracked.add(i.symbol);
-			i.dependencies.forEach(s => tracked.add(s));
-
-			return T.objectExpression([
-				T.objectProperty(T.identifier("entity"), T.identifier(i.symbol.id)),
-				T.objectProperty(
-					T.identifier("dependencies"),
-					T.arrayExpression(i.dependencies.map(d => T.identifier(d.id)))
-				)
-			]);
-		});
-
-		const imports = [...tracked].map(s => this.generateImportDeclaration(s));
-
-		const ast = T.file(
-			T.program([
-				...imports,
-				T.exportDefaultDeclaration(T.arrayExpression(objects))
-			])
-		);
-
-		return {
-			type: "asset",
-			fileName: "dependency-graph.js",
-			source: this.generateCode(ast),
-		};
-	}
-
-	generateCode(ast: T.Node) {
-		return generate(ast).code;
-	}
-
-	generateImportDeclaration(symbol: Symbol) {
+	private generateImportDeclaration(symbol: Symbol) {
 		const id = T.identifier(symbol.id);
 
 		return T.importDeclaration(
 			[T.importSpecifier(id, id)],
 			T.stringLiteral(symbol.path)
 		);
+	}
+
+	private generateCode(ast: T.Node) {
+		return generate(ast).code;
 	}
 
 	constructor(private graph: Graph) { }

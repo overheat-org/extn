@@ -22,23 +22,21 @@ class ConfigEvaluator {
     eval(config: Config) {
         this.config = config;
 
-        this.evalPaths(
-            config.entryPath,
-            config.buildPath,
-            config.cwd
-        )
+        this.evalPaths(config)
 
         this.evalVite(config.vite ??= {});
     }
 
-    evalPaths(entry, build, cwd) {
-        
+    evalPaths(config: Config) {
+		config.entryPath ??= "src";
+		config.buildPath ??= "dist";
+		config.cwd ??= process.cwd();
     }
 
     evalVite(config: UserConfig) {
         const input = ((config.build ??= {}).rollupOptions ??= {}).input ??= [];
 
-        (input as Array<any>).push("virtual:main");
+        // (input as Array<any>).push("virtual:main");
     }
 
     evalRollupOptions() {}

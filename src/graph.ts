@@ -1,148 +1,244 @@
+import * as T from '@babel/types';
 import { NodePath } from "@babel/traverse"
 import { resolveNodeId } from "./utils"
 
-interface Event {
-    symbol: Symbol
-    type: string
-    once: boolean
+class Event {
+	constructor(
+		public symbol: Symbol,
+		public type: string,
+		public once: boolean
+	) { }
+
+	toAST() {
+		return T.objectExpression([
+			T.objectProperty(T.identifier("type"), T.stringLiteral(this.type)),
+			T.objectProperty(T.identifier("once"), T.booleanLiteral(this.once)),
+			T.objectProperty(T.identifier("handler"), T.stringLiteral(this.symbol.id)),
+			T.objectProperty(
+				T.identifier("entity"),
+				T.identifier(this.symbol.parent?.id ?? "undefined")
+			)
+		]);
+	}
+
+	getSymbols() {
+		return this.symbol.parent ? [this.symbol.parent] : [];
+	}
 }
 
-interface Route {
-    symbol: Symbol
-    endpoint: string
-    method: string
-    ipc: boolean
+
+class Route {
+	constructor(
+		public endpoint: string,
+		public method: string,
+		public symbol: Symbol,
+		public ipc: boolean
+	) { }
+
+	toAST() {
+		return T.objectExpression([
+			T.objectProperty(T.identifier("endpoint"), T.stringLiteral(this.endpoint)),
+			T.objectProperty(T.identifier("method"), T.stringLiteral(this.method)),
+			T.objectProperty(T.identifier("ipc"), T.booleanLiteral(this.ipc)),
+			T.objectProperty(T.identifier("handler"), T.stringLiteral(this.symbol.id)),
+			T.objectProperty(T.identifier("entity"), T.identifier(this.symbol.parent?.id ?? "undefined"))
+		])
+	}
+
+	getSymbols() {
+		return this.symbol.parent ? [this.symbol.parent] : [];
+	}
 }
 
-interface Manager {
-    symbol: Symbol
-    dependencies: Symbol[]
+class Manager {
+	constructor(
+		public symbol: Symbol,
+		public dependencies: Symbol[]
+	) { }
+
+	toAST() {
+		return T.objectExpression([
+			T.objectProperty(T.identifier("manager"), T.identifier(this.symbol.id)),
+			T.objectProperty(
+				T.identifier("dependencies"),
+				T.arrayExpression(this.dependencies.map(d => T.identifier(d.id)))
+			)
+		]);
+	}
+
+	getSymbols() {
+		return [this.symbol, ...this.dependencies];
+	}
 }
 
-interface Injectable {
-    symbol: Symbol
-    dependencies: Symbol[]
+class Injectable {
+	constructor(
+		public symbol: Symbol,
+		public dependencies: Symbol[]
+	) { }
+
+	toAST() {
+		return T.objectExpression([
+			T.objectProperty(T.identifier("injectable"), T.identifier(this.symbol.id)),
+			T.objectProperty(
+				T.identifier("dependencies"),
+				T.arrayExpression(this.dependencies.map(d => T.identifier(d.id)))
+			)
+		]);
+	}
+
+	getSymbols() {
+		return [this.symbol, ...this.dependencies];
+	}
+}
+
+class Module {
+	constructor(
+		public name: string,
+		public managers: Symbol[]
+	) { }
+
+	toAST() {
+		return T.objectExpression([
+			T.objectProperty(T.identifier("name"), T.stringLiteral(this.name)),
+			T.objectProperty(T.identifier("managers"), T.arrayExpression(this.managers.map(m => T.identifier(m.id))))
+		]);
+	}
+
+	getSymbols() {
+		return [...this.managers];
+	}
 }
 
 export interface Symbol {
-    kind: string
-    id: string
-    node: NodePath
+	kind: string
+	id: string
+	node: NodePath
 	path: string
-    parent?: Symbol
+	parent?: Symbol
 }
 
 /** @internal */
 class Graph {
-    private symbolsByModule = new Map<string, Set<WeakRef<Symbol>>>();
-    private symbolsByKey = new Map<string, WeakRef<Symbol>>();
+	private symbolsByModule = new Map<string, Set<WeakRef<Symbol>>>();
+	private symbolsByKey = new Map<string, WeakRef<Symbol>>();
 
-    private getSymbolKey(symbol: Symbol): string {
-        return `${symbol.node}:${symbol.id}`;
-    }
+	private getSymbolKey(symbol: Symbol): string {
+		return `${symbol.node}:${symbol.id}`;
+	}
 
-    addSymbol(symbol: Symbol) {
-        const key = this.getSymbolKey(symbol);
-        this.symbolsByKey.set(key, new WeakRef(symbol));
+	addSymbol(symbol: Symbol) {
+		const key = this.getSymbolKey(symbol);
+		this.symbolsByKey.set(key, new WeakRef(symbol));
 
-        let set = this.symbolsByModule.get(symbol.node);
-        if (!set) {
-            set = new Set();
-            this.symbolsByModule.set(symbol.node, set);
-        }
-        set.add(new WeakRef(symbol));
-        return symbol;
-    }
+		let set = this.symbolsByModule.get(symbol.node);
+		if (!set) {
+			set = new Set();
+			this.symbolsByModule.set(symbol.node, set);
+		}
+		set.add(new WeakRef(symbol));
+		return symbol;
+	}
 
-    resolveSymbol(symbol: Symbol | NodePath, parent?: Symbol | NodePath) {
-        if(symbol instanceof NodePath) {
-            symbol = this.resolveSymbolFromNode(symbol);
-        }
+	resolveSymbol(symbol: Symbol | NodePath, parent?: Symbol | NodePath) {
+		if (symbol instanceof NodePath) {
+			symbol = this.resolveSymbolFromNode(symbol);
+		}
 
-        if(parent instanceof NodePath) {
-            parent = this.resolveSymbolFromNode(parent);
-        }
+		if (parent instanceof NodePath) {
+			parent = this.resolveSymbolFromNode(parent);
+		}
 
-        const key = this.getSymbolKey(symbol);
-        const existing = this.symbolsByKey.get(key)?.deref();
-        if(existing && parent) existing.parent = parent;
-        
-        return existing ?? this.addSymbol({ ...symbol, parent });
-    }
+		const key = this.getSymbolKey(symbol);
+		const existing = this.symbolsByKey.get(key)?.deref();
+		if (existing && parent) existing.parent = parent;
 
-    private resolveSymbolFromNode(node: NodePath) {
-        const symbol: Symbol = {
-            node,
-            id: resolveNodeId(node).node.name,
-            kind: node.type,
+		return existing ?? this.addSymbol({ ...symbol, parent });
+	}
+
+	private resolveSymbolFromNode(node: NodePath) {
+		const symbol: Symbol = {
+			node,
+			id: resolveNodeId(node).node.name,
+			kind: node.type,
 			path: node.node.loc!.filename
-        }
+		}
 
-        return symbol;
-    }
+		return symbol;
+	}
 
-    getSymbolsByModule(path: string) {
-        const set = this.symbolsByModule.get(path);
-        if (!set) return [];
+	getSymbolsByModule(path: string) {
+		const set = this.symbolsByModule.get(path);
+		if (!set) return [];
 
-        const validSymbols: Symbol[] = [];
-        for (const ref of set) {
-            const symbol = ref.deref();
-            if (symbol) validSymbols.push(symbol);
-            else set.delete(ref);
-        }
+		const validSymbols: Symbol[] = [];
+		for (const ref of set) {
+			const symbol = ref.deref();
+			if (symbol) validSymbols.push(symbol);
+			else set.delete(ref);
+		}
 
-        return validSymbols;
-    }
+		return validSymbols;
+	}
 
-    _injectables = new Set<Injectable>;
+	_injectables = new Set<Injectable>;
 
 	get injectables(): Readonly<Set<Injectable>> {
 		return this._injectables;
 	}
 
-    addInjectable(symbol: Symbol, dependencies: Symbol[]) {
-        this._injectables.add({ symbol, dependencies });
-    }
+	addInjectable(symbol: Symbol, dependencies: Symbol[]) {
+		this._injectables.add(new Injectable(symbol, dependencies));
+	}
 
-    private _managers = new Set<Manager>;
+	private _managers = new Set<Manager>;
 
 	get managers(): Readonly<Set<Manager>> {
 		return this._managers;
 	}
 
-    addManager(symbol: Symbol, dependencies: Symbol[]) {
-        this._managers.add({ symbol, dependencies });
-    }
+	addManager(symbol: Symbol, dependencies: Symbol[]) {
+		this._managers.add(new Manager(symbol, dependencies));
+	}
 
-    _routes = new Set<Route>;
+	private _routes = new Set<Route>;
 
 	get routes(): Readonly<Set<Route>> {
 		return this._routes;
 	}
 
-    addRoute(route: Route) {
-        this._routes.add(route);
-    }
+	addRoute(route: Pick<Route, 'symbol' | 'endpoint' | 'ipc' | 'method'>) {
+		this._routes.add(new Route(route.endpoint, route.method, route.symbol, route.ipc));
+	}
 
-    _events = new Set<Event>;
+	private _events = new Set<Event>;
 
 	get events(): Readonly<Set<Event>> {
 		return this._events;
 	}
 
-    addEvent(event: Event) {
-        this._events.add(event);
-    }
+	addEvent(event: Pick<Event, 'symbol' | 'type' | 'once'>) {
+		this._events.add(new Event(event.symbol, event.type, event.once));
+	}
 
-	_commands = new Set<unknown>();
+	private _commands = new Set<unknown>();
 
 	get commands(): Readonly<Set<unknown>> {
 		return this._commands;
 	}
-	
+
 	addCommand(command: unknown) {
 		this._commands.add(command);
+	}
+
+	private _modules = new Set<Module>();
+
+	get modules(): Readonly<Set<Module>> {
+		return this._modules;
+	}
+
+	addModule(moduleData: Pick<Module, 'name' | 'managers'>) {
+		this._modules.add(new Module(moduleData.name, moduleData.managers));
 	}
 }
 

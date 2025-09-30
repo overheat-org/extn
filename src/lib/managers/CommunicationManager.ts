@@ -2,8 +2,10 @@ import DependencyManager from "./DependencyManager";
 import { IPCManager } from "./IPCManager";
 import { HTTPManager } from "./HTTPManager";
 import { ClassLike } from "../utils/DependencyInjectorResolver";
+import ManifestManager from "./ManifestManager";
+import { ManifestType } from "../../consts";
 
-interface Endpoint {
+export interface Endpoint {
     endpoint: string,
     method: string,
     handler: string,
@@ -11,28 +13,19 @@ interface Endpoint {
     ipc?: boolean
 }
 
-class CommunicationManager {
+class CommunicationManager extends ManifestManager {
     ipcManager = new IPCManager();
     httpManager = new HTTPManager();
 
-    async load(entryPath: string) {
-        try {
-            const { default: endpoints }: { default: Endpoint[] } = await import(`${entryPath}/routes.js`);
-            const grouped = Object.groupBy(endpoints, e => e.ipc ? 'ipc' : 'http');
+    async load() {
+		const routes = this.manifest[ManifestType.Routes];
+		const grouped = Object.groupBy(routes, e => e.ipc ? 'ipc' : 'http');
 
-            const ipc = grouped.ipc ?? [];
-            const http = grouped.http ?? [];
+		const ipc = grouped.ipc ?? [];
+		const http = grouped.http ?? [];
 
-            this.loadEndpoints(ipc, this.ipcManager);
-            this.loadEndpoints(http, this.httpManager);
-        } catch (err) {
-            if(err instanceof Error) {
-                throw new Error(`Failed to load routes:${err.stack}`);
-            }
-            else {
-                throw err;
-            }
-        }
+		this.loadEndpoints(ipc, this.ipcManager);
+		this.loadEndpoints(http, this.httpManager);
     }
 
     loadEndpoints(endpoints: Endpoint[], manager: IPCManager | HTTPManager) {
@@ -44,7 +37,9 @@ class CommunicationManager {
         });
     }
 
-    constructor(private dependencyManager: DependencyManager) {}
+    constructor(private dependencyManager: DependencyManager) {
+		super();
+	}
 }
 
 export default CommunicationManager;

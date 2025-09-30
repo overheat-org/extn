@@ -120,4 +120,23 @@ export default [
             }
         }
     },
+	{
+		name: 'module',
+		transform: {
+			class({ targetNode, graph }) {
+				const body = targetNode.get('body').get('body');
+
+				const acceptedProps = ['managers', 'commands'];
+
+				const managers = body
+					.filter(p => p.isClassProperty() && resolveNodeId(p).node.name in acceptedProps)
+					.map(p => graph.resolveSymbol(p));
+				
+				graph.addModule({
+					name: resolveNodeId(targetNode).node.name,
+					managers
+				});
+			},
+		}
+	}
 ] as DecoratorDefinition[];

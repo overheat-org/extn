@@ -1,29 +1,27 @@
 import { Client } from "discord.js";
 import { ClassLike, DependencyInjectorResolver } from "../utils/DependencyInjectorResolver";
+import ManifestManager from "./ManifestManager";
+import { ManifestType } from "../../consts";
 
-class DependencyManager {
+class DependencyManager extends ManifestManager {
     private DIResolver: DependencyInjectorResolver;
     
-    async resolve(entryPath: string) {
-        try {
-            const { default: graph } = await import(`${entryPath}/dependency-graph.js`);
-            await this.DIResolver.parseGraph(graph);
-            await this.DIResolver.resolve();
-        } catch (err) {
-            if(err instanceof Error) {
-                throw new Error(`Failed to load dependencies from dependencies graph:${err.stack}`);
-            }
-            else {
-                throw err;
-            }
-        }
+    async load() {
+		const graph = this.manifest[ManifestType.DependenciesGraph];
+		await this.DIResolver.parseGraph(graph);
+		await this.DIResolver.resolve();
     }
 
     getInstanceFrom<E extends ClassLike>(entity: E): E {
         return this.DIResolver.instanceFromDependency.get(entity);
     }
 
+	addDependency(d: ClassLike) {
+		this.DIResolver.addLooseDependency(d);
+	}
+
     constructor(client: Client) {
+		super();
         this.DIResolver = new DependencyInjectorResolver(client);
     }
 }

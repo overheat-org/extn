@@ -6,8 +6,8 @@ class CommandManager {
     private executor = new InteractionExecutor();
     private container?: CommandContainer;
 
-    async load(entryPath: string) {
-        const { default: container }: { default: CommandContainer } = await import(`${entryPath}/commands.js`);
+    async load() {
+        const { default: container }: { default: CommandContainer } = await import(`${this.entryPath}/commands.js`);
 
         this.executor.commandMap = container.map;
         this.container = container;
@@ -32,6 +32,8 @@ class CommandManager {
     async run(interaction: ChatInputCommandInteraction | AutocompleteInteraction) {
         this.executor.run(interaction);
     }
+
+	constructor(private entryPath: string) {}
 }
 
 export default CommandManager;
