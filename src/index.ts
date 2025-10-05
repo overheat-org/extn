@@ -17,7 +17,7 @@ class Compiler {
     private async setup() {
         await this.configManager.setup();
         this.config = this.configManager.data;
-        (this.config.vite!.plugins ??= []).push(BridgePlugin(this));
+        (this.config.vite!.plugins ??= []).unshift(BridgePlugin(this));
 		
         this.scanner = new Scanner(this.config, this.transformer);
     }

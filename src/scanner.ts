@@ -1,57 +1,36 @@
 import { Config } from "./config";
-import fs from "fs";
+import fs from "fs/promises";
 import Transformer from "./transformer";
+import { join as j } from "path";
 
 /** @internal */
 class Scanner {
     async scan() {
 		await Promise.all([
-			this.scanCommandsDir(),
-			this.scanManagersDir()
+			this.scanCommandsFiles(),
+			this.scanManagersFiles()
 		]);
     }
 
-	private async scanCommandsDir() {
-        const { entryPath } = this.config;
+	private async scanCommandsFiles() {
+        const { entryPath, commandsPath } = this.config;
 
-        const dir = await this.scanDir(`${entryPath}/commands`, 1);
-
-		for(const id of dir) {
-			const code = await fs.promises.readFile(id, 'utf-8');
-	
-			await this.transformer.transformModule(id, code);
+		for await (const path of fs.glob(commandsPath, { cwd: entryPath })) {
+			const code = await fs.readFile(j(entryPath, path), 'utf-8');
+			await this.transformer.transformModule(path, code);
 		}
 	}
 
-	private async scanManagersDir() {
-		const { entryPath } = this.config;
+	private async scanManagersFiles() {
+		const { entryPath, managersPath } = this.config;
+		const { input } = this.config.vite!.build!.rollupOptions!;
 
-        const dir = await this.scanDir(`${entryPath}/managers`, 1);
+		if(!Array.isArray(input)) return;
 
-		const { rollupOptions } = this.config.vite!.build!
-        const { input } = rollupOptions!;
-
-        if(!Array.isArray(input)) return;
-
-        input.push(...dir);
+		for await (const path of fs.glob(managersPath, { cwd: entryPath })) {
+			input.push(j(entryPath, path));
+		}
 	}
-
-    async scanDir(path: string, depth?: number) {
-        const files = await fs.promises.readdir(path, { withFileTypes: true });
-        const result = new Array<string>
-
-        for (const file of files) {
-            if (file.isDirectory()) {
-                if ((depth ?? 0) < 1) continue;
-
-                result.push(...await this.scanDir(`${file.parentPath}/${file.name}`, depth ? depth - 1 : undefined));
-            }
-
-            result.push(`${file.parentPath}/${file.name}`);
-        }
-
-        return result;
-    }
 
     constructor(private config: Config, private transformer: Transformer) {}
 }

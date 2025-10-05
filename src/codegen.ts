@@ -1,5 +1,5 @@
 import * as T from '@babel/types';
-import { PluginContext, EmittedFile } from 'rollup';
+import { PluginContext, EmittedFile } from '';
 import Graph from './graph';
 import { Symbol } from './graph';
 import template from '@babel/template'
@@ -9,27 +9,44 @@ import { ManifestType } from './consts';
 const generate = ('default' in _generate ? _generate.default : _generate) as typeof _generate;
 
 class CodeGenerator {
-	generate(ctx: PluginContext) {
-		const files = [
-			this.generateCommands(),
-			this.generateManifest(),
-		] as EmittedFile[];
-
-		for (const file of files) ctx.emitFile(file);
+	private generators = {
+		manifest: () => this.generateManifest(),
+		commands: () => this.generateCommands(),
+		index: () => this.generateMain()
 	}
 
-	generateManifest(): EmittedFile {
+	generate(id: string) {
+		return this.generators[id]();
+	}
+
+	private generateMain() {
+		return `
+			import { FlameClient } from '@flame-oh/core';
+
+			process.env = {
+				...process.env,
+			}
+
+			const client = new FlameClient({
+				entryUrl: import.meta.url,
+			});
+
+			client.start();
+		`;
+	}
+
+	private generateManifest() {
 		const allItems = [
-			{ 
-				key: ManifestType.Routes, 
+			{
+				key: ManifestType.Routes,
 				items: this.graph.routes
 			},
-			{ 
-				key: ManifestType.DependenciesGraph, 
+			{
+				key: ManifestType.DependenciesGraph,
 				items: [...this.graph.modules, ...this.graph.managers, ...this.graph.injectables]
 			},
-			{ 
-				key: ManifestType.Events, 
+			{
+				key: ManifestType.Events,
 				items: this.graph.events
 			},
 			{
@@ -63,14 +80,10 @@ class CodeGenerator {
 			])
 		);
 
-		return {
-			type: "asset",
-			fileName: "manifest.js",
-			source: this.generateCode(ast),
-		}
+		return this.generateCode(ast);
 	}
 
-	generateCommands(): EmittedFile {
+	private generateCommands() {
 		const registrations = Array.from(this.graph.commands).map(m =>
 			template.statement(`
 				__container__.add(async () => {
@@ -94,12 +107,7 @@ class CodeGenerator {
 			])
 		);
 
-		return {
-			type: "asset",
-			fileName: "commands.js",
-			source: this.generateCode(ast),
-		};
-
+		return this.generateCode(ast);
 	}
 
 	private generateImportDeclaration(symbol: Symbol) {

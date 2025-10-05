@@ -14,6 +14,7 @@ export default [
                 const dependencies = analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addInjectable(symbol, dependencies);
+				node.remove();
             }
         }
     },
@@ -24,6 +25,7 @@ export default [
                 const dependencies = analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addManager(symbol, dependencies);
+				node.remove();
             }
         }
     },
@@ -60,6 +62,8 @@ export default [
                         symbol,
                         ipc: false
                     });
+
+					node.remove();
                 }
             }
         }) as DecoratorDefinition)
@@ -67,7 +71,7 @@ export default [
     {
         name: "event",
         transform: {
-            method({ id, graph, targetNode: methodNode }) {
+            method({ id, graph, targetNode: methodNode, node }) {
                 const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
                 const symbol = graph.resolveSymbol(methodNode, classNode);
 
@@ -98,6 +102,8 @@ export default [
                     type,
                     symbol
                 });
+				
+				node.remove();
             }
         }
     },
@@ -117,26 +123,9 @@ export default [
                         T.booleanLiteral(true)
                     )
                 )
+
+				node.remove();
             }
         }
-    },
-	{
-		name: 'module',
-		transform: {
-			class({ targetNode, graph }) {
-				const body = targetNode.get('body').get('body');
-
-				const acceptedProps = ['managers', 'commands'];
-
-				const managers = body
-					.filter(p => p.isClassProperty() && resolveNodeId(p).node.name in acceptedProps)
-					.map(p => graph.resolveSymbol(p));
-				
-				graph.addModule({
-					name: resolveNodeId(targetNode).node.name,
-					managers
-				});
-			},
-		}
-	}
+    }
 ] as DecoratorDefinition[];

@@ -1,16 +1,21 @@
 import fs from "fs";
 import { BitFieldResolvable, GatewayIntentsString } from "discord.js";
-import { UserConfig } from "vite";
-import { join as j } from "path"
+import * as vite from "vite";
+import path, { join as j } from "path"
 import { RollupOptions } from "rollup";
+import globMatch from 'picomatch';
 
 export interface Config {
-	entryPath?: string
-	buildPath?: string
-	cwd?: string
-	intents?: BitFieldResolvable<GatewayIntentsString, number>
-	vite?: UserConfig
+	entryPath: string
+	buildPath: string
+	commandsPath: string
+	managersPath: string
+	cwd: string
+	intents: BitFieldResolvable<GatewayIntentsString, number>
+	vite: vite.UserConfig
 }
+
+interface UserConfig extends Partial<Config> { }
 
 /**
  * @internal
@@ -19,29 +24,29 @@ export interface Config {
  */
 
 class ConfigEvaluator {
-	config!: Config;
+	config!: UserConfig;
 
-	eval(config: Config) {
+	eval(config: UserConfig) {
 		this.config = config;
 
 		this.evalPaths(config);
 		this.evalVite(config.vite ??= {});
 	}
 
-	private evalPaths(config: Config) {
+	private evalPaths(config: UserConfig) {
 		config.entryPath ??= "src";
 		config.buildPath ??= ".flame";
 		config.cwd ??= process.cwd();
+		config.commandsPath = "commands/**/*.tsx";
+		config.managersPath = "managers/**/*.tsx";
 	}
 
-	private evalVite(config: UserConfig) {
-		const build = (config.build ??= {});
-		const rollup = (build.rollupOptions ??= {});
+	private evalVite(config: vite.UserConfig) {
+		config.base = './';
+		config.build ??= {};
+		config.build.outDir = j(this.config.cwd!, this.config.buildPath!);
 
-		build.outDir = j(this.config.cwd!, this.config.buildPath!);
-		build.assetsDir = "";
-
-		config.build = build;
+		const rollup = config.build.rollupOptions ??= {};
 
 		this.evalRollupInput(rollup);
 		this.evalRollupExternal(rollup);
@@ -49,8 +54,8 @@ class ConfigEvaluator {
 	}
 
 	private evalRollupInput(rollup: RollupOptions) {
-		rollup.preserveEntrySignatures = "strict";
-		
+		rollup.preserveEntrySignatures = "allow-extension";
+
 		let input = rollup.input;
 		if (input && !Array.isArray(input) && typeof input === "object") {
 			throw new Error("Rollup input as object is not supported");
@@ -58,43 +63,66 @@ class ConfigEvaluator {
 		if (typeof input === "string") {
 			input = [input];
 		}
-		if (!input) input = [];
-		input.push(`./${this.config.entryPath!}/index`);
-		rollup.input = input;
+		rollup.input ??= [];
+
+		(rollup.input as any[]).push(
+			'virtual:index',
+			'virtual:commands',
+			'virtual:manifest'
+		);
 	}
 
 	private evalRollupExternal(rollup: RollupOptions) {
-		const prev = rollup.external;
-		const defaultRegex = /node_modules|^node\:|dist/;
+		rollup.external = (id) => {
+			const input = (this.config.vite!.build!.rollupOptions!.input as any[])
+				.map(i => path.resolve(this.config.cwd!, i));
 
-		if (!prev) {
-			rollup.external = defaultRegex;
-		} else if (typeof prev === "function") {
-			rollup.external = (id, ...args) =>
-				prev(id, ...args) || defaultRegex.test(id);
-		} else if (prev instanceof RegExp) {
-			rollup.external = (id: string) => prev.test(id) || defaultRegex.test(id);
-		} else {
-			const arr = Array.isArray(prev) ? prev : [prev];
-			rollup.external = (id: string) =>
-				arr.some((e) => (typeof e === "string" ? e === id : e.test?.(id) || false)) ||
-				defaultRegex.test(id);
-		}
+			const normalizedId = path.resolve(id);
+
+			if (input.includes(normalizedId)) return false;
+
+			return /^((?!\.\/|\.\.\/|virtual:).)*$/.test(id);
+
+		};
+
+		// const prev = rollup.external;
+		// const defaultRegex = /node_modules|^node\:|dist/;
+
+		// if (!prev) {
+		// 	rollup.external = defaultRegex;
+		// } else if (typeof prev === "function") {
+		// 	rollup.external = (id, ...args) =>
+		// 		prev(id, ...args) || defaultRegex.test(id);
+		// } else if (prev instanceof RegExp) {
+		// 	rollup.external = (id: string) => prev.test(id) || defaultRegex.test(id);
+		// } else {
+		// 	const arr = Array.isArray(prev) ? prev : [prev];
+		// 	rollup.external = (id: string) =>
+		// 		arr.some((e) => (typeof e === "string" ? e === id : e.test?.(id) || false)) ||
+		// 		defaultRegex.test(id);
+		// }
 	}
 
 	private evalRollupOutput(rollup: RollupOptions) {
 		const output = rollup.output ??= {};
 
-		if(Array.isArray(output)) {
+		if (Array.isArray(output)) {
 			throw new Error("Rollup output as array is not supported");
 		}
 
 		output.preserveModules = true;
-		output.inlineDynamicImports = false;
 		output.format = "esm";
-		output.dir = j(this.config.cwd!, this.config.buildPath!);
-		output.entryFileNames = "[name].js";
-		output.assetFileNames = "[name].[ext]";
+		output.virtualDirname = output.dir;
+		(output.entryFileNames as any) = (chunk: vite.Rollup.PreRenderedChunk) => {
+			if (chunk.facadeModuleId?.startsWith('virtual:')) {
+				return chunk.facadeModuleId.split(':')[1] + '.js';
+			}
+			else if (globMatch(this.config.managersPath, chunk.facadeModuleId)) {
+				return 'managers/[name].js';
+			}
+
+			return '[name].js'
+		}
 
 		rollup.output = output;
 	}
@@ -140,7 +168,8 @@ export class ConfigManager {
 		else if (/\.json|\.\w+rc$/.test(path)) {
 			return JSON.parse(data);
 		}
-		else throw new Error("Config extension not recognized");
+
+		throw new Error("Config extension not recognized");
 	}
 
 	constructor(private configData?: string) {

@@ -1,5 +1,4 @@
 import { Plugin } from 'rollup';
-import virtual from "./virtual";
 import Compiler from '.';
 
 declare const __NAME__: string;
@@ -16,19 +15,16 @@ function BridgePlugin(compiler: Compiler) {
 	return {
 		name: __NAME__,
 		version: __VERSION__,
-		buildEnd(options) {
-			codegen.generate(this);
-		},
 		transform(code, id) {
 			transformer.transformModule(id, code);
 		},
+		resolveId(id) {
+			if(id.startsWith("virtual:")) return id;
+		},
 		load(id) {
-			console.log("LOAD", id);
-			const handler = virtual?.[`virtual:${id}`];
-
-			return typeof handler == "function" 
-				? handler({config})
-				: handler;
+			if(!id.startsWith('virtual:')) return;
+			
+			return codegen.generate(id.split(':')[1]);
 		},
 	} satisfies Plugin
 }
