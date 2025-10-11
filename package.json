@@ -1,11 +1,12 @@
 {
-  "name": "@flame-oh/core",
-  "version": "6.0.0",
+  "name": "zencord",
+  "description": "A discord.js framework to build using Dependency Injector and JSX",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/lib/index.js",
-      "types": "./types/lib/index.d.ts"
+      "import": "./dist/index.js",
+      "types": "./types/index.d.ts"
     },
     "./internal": "./dist/lib/internal/index.js"
   },
