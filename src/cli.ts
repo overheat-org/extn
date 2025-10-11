@@ -1,4 +1,4 @@
-import Compiler from ".";
+import Compiler from "./compiler";
 
 (async () => {
 	const compiler = new Compiler();

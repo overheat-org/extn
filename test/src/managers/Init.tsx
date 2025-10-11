@@ -13,6 +13,8 @@ export class Init extends Manager {
     }
     constructor(private client: Client, private payment: Payment) {
         super();
+
+		this.client.once('OnceReady', this.OnceReady.bind(this));
     }
 }
 

@@ -1,5 +1,6 @@
 import { Plugin } from 'rollup';
-import Compiler from '.';
+import Compiler from './compiler';
+import fs from 'fs/promises';
 
 declare const __NAME__: string;
 declare const __VERSION__: string;
@@ -10,21 +11,26 @@ declare const __VERSION__: string;
  * Intercept transformation of code in vite process
  */
 function BridgePlugin(compiler: Compiler) {
-	const { codegen, transformer, config } = compiler;
+	const { codegen, transformer } = compiler;
 	
 	return {
 		name: __NAME__,
 		version: __VERSION__,
-		transform(code, id) {
-			transformer.transformModule(id, code);
+		buildEnd() {
+			codegen.emitCommands(this);
+			codegen.emitManifest(this);
 		},
 		resolveId(id) {
-			if(id.startsWith("virtual:")) return id;
+			return id;
 		},
-		load(id) {
-			if(!id.startsWith('virtual:')) return;
+		async load(id) {
+			if(id == 'virtual:index') {
+				return codegen.generateIndex();
+			}
+
+			const code = await fs.readFile(id, 'utf-8');
 			
-			return codegen.generate(id.split(':')[1]);
+			await transformer.transformModule(id, code);
 		},
 	} satisfies Plugin
 }

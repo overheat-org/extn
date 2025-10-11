@@ -1,25 +1,15 @@
 import * as T from '@babel/types';
-import { PluginContext, EmittedFile } from '';
 import Graph from './graph';
 import { Symbol } from './graph';
 import template from '@babel/template'
 import _generate from '@babel/generator';
 import { ManifestType } from './consts';
+import { PluginContext, EmittedFile } from 'rollup';
 
 const generate = ('default' in _generate ? _generate.default : _generate) as typeof _generate;
 
 class CodeGenerator {
-	private generators = {
-		manifest: () => this.generateManifest(),
-		commands: () => this.generateCommands(),
-		index: () => this.generateMain()
-	}
-
-	generate(id: string) {
-		return this.generators[id]();
-	}
-
-	private generateMain() {
+	generateIndex() {
 		return `
 			import { FlameClient } from '@flame-oh/core';
 
@@ -35,7 +25,7 @@ class CodeGenerator {
 		`;
 	}
 
-	private generateManifest() {
+	emitManifest(ctx: PluginContext) {
 		const allItems = [
 			{
 				key: ManifestType.Routes,
@@ -80,10 +70,14 @@ class CodeGenerator {
 			])
 		);
 
-		return this.generateCode(ast);
+		ctx.emitFile({
+			type: 'asset',
+			source: this.generateCode(ast),
+			fileName: "manifest.js"
+		});
 	}
 
-	private generateCommands() {
+	emitCommands(ctx: PluginContext) {
 		const registrations = Array.from(this.graph.commands).map(m =>
 			template.statement(`
 				__container__.add(async () => {
@@ -107,7 +101,11 @@ class CodeGenerator {
 			])
 		);
 
-		return this.generateCode(ast);
+		ctx.emitFile({
+			type: 'asset',
+			source: this.generateCode(ast),
+			fileName: 'commands.js'
+		});
 	}
 
 	private generateImportDeclaration(symbol: Symbol) {

@@ -51,7 +51,8 @@ class Transformer {
 		Array.isArray(node.name)
 			? node.name.forEach(handleName)
 			: handleName(node.name)
-
+ 
+		// FIXME: Todos os decorators estão presos aqui 
 		if(!lastDef) return;
 			
 		this.handleTransformDecorator(
@@ -108,7 +109,10 @@ class Transformer {
 		}
 	}
 
-	public transformCommand(id: string, node: NodePath<T.Program>) {
+	public async transformCommand(id: string, code: string) {
+		const node = this.analyzer.analyzeCommand(id, code);
+		if(!node) return;
+
 		const { transformImportDeclarationToDynamic } = this;
 
 		const map = {
@@ -138,6 +142,8 @@ class Transformer {
 		}
 
 		for(const child of node.get("body")) map[child.type](child);
+
+		this.graph.addCommand(node);
 	}
 
 	transformImportDeclarationToDynamic(path: NodePath<T.ImportDeclaration>) {

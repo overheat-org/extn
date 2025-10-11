@@ -4,7 +4,6 @@ import CommandManager from "../managers/CommandManager";
 import { dirname } from "path";
 import CommunicationManager from "../managers/CommunicationManager";
 import EventManager from "../managers/EventManager";
-import ModuleManager from "../managers/ModuleManager";
 import ManifestManager from "../managers/ManifestManager";
 
 export class FlameClient extends Client {
@@ -12,7 +11,6 @@ export class FlameClient extends Client {
     private dependencyManager = new DependencyManager(this);
     private communicationManager = new CommunicationManager(this.dependencyManager);
     private eventManager: EventManager;
-	private moduleManager = new ModuleManager(this.dependencyManager);
 	private pending: Promise<void>;
 
     constructor(options: ClientOptions & { entryUrl: string }) {
@@ -27,7 +25,6 @@ export class FlameClient extends Client {
 
     private async bootstrap(): Promise<void> {
 		await this.pending;
-		await this.moduleManager.load();
         await this.dependencyManager.load();
         
         await Promise.all([

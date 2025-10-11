@@ -4,6 +4,7 @@ import * as vite from "vite";
 import path, { join as j } from "path"
 import { RollupOptions } from "rollup";
 import globMatch from 'picomatch';
+import { pathToFileURL } from "url";
 
 export interface Config {
 	entryPath: string
@@ -13,32 +14,47 @@ export interface Config {
 	cwd: string
 	intents: BitFieldResolvable<GatewayIntentsString, number>
 	vite: vite.UserConfig
+	modules: string[]
 }
 
-interface UserConfig extends Partial<Config> { }
+export interface UserConfig extends Partial<Config> { }
+
+interface ModuleConfig extends Pick<Config, 
+	| 'commandsPath' 
+	| 'managersPath'
+	| 'entryPath'
+	| 'intents'
+> {}
 
 /**
  * @internal
  * 
  * Walk around config object and execute instructions based in
  */
-
 class ConfigEvaluator {
 	config!: UserConfig;
 
-	eval(config: UserConfig) {
+	eval(config: UserConfig, options: ConfigResolveOptions) {
 		this.config = config;
 
 		this.evalPaths(config);
-		this.evalVite(config.vite ??= {});
+
+		if(!options.module) {
+			this.evalVite(config.vite ??= {})
+
+			return this.config as Config;
+		}
+		else {
+			return this.config as ModuleConfig;
+		}
 	}
 
 	private evalPaths(config: UserConfig) {
 		config.entryPath ??= "src";
 		config.buildPath ??= ".flame";
 		config.cwd ??= process.cwd();
-		config.commandsPath = "commands/**/*.tsx";
-		config.managersPath = "managers/**/*.tsx";
+		config.commandsPath ??= "commands/**/*.tsx";
+		config.managersPath ??= "managers/**/*.tsx";
 	}
 
 	private evalVite(config: vite.UserConfig) {
@@ -66,9 +82,7 @@ class ConfigEvaluator {
 		rollup.input ??= [];
 
 		(rollup.input as any[]).push(
-			'virtual:index',
-			'virtual:commands',
-			'virtual:manifest'
+			'virtual:index'
 		);
 	}
 
@@ -82,25 +96,7 @@ class ConfigEvaluator {
 			if (input.includes(normalizedId)) return false;
 
 			return /^((?!\.\/|\.\.\/|virtual:).)*$/.test(id);
-
 		};
-
-		// const prev = rollup.external;
-		// const defaultRegex = /node_modules|^node\:|dist/;
-
-		// if (!prev) {
-		// 	rollup.external = defaultRegex;
-		// } else if (typeof prev === "function") {
-		// 	rollup.external = (id, ...args) =>
-		// 		prev(id, ...args) || defaultRegex.test(id);
-		// } else if (prev instanceof RegExp) {
-		// 	rollup.external = (id: string) => prev.test(id) || defaultRegex.test(id);
-		// } else {
-		// 	const arr = Array.isArray(prev) ? prev : [prev];
-		// 	rollup.external = (id: string) =>
-		// 		arr.some((e) => (typeof e === "string" ? e === id : e.test?.(id) || false)) ||
-		// 		defaultRegex.test(id);
-		// }
 	}
 
 	private evalRollupOutput(rollup: RollupOptions) {
@@ -135,43 +131,44 @@ class ConfigEvaluator {
  * Get config file based in cwd path and evaluate
  */
 export class ConfigManager {
-	data!: Config;
-	private cwd = process.cwd();
 	private configEvaluator = new ConfigEvaluator();
-	private configRegex = /^\.flamerc|flame\.config\.(j|t)s(on)?$/;
 
-	async setup() {
-		const configPath = await this.getConfigPath();
-		let configData = this.configData
-			?? configPath
-			? await fs.promises.readFile(configPath, 'utf-8')
-			: undefined;
+	regex = /^\.flamerc|flame\.config\.(j|t)s(on)?$/;
 
-		const config = configData ? await this.parseConfigData(configData, configPath) : {};
-
-		this.data = config;
-		this.configEvaluator.eval(config);
+	async resolve(cwd: string, options?: ConfigResolveOptions<false>): Promise<Config>;
+	async resolve(cwd: string, options?: ConfigResolveOptions<true>): Promise<ModuleConfig>;
+	async resolve(cwd: string, options?: ConfigResolveOptions): Promise<Config | ModuleConfig>;
+	async resolve(cwd: string, options: ConfigResolveOptions = {}) {
+		const url = await this.findFile(cwd);
+		if(!url) return;
+		
+		const data = await fs.promises.readFile(url, 'utf-8');
+		const unresolved = await this.parseData(url.href, data);
+		return this.configEvaluator.eval(unresolved, options);
 	}
 
-	private async getConfigPath() {
-		const files = await fs.promises.readdir(this.cwd);
-		const fileName = files.find(f => this.configRegex.test(f));
+	async findFile(cwd: string) {
+		const files = await fs.promises.readdir(cwd);
+		const fileName = files.find(f => this.regex.test(f));
 		if (!fileName) return;
 
-		return j(this.cwd, fileName);
+		return pathToFileURL(j(cwd, fileName));
 	}
 
-	private async parseConfigData(data: string, path: string) {
+	parseData(path: string, data: string) {
 		if (/\.(j|t)s$/.test(path)) {
-			return await import(path);
+			return (async () => (
+				{...(await import(path)).default}
+			))() as Promise<UserConfig>;
 		}
 		else if (/\.json|\.\w+rc$/.test(path)) {
-			return JSON.parse(data);
+			return JSON.parse(data) as UserConfig;
 		}
 
 		throw new Error("Config extension not recognized");
 	}
+}
 
-	constructor(private configData?: string) {
-	}
+interface ConfigResolveOptions<Module extends boolean = boolean> { 
+	module?: Module
 }

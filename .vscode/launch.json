@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Launch and Debug with TypeScript",
       "skipFiles": ["<node_internals>/**"],
-      "program": "${workspaceFolder}/src/main.ts",  // Caminho para o arquivo JS gerado
+      "program": "${workspaceFolder}/src/cli.ts",  // Caminho para o arquivo JS gerado
       "args": ["--enable-resource-management", ".", "--hot"],
       "preLaunchTask": "Run test script",  // Script que roda antes do launch
       "runtimeArgs": ["--inspect-brk"],  // Habilita o modo de depuração
