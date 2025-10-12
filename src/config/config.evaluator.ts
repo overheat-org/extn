@@ -79,6 +79,7 @@ export class ConfigEvaluator {
 	}
 
 	private evalRollupOutput(rollup: RollupOptions) {
+		const managersMatch = globMatch(this.config.managersPath);
 		const output = rollup.output ??= {};
 
 		if (Array.isArray(output)) {
@@ -89,10 +90,11 @@ export class ConfigEvaluator {
 		output.format = "esm";
 		output.virtualDirname = output.dir;
 		(output.entryFileNames as any) = (chunk: vite.Rollup.PreRenderedChunk) => {
-			if (chunk.facadeModuleId?.startsWith('virtual:')) {
-				return chunk.facadeModuleId.split(':')[1] + '.js';
+			const moduleId = chunk.facadeModuleId ?? '';
+			if (moduleId.startsWith('virtual:')) {
+				return moduleId.split(':')[1] + '.js';
 			}
-			else if (globMatch(this.config.managersPath, chunk.facadeModuleId)) {
+			else if (managersMatch(moduleId)) {
 				return 'managers/[name].js';
 			}
 
