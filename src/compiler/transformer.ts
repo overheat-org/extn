@@ -1,10 +1,10 @@
 import * as T from "@babel/types";
 import { NodePath } from "@babel/traverse";
 import Analyzer from "./analyzer";
-import Graph from "./graph";
-import decorators from "./definitions/decorators";
-import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, TransformType } from "./definitions/base";
-import { FlameError, getErrorLocation } from "./reporter";
+import Graph from "@/graph";
+import decorators from "@/def/decorators";
+import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, TransformType } from "../def/base";
+import { FlameError, getErrorLocation } from "@/reporter";
 import fs from 'fs/promises';
 import CodeGenerator from "./codegen";
 

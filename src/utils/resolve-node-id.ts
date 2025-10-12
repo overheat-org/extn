@@ -4,10 +4,10 @@ import * as T from "@babel/types";
 type NodeLike<T = T.Node> = NodePath<T> | T;
 
 const nodeTypeMap = {
-    FunctionDeclaration: resolveFunctionDeclaration,
-    ClassMethod: resolveClassMethod,
-    ClassDeclaration: resolveClassDeclaration,
-    VariableDeclaration: resolveVariableDeclaration,
+	FunctionDeclaration: resolveFunctionDeclaration,
+	ClassMethod: resolveClassMethod,
+	ClassDeclaration: resolveClassDeclaration,
+	VariableDeclaration: resolveVariableDeclaration,
 	Decorator: resolveDecorator,
 	TSTypeReference: resolveTSTypeReference,
 	TSQualifiedName: resolveTSQualifiedName,
@@ -65,13 +65,13 @@ function resolveVariableDeclaration(node: NodeLike<T.VariableDeclaration>) {
 function resolveExpression(node: NodeLike<T.Expression>): T.Identifier | NodePath<T.Identifier> {
 	if(!(node.type in nodeTypeMap)) throw HASNT_ID(node);
 
-    return nodeTypeMap[node.type](node);
+	return nodeTypeMap[node.type](node);
 }
 
 export function resolveNodeId(node: NodePath<any>): NodePath<T.Identifier>;
 export function resolveNodeId(node: T.Expression): T.Identifier;
 export function resolveNodeId(node: NodeLike<any>): T.Identifier | NodePath<T.Identifier> {
-    return resolveExpression(node);
+	return resolveExpression(node);
 }
 
 function getPropOf<N extends T.Node, K extends keyof N>(node: NodePath<N> | N, key: K) {
@@ -87,8 +87,4 @@ function unwrap<N extends T.Node>(node: NodePath<N> | N) {
 	}
 
 	return node;
-}
-
-export function throwInline<E>(e: E) {
-	throw e;
 }

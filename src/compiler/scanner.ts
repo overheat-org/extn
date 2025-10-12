@@ -1,4 +1,4 @@
-import { Config, ConfigManager } from "./config";
+import { Config, ConfigManager } from "@/config";
 import fs from "fs/promises";
 import Transformer from "./transformer";
 import { dirname, join as j } from "path";

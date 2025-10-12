@@ -1,7 +1,7 @@
 import { NodePath } from "@babel/traverse";
 import { ClassDeclaration, ClassMethod, Decorator, Identifier } from "@babel/types";
 import Graph from "../graph";
-import Analyzer from "../analyzer";
+import Analyzer from "../compiler/analyzer";
 
 export interface DecoratorDefinition {
     name: string
