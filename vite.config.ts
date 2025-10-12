@@ -12,7 +12,7 @@ export default defineConfig({
             include: ['src'],
             outDir: 'types',
             entryRoot: 'src'
-        }),
+        })
     ],
     ssr: {
         noExternal: true,
@@ -33,7 +33,6 @@ export default defineConfig({
             output: {
                 inlineDynamicImports: false,
                 format: 'esm',
-                preserveModules: true,
                 dir: 'dist',
             },
             external: (id) => {
