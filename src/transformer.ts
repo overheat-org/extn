@@ -5,6 +5,8 @@ import Graph from "./graph";
 import decorators from "./definitions/decorators";
 import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, TransformType } from "./definitions/base";
 import { FlameError, getErrorLocation } from "./reporter";
+import fs from 'fs/promises';
+import CodeGenerator from "./codegen";
 
 type BaseDecoratorNodeWrapper = {
 	id: string
@@ -35,8 +37,12 @@ export type DecoratorNodeWrapper = BaseDecoratorNodeWrapper & (
 class Transformer {
 	private analyzer: Analyzer;
 
-	async transformModule(id: string, code: string) {
-		await this.analyzer.analyzeModule(id, code);
+	async transformModule(id: string, code?: string) {
+		if(!code) code = await fs.readFile(id, 'utf-8');
+		
+		const ast = await this.analyzer.analyzeModule(id, code!);
+
+		return this.codegen.generateCode(ast!.node);
 	}
 
 	public transformDecorator(node: DecoratorNodeWrapper) {
@@ -52,7 +58,6 @@ class Transformer {
 			? node.name.forEach(handleName)
 			: handleName(node.name)
  
-		// FIXME: Todos os decorators estão presos aqui 
 		if(!lastDef) return;
 			
 		this.handleTransformDecorator(
@@ -74,39 +79,12 @@ class Transformer {
 			node: wrapper.node, 
 			targetNode: wrapper.targetNode, 
 		});
-		
-		if (
-			transform.class &&
-			wrapper.kind == 'class'
-		) {
-			transform.class.call(this, { 
-				...base,
-				node: wrapper.node, 
-				targetNode: wrapper.targetNode, 
-			});
-		}
 
-		if (
-			transform.method &&
-			wrapper.kind == 'method'
-		) {
-			transform.method.call(this, { 
-				...base,
-				node: wrapper.node, 
-				targetNode: wrapper.targetNode, 
-			});
-		}
-
-		if (
-			transform.param &&
-			wrapper.kind == 'param'
-		) {
-			transform.param.call(this, { 
-				...base,
-				node: wrapper.node, 
-				targetNode: wrapper.targetNode, 
-			});
-		}
+		transform[wrapper.kind]?.call(this, {
+			...base,
+			node: wrapper.node,
+			targetNode: wrapper.targetNode
+		});
 	}
 
 	public async transformCommand(id: string, code: string) {
@@ -179,7 +157,7 @@ class Transformer {
 		path.replaceWithMultiple(importExpressions as any);
 	}
 
-	constructor(public graph: Graph) {
+	constructor(public graph: Graph, private codegen: CodeGenerator) {
 		this.analyzer = new Analyzer(this, this.graph);
 	}
 }

@@ -133,7 +133,7 @@ class ConfigEvaluator {
 export class ConfigManager {
 	private configEvaluator = new ConfigEvaluator();
 
-	regex = /^\.flamerc|flame\.config\.(j|t)s(on)?$/;
+	regex = /^\.zenrc|zen\.config\.(j|t)s(on)?$/;
 
 	async resolve(cwd: string, options?: ConfigResolveOptions<false>): Promise<Config>;
 	async resolve(cwd: string, options?: ConfigResolveOptions<true>): Promise<ModuleConfig>;

@@ -9,8 +9,8 @@ import BridgePlugin from './plugin';
 class Compiler {
     private configManager = new ConfigManager();
 	graph = new Graph();
-	transformer = new Transformer(this.graph);
 	codegen = new CodeGenerator(this.graph);
+	transformer = new Transformer(this.graph, this.codegen);
     scanner!: Scanner;
     config!: Config;
 

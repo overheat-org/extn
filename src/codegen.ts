@@ -39,10 +39,6 @@ class CodeGenerator {
 				key: ManifestType.Events,
 				items: this.graph.events
 			},
-			{
-				key: ManifestType.Modules,
-				items: this.graph.modules
-			}
 		];
 
 		const tracked = new Set<Symbol>();
@@ -117,7 +113,7 @@ class CodeGenerator {
 		);
 	}
 
-	private generateCode(ast: T.Node) {
+	generateCode(ast: T.Node) {
 		return generate(ast).code;
 	}
 

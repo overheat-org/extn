@@ -27,10 +27,8 @@ function BridgePlugin(compiler: Compiler) {
 			if(id == 'virtual:index') {
 				return codegen.generateIndex();
 			}
-
-			const code = await fs.readFile(id, 'utf-8');
 			
-			await transformer.transformModule(id, code);
+			return await transformer.transformModule(id);
 		},
 	} satisfies Plugin
 }

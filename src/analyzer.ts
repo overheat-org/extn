@@ -17,13 +17,9 @@ class DecoratorAnalyzer {
 		private transformer: Transformer,
 	) { }
 
-	private CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
+	CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
 
-	async analyze(id: string, code: string) {
-		if (!this.CONTENT_REGEX.test(code)) return;
-
-		const program = parseContent(id, code);
-
+	async analyze(id: string, program: NodePath<T.Program>) {
 		program.traverse({
 			Decorator: path => this.analyzeDecorator(id, path)
 		});
@@ -147,7 +143,13 @@ class Analyzer {
 	}
 
 	async analyzeModule(id: string, code: string) {
-		await this.decoratorAnalyzer.analyze(id, code)
+		if(!this.decoratorAnalyzer.CONTENT_REGEX.test(code)) return;
+
+		const ast = parseContent(id, code);
+		
+		await this.decoratorAnalyzer.analyze(id, ast);
+
+		return ast;
 	}
 
 	analyzeClassDependencies(id: string, node: NodePath<T.ClassDeclaration>) {

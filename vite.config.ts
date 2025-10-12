@@ -23,6 +23,8 @@ export default defineConfig({
         lib: {
             entry: [
                 path.resolve(__dirname, 'src/lib/index.ts'),
+                path.resolve(__dirname, 'src/lib/jsx-runtime.ts'),
+                path.resolve(__dirname, 'src/lib/hooks.ts'),
                 path.resolve(__dirname, 'src/cli.ts')
             ],
             formats: ['es']
@@ -35,6 +37,8 @@ export default defineConfig({
                 dir: 'dist',
             },
             external: (id) => {
+				if(id.startsWith('diseact') || id == 'picomatch') return false;
+				
                 return id.startsWith('node:') || (!id.startsWith('.') && !path.isAbsolute(id));
             },
             treeshake: false

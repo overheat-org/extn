@@ -6,7 +6,6 @@
     "test": "node ../dist/cli.js . --hot"
   },
   "dependencies": {
-    "@flame-oh/core": "file:..",
-    "diseact": "^0.1.6"
+    "zencord": "file:.."
   }
 }

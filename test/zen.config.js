@@ -1,5 +1,5 @@
 /**
- * @type {import('@flame-oh/core').Config}
+ * @type {import('zencord').Config}
  */
 const config = {
 	vite: {
