@@ -5,15 +5,13 @@ import { Manager, Storage } from 'zencord';
 import { Payment } from './Payment';
 const meta = new Storage('meta');
 
-@manager
-export class Init extends Manager {
+@service
+export class Init {
     @event
     async OnceReady() {
         console.log(`READY AT ${this.client.user.tag}`);
     }
     constructor(private client: Client, private payment: Payment) {
-        super();
-
 		this.client.once('OnceReady', this.OnceReady.bind(this));
     }
 }

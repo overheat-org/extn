@@ -1,4 +1,4 @@
-import { Config, ConfigManager } from "@/config";
+import { Config, ConfigManager } from "../config";
 import fs from "fs/promises";
 import Transformer from "./transformer";
 import { dirname, join as j } from "path";
@@ -11,10 +11,6 @@ class Scanner {
 			this.scanManagersFiles(),
 			this.scanModules()
 		]);
-
-		(this.config.vite!.build!.rollupOptions!.input! as any[]).push(
-			'virtual:index'
-		);
 	}
 
 	private async scanCommandsFiles() {
@@ -27,12 +23,16 @@ class Scanner {
 	}
 
 	private async scanManagersFiles() {
-		const { entryPath, managersPath } = this.config;
+		const { cwd, entryPath, managersPath } = this.config;
 		const { input } = this.config.vite!.build!.rollupOptions!;
 
 		if (!Array.isArray(input)) return;
+		
+		const basePath = j(cwd, entryPath);
 
-		for await (const path of fs.glob(managersPath, { cwd: entryPath })) {
+		console.log(basePath)
+
+		for await (const path of fs.glob(managersPath, { cwd: basePath })) {
 			input.push(j(entryPath, path));
 		}
 	}

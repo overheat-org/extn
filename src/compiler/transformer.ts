@@ -1,10 +1,10 @@
 import * as T from "@babel/types";
 import { NodePath } from "@babel/traverse";
 import Analyzer from "./analyzer";
-import Graph from "@/graph";
-import decorators from "@/def/decorators";
+import Graph from "../graph";
+import decorators from "../def/decorators";
 import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, TransformType } from "../def/base";
-import { FlameError, getErrorLocation } from "@/reporter";
+import { FlameError, getErrorLocation } from "../reporter";
 import fs from 'fs/promises';
 import CodeGenerator from "./codegen";
 
@@ -41,6 +41,7 @@ class Transformer {
 		if(!code) code = await fs.readFile(id, 'utf-8');
 		
 		const ast = await this.analyzer.analyzeModule(id, code!);
+		if(!ast) return code;
 
 		return this.codegen.generateCode(ast!.node);
 	}
@@ -74,11 +75,11 @@ class Transformer {
 			analyzer: this.analyzer, 
 		}; 
 
-		if (typeof transform != "object") return transform.call(this, {
+		if (typeof transform != "object") return void(transform.call(this, {
 			...base,
 			node: wrapper.node, 
 			targetNode: wrapper.targetNode, 
-		});
+		}));
 
 		transform[wrapper.kind]?.call(this, {
 			...base,

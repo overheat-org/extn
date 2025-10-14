@@ -1,10 +1,10 @@
 import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
-import { HTTP_METHODS } from '@/consts';
+import { HTTP_METHODS } from '../consts';
 import { DecoratorDefinition } from './base';
-import { FlameError, getErrorLocation } from '@/reporter';
-import { resolveNodeId } from '@/utils';
-import { HttpBasedErrors } from '@/compiler/analyzer';
+import { FlameError, getErrorLocation } from '../reporter';
+import { resolveNodeId } from '../utils';
+import { HttpBasedErrors } from '../compiler/analyzer';
 
 export default [
     {

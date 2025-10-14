@@ -127,6 +127,8 @@ class Graph {
 		return `${symbol.node}:${symbol.id}`;
 	}
 
+	// fix: resolver isso
+	
 	addSymbol(symbol: Symbol) {
 		const key = this.getSymbolKey(symbol);
 		this.symbolsByKey.set(key, new WeakRef(symbol));
@@ -221,13 +223,13 @@ class Graph {
 		this._events.add(new Event(event.symbol, event.type, event.once));
 	}
 
-	private _commands = new Set<unknown>();
+	private _commands = new Set<NodePath<T.Program>>();
 
-	get commands(): Readonly<Set<unknown>> {
+	get commands(): Readonly<Set<NodePath<T.Program>>> {
 		return this._commands;
 	}
 
-	addCommand(command: unknown) {
+	addCommand(command: NodePath<T.Program>) {
 		this._commands.add(command);
 	}
 

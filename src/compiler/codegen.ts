@@ -1,8 +1,8 @@
 import * as T from '@babel/types';
-import Graph, { Symbol } from '@/graph';
+import Graph, { Symbol } from '../graph';
 import template from '@babel/template'
 import _generate from '@babel/generator';
-import { ManifestType } from '@/consts';
+import { ManifestType } from '../consts';
 import { PluginContext } from 'rollup';
 
 const generate = ('default' in _generate ? _generate.default : _generate) as typeof _generate;
@@ -79,7 +79,7 @@ class CodeGenerator {
 					%%body%%
 				});
 			`)({
-				body: m.content.program.body
+				body: m.get('body')
 			})
 		);
 

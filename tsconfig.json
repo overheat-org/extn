@@ -14,10 +14,6 @@
     "noImplicitAny": false,
     "sourceMap": true,
     "rootDir": "./src",
-	"baseUrl": ".",
-	"paths": {
-		"@/*": ["./src/*"]
-	}
   },
   "include": ["./src/**/*"],  // Não incluir dist aqui
   "exclude": ["./dist/**/*", "./test/**/*"]  // Exclui o diretório dist

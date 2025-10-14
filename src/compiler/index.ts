@@ -1,10 +1,10 @@
 import * as vite from 'vite';
 import Scanner from './scanner';
 import Transformer from './transformer';
-import Graph from '@/graph';
+import Graph from '../graph';
 import CodeGenerator from './codegen';
-import BridgePlugin from '@/plugin';
-import { ConfigManager, Config } from '@/config';
+import BridgePlugin from '../plugin';
+import { ConfigManager, Config } from '../config';
 
 class Compiler {
     private configManager = new ConfigManager();

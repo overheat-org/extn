@@ -1,13 +1,10 @@
 import * as vite from "vite";
 import { Config, ConfigResolveOptions, ModuleConfig, UserConfig } from "./config.dto";
-import { join as j } from "path";
+import { basename, join as j } from "path";
 import { RollupOptions } from 'rollup';
 import path from 'path';
-import globMatch from 'picomatch';
 
 /**
- * @internal
- * 
  * Walk around config object and execute instructions based in
  */
 export class ConfigEvaluator {
@@ -19,7 +16,7 @@ export class ConfigEvaluator {
 		this.evalPaths(config);
 
 		if(!options.module) {
-			this.evalVite(config.vite ??= {})
+			this.evalVite(config.vite ??= {}, config.cwd!)
 
 			return this.config as Config;
 		}
@@ -29,14 +26,14 @@ export class ConfigEvaluator {
 	}
 
 	private evalPaths(config: UserConfig) {
+		config.cwd ??= process.cwd();
 		config.entryPath ??= "src";
 		config.buildPath ??= ".flame";
-		config.cwd ??= process.cwd();
 		config.commandsPath ??= "commands/**/*.tsx";
-		config.managersPath ??= "managers/**/*.tsx";
+		config.managersPath ??= "managers/**/*.{ts,tsx}";
 	}
 
-	private evalVite(config: vite.UserConfig) {
+	private evalVite(config: vite.UserConfig, cwd: string) {
 		config.base = './';
 		config.build ??= {};
 		config.build.outDir = j(this.config.cwd!, this.config.buildPath!);
@@ -45,7 +42,7 @@ export class ConfigEvaluator {
 
 		this.evalRollupInput(rollup);
 		this.evalRollupExternal(rollup);
-		this.evalRollupOutput(rollup);
+		this.evalRollupOutput(rollup, cwd);
 	}
 
 	private evalRollupInput(rollup: RollupOptions) {
@@ -78,8 +75,7 @@ export class ConfigEvaluator {
 		};
 	}
 
-	private evalRollupOutput(rollup: RollupOptions) {
-		const managersMatch = globMatch(this.config.managersPath);
+	private evalRollupOutput(rollup: RollupOptions, cwd: string) {
 		const output = rollup.output ??= {};
 
 		if (Array.isArray(output)) {
@@ -91,11 +87,16 @@ export class ConfigEvaluator {
 		output.virtualDirname = output.dir;
 		(output.entryFileNames as any) = (chunk: vite.Rollup.PreRenderedChunk) => {
 			const moduleId = chunk.facadeModuleId ?? '';
+			const pattern = j(this.config.entryPath, this.config.managersPath);
+			
+			console.log(JSON.stringify(chunk));
+			
 			if (moduleId.startsWith('virtual:')) {
 				return moduleId.split(':')[1] + '.js';
 			}
-			else if (managersMatch(moduleId)) {
-				return 'managers/[name].js';
+			else if (path.matchesGlob(moduleId, pattern)) {
+				console.log('is a manager: ', moduleId)
+				return `managers/${basename(moduleId)}.js`;
 			}
 
 			return '[name].js'

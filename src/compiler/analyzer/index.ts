@@ -4,7 +4,7 @@ import { parse } from '@babel/parser';
 import { DecoratorAnalyzer } from './analyzer.decorator';
 import { DependencyAnalyzer } from './analyzer.dependency';
 import Transformer from "../transformer";
-import Graph from "@/graph";
+import Graph from "../../graph";
 
 const traverse = ('default' in _traverse ? _traverse.default : _traverse) as typeof _traverse;
 

@@ -1,7 +1,7 @@
 import * as T from '@babel/types';
-import Graph from "@/graph";
+import Graph from "../../graph";
 import { NodePath } from '@babel/traverse';
-import { FlameError, getErrorLocation } from '@/reporter';
+import { FlameError, getErrorLocation } from '../../reporter';
 
 export class DependencyAnalyzer {
 	constructor(private graph: Graph) { }

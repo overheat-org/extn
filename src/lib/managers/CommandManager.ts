@@ -1,15 +1,15 @@
-import { InteractionExecutor } from "diseact";
+// import { InteractionExecutor } from "diseact";
 import { AutocompleteInteraction, ChatInputCommandInteraction, Client, Guild } from "discord.js";
 import { CommandContainer } from "../utils/CommandContainer";
 
 class CommandManager {
-    private executor = new InteractionExecutor();
+    // private executor = new InteractionExecutor();
     private container?: CommandContainer;
 
     async load() {
         const { default: container }: { default: CommandContainer } = await import(`${this.entryPath}/commands.js`);
 
-        this.executor.commandMap = container.map;
+        // this.executor.commandMap = container.map;
         this.container = container;
     }
 
@@ -30,7 +30,7 @@ class CommandManager {
     }
 
     async run(interaction: ChatInputCommandInteraction | AutocompleteInteraction) {
-        this.executor.run(interaction);
+        // this.executor.run(interaction);
     }
 
 	constructor(private entryPath: string) {}
