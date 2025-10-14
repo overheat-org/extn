@@ -45,35 +45,6 @@ class Scanner {
 		await transform(path, source);
 	}
 
-
-	private async scanModules() {
-		const configManager = new ConfigManager();
-		const { modules } = this.config;
-
-		if (!modules) return;
-
-		for (const module of modules) {
-			const path = import.meta.resolve(module);
-			const dirpath = dirname(path);
-
-			const config = await configManager.resolve(dirpath, { module: true });
-			const { commandsPath, servicesPath: managersPath, entryPath } = config;
-
-			const { input } = this.config.vite!.build!.rollupOptions!;
-
-			for await (const path of fs.glob(commandsPath, { cwd: entryPath })) {
-				const code = await fs.readFile(j(entryPath, path), 'utf-8');
-				await this.transformer.transformModule(path, code);
-			}
-
-			if (Array.isArray(input)) {
-				for await (const path of fs.glob(managersPath, { cwd: entryPath })) {
-					input.push(j(entryPath, path));
-				}
-			}
-		}
-	}
-
 	constructor(private config: Config, private transformer: Transformer, private analyzer: Analyzer) { }
 }
 
