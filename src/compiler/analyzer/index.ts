@@ -3,7 +3,6 @@ import * as T from "@babel/types";
 import { parse } from '@babel/parser';
 import { DecoratorAnalyzer } from './analyzer.decorator';
 import { DependencyAnalyzer } from './analyzer.dependency';
-import Transformer from "../transformer";
 import Graph from "../../graph";
 
 const traverse = ('default' in _traverse ? _traverse.default : _traverse) as typeof _traverse;
@@ -22,14 +21,16 @@ class Analyzer {
 		return parseContent(id, code);
 	}
 
-	async analyzeModule(id: string, code: string) {
-		if(!this.decoratorAnalyzer.CONTENT_REGEX.test(code)) return;
+	async analyzeService(path: string, code: string) {
+		if(!this.decoratorAnalyzer.test(code)) return {};
 
-		const ast = parseContent(id, code);
-		
-		await this.decoratorAnalyzer.analyze(id, ast);
+		const ast = parseContent(path, code);
+		const decorators = await this.decoratorAnalyzer.analyze(path, ast);
 
-		return ast;
+		return {
+			decorators,
+			ast
+		};
 	}
 
 	analyzeClassDependencies(id: string, node: NodePath<T.ClassDeclaration>) {
@@ -40,8 +41,8 @@ class Analyzer {
 		return this.decoratorAnalyzer.analyzeHttpBased(node, params);
 	}
 
-	constructor(transformer: Transformer, graph: Graph) {
-		this.decoratorAnalyzer = new DecoratorAnalyzer(transformer);
+	constructor(graph: Graph) {
+		this.decoratorAnalyzer = new DecoratorAnalyzer();
 		this.dependencyAnalyzer = new DependencyAnalyzer(graph);
 	}
 }

@@ -4,7 +4,6 @@ import { pathToFileURL } from 'url';
 import { join as j } from "path"
 import { Config, ModuleConfig, ConfigResolveOptions, UserConfig } from './config.dto';
 
-
 /**
  * @internal
  * 

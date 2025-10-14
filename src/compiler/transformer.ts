@@ -37,15 +37,6 @@ export type DecoratorNodeWrapper = BaseDecoratorNodeWrapper & (
 class Transformer {
 	private analyzer: Analyzer;
 
-	async transformModule(id: string, code?: string) {
-		if(!code) code = await fs.readFile(id, 'utf-8');
-		
-		const ast = await this.analyzer.analyzeModule(id, code!);
-		if(!ast) return code;
-
-		return this.codegen.generateCode(ast!.node);
-	}
-
 	public transformDecorator(node: DecoratorNodeWrapper) {
 		let definitions = decorators;
 		let lastDef: DecoratorDefinition | undefined = undefined;
@@ -88,8 +79,19 @@ class Transformer {
 		});
 	}
 
-	public async transformCommand(id: string, code: string) {
-		const node = this.analyzer.analyzeCommand(id, code);
+	async transformService(path: string, code: string) {
+		if(!code) code = await fs.readFile(path, 'utf-8');
+		
+		const analyzerResult = await this.analyzer.analyzeService(path, code!);
+		
+		await Promise.all(analyzerResult.decorators.map(this.transformDecorator));
+		
+		if(!analyzerResult.ast) return code;
+		return this.codegen.generateCode(analyzerResult.ast!.node);
+	}
+
+	async transformCommand(path: string, code: string) {
+		const node = this.analyzer.analyzeCommand(path, code);
 		if(!node) return;
 
 		const { transformImportDeclarationToDynamic } = this;
@@ -99,20 +101,18 @@ class Transformer {
 				transformImportDeclarationToDynamic(path);
 			},
 
-			EnumDeclaration(path: NodePath<T.EnumDeclaration>) {
-				throw new FlameError('Cannot use enum in command', getErrorLocation(path, id));
+			EnumDeclaration(node: NodePath<T.EnumDeclaration>) {
+				throw new FlameError('Cannot use enum in command', getErrorLocation(node, path));
 			},
 
-			ClassDeclaration(path: NodePath<T.ClassDeclaration>) {
-				throw new FlameError('Cannot use class in command', getErrorLocation(path, id));
+			ClassDeclaration(node: NodePath<T.ClassDeclaration>) {
+				throw new FlameError('Cannot use class in command', getErrorLocation(node, path));
 			},
 
-			ExportNamedDeclaration(path: NodePath<T.ExportNamedDeclaration>) {
-				const node = path.node;
+			ExportNamedDeclaration(node: NodePath<T.ExportNamedDeclaration>) {
+				if (node.get('specifiers').length == 0) return;
 
-				if (node.specifiers.length == 0) return;
-
-				throw new FlameError('Cannot export in command', getErrorLocation(path, id));
+				throw new FlameError('Cannot export in command', getErrorLocation(node, path));
 			},
 
 			ExportDefaultDeclaration(path: NodePath<T.ExportDefaultDeclaration>) {
@@ -159,7 +159,7 @@ class Transformer {
 	}
 
 	constructor(public graph: Graph, private codegen: CodeGenerator) {
-		this.analyzer = new Analyzer(this, this.graph);
+		this.analyzer = new Analyzer(this.graph);
 	}
 }
 

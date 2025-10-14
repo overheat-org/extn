@@ -30,7 +30,7 @@ export class ConfigEvaluator {
 		config.entryPath ??= "src";
 		config.buildPath ??= ".flame";
 		config.commandsPath ??= "commands/**/*.tsx";
-		config.managersPath ??= "managers/**/*.{ts,tsx}";
+		config.servicesPath ??= "managers/**/*.{ts,tsx}";
 	}
 
 	private evalVite(config: vite.UserConfig, cwd: string) {
@@ -87,7 +87,7 @@ export class ConfigEvaluator {
 		output.virtualDirname = output.dir;
 		(output.entryFileNames as any) = (chunk: vite.Rollup.PreRenderedChunk) => {
 			const moduleId = chunk.facadeModuleId ?? '';
-			const pattern = j(this.config.entryPath, this.config.managersPath);
+			const pattern = j(this.config.entryPath, this.config.servicesPath);
 			
 			console.log(JSON.stringify(chunk));
 			

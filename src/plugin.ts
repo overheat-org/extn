@@ -11,7 +11,7 @@ declare const __VERSION__: string;
  * Intercept transformation of code in vite process
  */
 function BridgePlugin(compiler: Compiler) {
-	const { codegen, transformer } = compiler;
+	const { codegen, transformer, configManager } = compiler;
 	
 	return {
 		name: __NAME__,
@@ -27,6 +27,11 @@ function BridgePlugin(compiler: Compiler) {
 			if(id == 'virtual:index') {
 				return codegen.generateIndex();
 			}
+
+			if(!id.startsWith('.')) {
+				const configFile = configManager.findFile(id);
+			}
+			
 			
 			return await transformer.transformModule(id);
 		},

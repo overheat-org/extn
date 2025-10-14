@@ -4,16 +4,20 @@ import Transformer from "../transformer";
 import { HttpBasedErrors } from '.';
 
 export class DecoratorAnalyzer {
-	constructor(
-		private transformer: Transformer,
-	) { }
+	private CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
 
-	CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
+	test(content: string) {
+		return this.CONTENT_REGEX.test(content);
+	}
 
 	async analyze(id: string, program: NodePath<T.Program>) {
+		let result = new Array<ReturnType<DecoratorAnalyzer['analyzeDecorator']>>
+
 		program.traverse({
-			Decorator: path => this.analyzeDecorator(id, path)
+			Decorator: path => result.push(this.analyzeDecorator(id, path))
 		});
+
+		return result;
 	}
 
 	analyzeDecorator(id: string, path: NodePath<T.Decorator>) {
@@ -55,14 +59,14 @@ export class DecoratorAnalyzer {
 			Identifier: "param"
 		}
 
-		this.transformer.transformDecorator({
+		return {
 			id: id,
 			name,
 			targetNode: target as any,
 			params,
 			node: path,
 			kind: targetMap[target.node.type],
-		})
+		};
 	}
 
 	analyzeHttpBased(node: NodePath<T.Decorator>, params: any) {

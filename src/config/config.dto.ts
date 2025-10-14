@@ -5,7 +5,7 @@ export interface Config {
 	entryPath: string
 	buildPath: string
 	commandsPath: string
-	managersPath: string
+	servicesPath: string
 	cwd: string
 	intents: BitFieldResolvable<GatewayIntentsString, number>
 	vite: vite.UserConfig
@@ -16,7 +16,7 @@ export interface UserConfig extends Partial<Config> { }
 
 export interface ModuleConfig extends Pick<Config, 
 	| 'commandsPath' 
-	| 'managersPath'
+	| 'servicesPath'
 	| 'entryPath'
 	| 'intents'
 > {}

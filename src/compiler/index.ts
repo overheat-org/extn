@@ -7,11 +7,12 @@ import BridgePlugin from '../plugin';
 import { ConfigManager, Config } from '../config';
 
 class Compiler {
-    private configManager = new ConfigManager();
+    configManager = new ConfigManager();
 	graph = new Graph();
 	codegen = new CodeGenerator(this.graph);
 	transformer = new Transformer(this.graph, this.codegen);
     scanner!: Scanner;
+	
     config!: Config;
 
     private async setup() {

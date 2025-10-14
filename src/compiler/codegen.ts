@@ -24,7 +24,11 @@ class CodeGenerator {
 		`;
 	}
 
-	emitManifest(ctx: PluginContext) {
+	emitManifest() {
+		
+	}
+
+	emitMaanifest(ctx: PluginContext) {
 		const allItems = [
 			{
 				key: ManifestType.Routes,
