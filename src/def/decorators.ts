@@ -11,7 +11,7 @@ export default [
         name: 'injectable',
         transform: {
             async class({ id, analyzer, graph, targetNode: parentNode, node }) {
-                const dependencies = analyzer.analyzeClassDependencies(id, parentNode);
+                const dependencies = await analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addInjectable(symbol, dependencies);
 				node.remove();
@@ -19,12 +19,12 @@ export default [
         }
     },
     {
-        name: 'manager',
+        name: 'service',
         transform: {
             async class({ id, analyzer, graph, targetNode: parentNode, node }) {
-                const dependencies = analyzer.analyzeClassDependencies(id, parentNode);
+                const dependencies = await analyzer.analyzeClassDependencies(id, parentNode);
                 const symbol = graph.resolveSymbol(node);
-                graph.addManager(symbol, dependencies);
+                graph.addService(symbol, dependencies);
 				node.remove();
             }
         }

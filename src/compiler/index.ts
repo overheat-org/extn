@@ -5,27 +5,22 @@ import Graph from '../graph';
 import CodeGenerator from './codegen';
 import BridgePlugin from '../plugin';
 import { ConfigManager, Config } from '../config';
+import Analyzer from './analyzer';
 
 class Compiler {
     configManager = new ConfigManager();
 	graph = new Graph();
 	codegen = new CodeGenerator(this.graph);
-	transformer = new Transformer(this.graph, this.codegen);
-    scanner!: Scanner;
+	transformer = new Transformer(this);
+    scanner = new Scanner(this);
+	analyzer = new Analyzer(this);
 	
     config!: Config;
 
-    private async setup() {
-		const cwd = process.cwd();
-		this.config = await this.configManager.resolve(cwd);
+    async build(cwd = process.cwd()) {
+        const module = (await this.scanner.scanModule(cwd))!;
+		this.config = module.config;
         (this.config.vite!.plugins ??= []).unshift(BridgePlugin(this));
-		
-        this.scanner = new Scanner(this.config, this.transformer);
-    }
-
-    async build() {
-        await this.setup();
-        await this.scanner.scan();
         await vite.build(this.config.vite);
     }
 }

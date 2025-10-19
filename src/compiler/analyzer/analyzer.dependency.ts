@@ -1,16 +1,12 @@
 import * as T from '@babel/types';
-import Graph from "../../graph";
 import { NodePath } from '@babel/traverse';
 import { FlameError, getErrorLocation } from '../../reporter';
+import { ImportAnalyzer } from './analyzer.import';
 
-export class DependencyAnalyzer {
-	constructor(private graph: Graph) { }
+export class DependencyAnalyzer {	
+	constructor(private importAnalyzer: ImportAnalyzer) {}
 
-	analyze(id: string, node: NodePath<T.ClassDeclaration>) {
-		return this.analyzeClass(id, node);
-	}
-
-	analyzeClass(id: string, node: NodePath<T.ClassDeclaration>) {
+	async analyzeClassDeclaration(path: string, node: NodePath<T.ClassDeclaration>) {
 		const classBody = node.get('body').get('body');
 		const constructor = classBody.find(m => m.isClassMethod() && m.node.kind === "constructor");
 
@@ -18,35 +14,35 @@ export class DependencyAnalyzer {
 			return [];
 		}
 
-		return this.analyzeConstructor(id, constructor as NodePath<T.ClassMethod>);
+		return await this.analyzeConstructor(path, constructor as NodePath<T.ClassMethod>);
 	}
 
-	analyzeConstructor(id: string, node: NodePath<T.ClassMethod>) {
+	analyzeConstructor(path: string, node: NodePath<T.ClassMethod>) {
 		const params = node.get('params');
 
-		return params.map(p => {
+		return Promise.all(params.map(p => {
 			if (!p.isTSParameterProperty()) {
-				throw new FlameError("This parameter cannot be injectable", getErrorLocation(node, id));
+				throw new FlameError("This parameter cannot be injectable", getErrorLocation(node, path));
 			}
 
-			return this.analyzeParameter(id, p);
-		});
+			return this.analyzeParameter(path, p);
+		}));
 	}
 
-	analyzeParameter(id: string, node: NodePath<T.TSParameterProperty>) {
+	analyzeParameter(path: string, node: NodePath<T.TSParameterProperty>) {
 		const parameter = node.get("parameter");
 		const typeAnnotation = parameter.get("typeAnnotation");
 
 		if (!typeAnnotation.isTSTypeAnnotation()) {
-			throw new FlameError("Expected a type annotation for injectable parameter", getErrorLocation(node, id));
+			throw new FlameError("Expected a type annotation for injectable parameter", getErrorLocation(node, path));
 		}
 
 		const typeRef = typeAnnotation.get("typeAnnotation");
 
 		if (!typeRef.isTSTypeReference()) {
-			throw new FlameError("Expected a injectable type reference", getErrorLocation(node, id));
+			throw new FlameError("Expected a injectable type reference", getErrorLocation(node, path));
 		}
 
-		return this.graph.resolveSymbol(typeRef);
+		return this.importAnalyzer.analyzeTypeDeclaration(path, typeRef);
 	}
 }

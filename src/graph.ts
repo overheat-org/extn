@@ -4,7 +4,7 @@ import { resolveNodeId } from "./utils"
 
 class Event {
 	constructor(
-		public symbol: Symbol,
+		public symbol: GraphSymbol,
 		public type: string,
 		public once: boolean
 	) { }
@@ -31,7 +31,7 @@ class Route {
 	constructor(
 		public endpoint: string,
 		public method: string,
-		public symbol: Symbol,
+		public symbol: GraphSymbol,
 		public ipc: boolean
 	) { }
 
@@ -50,15 +50,15 @@ class Route {
 	}
 }
 
-class Manager {
+class Service {
 	constructor(
-		public symbol: Symbol,
-		public dependencies: Symbol[]
+		public symbol: GraphSymbol,
+		public dependencies: GraphSymbol[]
 	) { }
 
-	toAST() {
+	toAST() {	
 		return T.objectExpression([
-			T.objectProperty(T.identifier("manager"), T.identifier(this.symbol.id)),
+			T.objectProperty(T.identifier("service"), T.identifier(this.symbol.id)),
 			T.objectProperty(
 				T.identifier("dependencies"),
 				T.arrayExpression(this.dependencies.map(d => T.identifier(d.id)))
@@ -73,8 +73,8 @@ class Manager {
 
 class Injectable {
 	constructor(
-		public symbol: Symbol,
-		public dependencies: Symbol[]
+		public symbol: GraphSymbol,
+		public dependencies: GraphSymbol[]
 	) { }
 
 	toAST() {
@@ -95,7 +95,7 @@ class Injectable {
 class Module {
 	constructor(
 		public name: string,
-		public managers: Symbol[]
+		public managers: GraphSymbol[]
 	) { }
 
 	toAST() {
@@ -110,26 +110,26 @@ class Module {
 	}
 }
 
-export interface Symbol {
+export interface GraphSymbol {
 	kind: string
 	id: string
 	node: NodePath
 	path: string
-	parent?: Symbol
+	parent?: GraphSymbol
 }
 
 /** @internal */
 class Graph {
-	private symbolsByModule = new Map<string, Set<WeakRef<Symbol>>>();
-	private symbolsByKey = new Map<string, WeakRef<Symbol>>();
+	private symbolsByModule = new Map<string, Set<WeakRef<GraphSymbol>>>();
+	private symbolsByKey = new Map<string, WeakRef<GraphSymbol>>();
 
-	private getSymbolKey(symbol: Symbol): string {
+	private getSymbolKey(symbol: GraphSymbol): string {
 		return `${symbol.node}:${symbol.id}`;
 	}
 
-	// fix: resolver isso
+	// fix: resolver o symbol node
 	
-	addSymbol(symbol: Symbol) {
+	addSymbol(symbol: GraphSymbol) {
 		const key = this.getSymbolKey(symbol);
 		this.symbolsByKey.set(key, new WeakRef(symbol));
 
@@ -142,7 +142,7 @@ class Graph {
 		return symbol;
 	}
 
-	resolveSymbol(symbol: Symbol | NodePath, parent?: Symbol | NodePath) {
+	resolveSymbol(symbol: GraphSymbol | NodePath, parent?: GraphSymbol | NodePath) {
 		if (symbol instanceof NodePath) {
 			symbol = this.resolveSymbolFromNode(symbol);
 		}
@@ -159,7 +159,7 @@ class Graph {
 	}
 
 	private resolveSymbolFromNode(node: NodePath) {
-		const symbol: Symbol = {
+		const symbol: GraphSymbol = {
 			node,
 			id: resolveNodeId(node).node.name,
 			kind: node.type,
@@ -173,7 +173,7 @@ class Graph {
 		const set = this.symbolsByModule.get(path);
 		if (!set) return [];
 
-		const validSymbols: Symbol[] = [];
+		const validSymbols: GraphSymbol[] = [];
 		for (const ref of set) {
 			const symbol = ref.deref();
 			if (symbol) validSymbols.push(symbol);
@@ -183,24 +183,35 @@ class Graph {
 		return validSymbols;
 	}
 
+	findSymbol(opts: { path: string, id: string }) {
+		const set = this.symbolsByModule.get(opts.path);
+		if (!set) return null;
+
+		for (const ref of set) {
+			const symbol = ref.deref();
+			if (symbol && symbol.id === opts.id) return symbol;
+		}
+		return null;
+	}
+
 	_injectables = new Set<Injectable>;
 
 	get injectables(): Readonly<Set<Injectable>> {
 		return this._injectables;
 	}
 
-	addInjectable(symbol: Symbol, dependencies: Symbol[]) {
+	addInjectable(symbol: GraphSymbol, dependencies: GraphSymbol[]) {
 		this._injectables.add(new Injectable(symbol, dependencies));
 	}
 
-	private _managers = new Set<Manager>;
+	private _services = new Set<Service>;
 
-	get managers(): Readonly<Set<Manager>> {
-		return this._managers;
+	get services(): Readonly<Set<Service>> {
+		return this._services;
 	}
 
-	addManager(symbol: Symbol, dependencies: Symbol[]) {
-		this._managers.add(new Manager(symbol, dependencies));
+	addService(symbol: GraphSymbol, dependencies: GraphSymbol[]) {
+		this._services.add(new Service(symbol, dependencies));
 	}
 
 	private _routes = new Set<Route>;

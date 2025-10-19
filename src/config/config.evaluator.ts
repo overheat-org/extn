@@ -30,7 +30,7 @@ export class ConfigEvaluator {
 		config.entryPath ??= "src";
 		config.buildPath ??= ".flame";
 		config.commandsPath ??= "commands/**/*.tsx";
-		config.servicesPath ??= "managers/**/*.{ts,tsx}";
+		config.servicesPath ??= "services/**/*.{ts,tsx}";
 	}
 
 	private evalVite(config: vite.UserConfig, cwd: string) {
@@ -58,7 +58,8 @@ export class ConfigEvaluator {
 		rollup.input ??= [];
 
 		(rollup.input as any[]).push(
-			'virtual:index'
+			'virtual:index',
+			'virtual:manifest'
 		);
 	}
 

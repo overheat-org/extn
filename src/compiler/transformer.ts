@@ -1,12 +1,9 @@
 import * as T from "@babel/types";
 import { NodePath } from "@babel/traverse";
-import Analyzer from "./analyzer";
-import Graph from "../graph";
 import decorators from "../def/decorators";
-import { DecoratorDefinition, DecoratorTransform, DecoratorTransformContext, TransformType } from "../def/base";
+import { DecoratorDefinition, DecoratorTransformContext, TransformType } from "../def/base";
 import { FlameError, getErrorLocation } from "../reporter";
-import fs from 'fs/promises';
-import CodeGenerator from "./codegen";
+import Compiler from ".";
 
 type BaseDecoratorNodeWrapper = {
 	id: string
@@ -33,37 +30,29 @@ export type DecoratorNodeWrapper = BaseDecoratorNodeWrapper & (
 );
 
 
-/** @internal */
 class Transformer {
-	private analyzer: Analyzer;
-
-	public transformDecorator(node: DecoratorNodeWrapper) {
+	transformDecorator(wrapper: DecoratorNodeWrapper) {
 		let definitions = decorators;
-		let lastDef: DecoratorDefinition | undefined = undefined;
+		let lastDef!: DecoratorDefinition | undefined;
 
 		const handleName = (part: string) => {
 			lastDef = definitions.find(d => d.name == part);
 			definitions = lastDef?.children ?? [];
 		}
 
-		Array.isArray(node.name)
-			? node.name.forEach(handleName)
-			: handleName(node.name)
+		Array.isArray(wrapper.name)
+			? wrapper.name.forEach(handleName)
+			: handleName(wrapper.name)
  
 		if(!lastDef) return;
 			
-		this.handleTransformDecorator(
-			(lastDef as DecoratorDefinition).transform!,
-			node
-		)
-	}
+		const transform = lastDef.transform!;
 
-	private handleTransformDecorator(transform: DecoratorTransform, wrapper: DecoratorNodeWrapper) {
 		const base = {
 			id: wrapper.id,
 			params: wrapper.params,
-			graph: this.graph, 
-			analyzer: this.analyzer, 
+			graph: this.compiler.graph, 
+			analyzer: this.compiler.analyzer, 
 		}; 
 
 		if (typeof transform != "object") return void(transform.call(this, {
@@ -72,26 +61,28 @@ class Transformer {
 			targetNode: wrapper.targetNode, 
 		}));
 
-		transform[wrapper.kind]?.call(this, {
+		const transformSpecific = transform[wrapper.kind];
+		if(!transformSpecific) return;
+
+		return transformSpecific.call(this, {
 			...base,
 			node: wrapper.node,
 			targetNode: wrapper.targetNode
-		});
+		} as any);
 	}
 
-	async transformService(path: string, code: string) {
-		if(!code) code = await fs.readFile(path, 'utf-8');
+	async transformService(path: string, source: string) {
+		const ast = await this.compiler.analyzer.analyzeService(path, source!);
+		if(!ast) return;
 		
-		const analyzerResult = await this.analyzer.analyzeService(path, code!);
-		
-		await Promise.all(analyzerResult.decorators.map(this.transformDecorator));
-		
-		if(!analyzerResult.ast) return code;
-		return this.codegen.generateCode(analyzerResult.ast!.node);
+		source = this.compiler.codegen.generateCode(ast);
+
+		// TODO: add file é realmente necessário?
+		this.compiler.graph.addFile(path, source);
 	}
 
 	async transformCommand(path: string, code: string) {
-		const node = this.analyzer.analyzeCommand(path, code);
+		const node = this.compiler.analyzer.analyzeCommand(path, code);
 		if(!node) return;
 
 		const { transformImportDeclarationToDynamic } = this;
@@ -122,7 +113,7 @@ class Transformer {
 
 		for(const child of node.get("body")) map[child.type](child);
 
-		this.graph.addCommand(node);
+		this.compiler.graph.addCommand(node);
 	}
 
 	transformImportDeclarationToDynamic(path: NodePath<T.ImportDeclaration>) {
@@ -158,9 +149,7 @@ class Transformer {
 		path.replaceWithMultiple(importExpressions as any);
 	}
 
-	constructor(public graph: Graph, private codegen: CodeGenerator) {
-		this.analyzer = new Analyzer(this.graph);
-	}
+	constructor(private compiler: Compiler) {}
 }
 
 export default Transformer;

@@ -1,39 +1,32 @@
 import { Plugin } from 'rollup';
 import Compiler from './compiler';
-import fs from 'fs/promises';
 
 declare const __NAME__: string;
 declare const __VERSION__: string;
 
-/** 
- * @internal 
- * 
+/**
  * Intercept transformation of code in vite process
  */
 function BridgePlugin(compiler: Compiler) {
-	const { codegen, transformer, configManager } = compiler;
+	const { codegen } = compiler;
 	
 	return {
 		name: __NAME__,
 		version: __VERSION__,
 		buildEnd() {
 			codegen.emitCommands(this);
-			codegen.emitManifest(this);
 		},
 		resolveId(id) {
 			return id;
 		},
 		async load(id) {
-			if(id == 'virtual:index') {
-				return codegen.generateIndex();
+			switch (id) {
+				case 'virtual:index': return codegen.generateIndex();
+				case 'virtual:manifest': return codegen.generateManifest();
+				// default: {
+				// 	return await transformer.transformModule(id);
+				// }
 			}
-
-			if(!id.startsWith('.')) {
-				const configFile = configManager.findFile(id);
-			}
-			
-			
-			return await transformer.transformModule(id);
 		},
 	} satisfies Plugin
 }

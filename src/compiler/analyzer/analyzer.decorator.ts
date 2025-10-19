@@ -1,27 +1,15 @@
 import * as T from '@babel/types'; 
 import { NodePath } from "@babel/traverse";
-import Transformer from "../transformer";
-import { HttpBasedErrors } from '.';
+import { HttpBasedErrors, NodeObserver } from '.';
+import Compiler from '..';
 
 export class DecoratorAnalyzer {
-	private CONTENT_REGEX = /@[a-z][a-zA-Z]+(?=\s)/;
-
-	test(content: string) {
-		return this.CONTENT_REGEX.test(content);
+	constructor(observer: NodeObserver, private compiler: Compiler) {
+		observer.on('Decorator', this.analyzeDecorator);
 	}
-
-	async analyze(id: string, program: NodePath<T.Program>) {
-		let result = new Array<ReturnType<DecoratorAnalyzer['analyzeDecorator']>>
-
-		program.traverse({
-			Decorator: path => result.push(this.analyzeDecorator(id, path))
-		});
-
-		return result;
-	}
-
-	analyzeDecorator(id: string, path: NodePath<T.Decorator>) {
-		const target = path.parentPath;
+	
+	async analyzeDecorator(path: string, node: NodePath<T.Decorator>) {
+		const target = node.parentPath;
 		let name!: string | string[];
 		let params = new Array<NodePath<T.CallExpression['arguments'][number]>>;
 
@@ -47,7 +35,7 @@ export class DecoratorAnalyzer {
 			}
 		}
 
-		const expr = path.get('expression');
+		const expr = node.get('expression');
 		const handler = typeMap[expr.node.type];
 		if (!handler) return;
 		
@@ -59,14 +47,14 @@ export class DecoratorAnalyzer {
 			Identifier: "param"
 		}
 
-		return {
-			id: id,
+		await this.compiler.transformer.transformDecorator({
+			id: path,
 			name,
 			targetNode: target as any,
 			params,
-			node: path,
-			kind: targetMap[target.node.type],
-		};
+			node: node,
+			kind: targetMap[target.node.type]
+		})
 	}
 
 	analyzeHttpBased(node: NodePath<T.Decorator>, params: any) {

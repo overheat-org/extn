@@ -1,5 +1,5 @@
 import * as T from '@babel/types';
-import Graph, { Symbol } from '../graph';
+import Graph, { GraphSymbol } from '../graph';
 import template from '@babel/template'
 import _generate from '@babel/generator';
 import { ManifestType } from '../consts';
@@ -24,11 +24,7 @@ class CodeGenerator {
 		`;
 	}
 
-	emitManifest() {
-		
-	}
-
-	emitMaanifest(ctx: PluginContext) {
+	generateManifest() {
 		const allItems = [
 			{
 				key: ManifestType.Routes,
@@ -36,7 +32,7 @@ class CodeGenerator {
 			},
 			{
 				key: ManifestType.DependenciesGraph,
-				items: [...this.graph.modules, ...this.graph.managers, ...this.graph.injectables]
+				items: [...this.graph.modules, ...this.graph.services, ...this.graph.injectables]
 			},
 			{
 				key: ManifestType.Events,
@@ -44,7 +40,7 @@ class CodeGenerator {
 			},
 		];
 
-		const tracked = new Set<Symbol>();
+		const tracked = new Set<GraphSymbol>();
 		const output: Record<string, T.ObjectExpression[]> = {};
 
 		for (const group of allItems) {
@@ -69,45 +65,41 @@ class CodeGenerator {
 			])
 		);
 
-		ctx.emitFile({
-			type: 'asset',
-			source: this.generateCode(ast),
-			fileName: "manifest.js"
-		});
+		return this.generateCode(ast);
 	}
 
 	emitCommands(ctx: PluginContext) {
-		const registrations = Array.from(this.graph.commands).map(m =>
-			template.statement(`
-				__container__.add(async () => {
-					%%body%%
-				});
-			`)({
-				body: m.get('body')
-			})
-		);
+		// const registrations = Array.from(this.graph.commands).map(m =>
+		// 	template.statement(`
+		// 		__container__.add(async () => {
+		// 			%%body%%
+		// 		});
+		// 	`)({
+		// 		body: m.get('body')
+		// 	})
+		// );
 
-		const ast = T.file(
-			T.program([
-				...template.statements(`
-					import { createElement as _jsx, Fragment as _Frag } from 'diseact/jsx-runtime';
-					import { CommandContainer } from '@flame-oh/core';
+		// const ast = T.file(
+		// 	T.program([
+		// 		...template.statements(`
+		// 			import { createElement as _jsx, Fragment as _Frag } from 'diseact/jsx-runtime';
+		// 			import { CommandContainer } from '@flame-oh/core';
 				
-					const __container__ = new CommandContainer();
-				`)(),
-				...registrations,
-				template.statement(`export default __container__;`)()
-			])
-		);
+		// 			const __container__ = new CommandContainer();
+		// 		`)(),
+		// 		...registrations,
+		// 		template.statement(`export default __container__;`)()
+		// 	])
+		// );
 
-		ctx.emitFile({
-			type: 'asset',
-			source: this.generateCode(ast),
-			fileName: 'commands.js'
-		});
+		// ctx.emitFile({
+		// 	type: 'asset',
+		// 	source: this.generateCode(ast),
+		// 	fileName: 'commands.js'
+		// });
 	}
 
-	private generateImportDeclaration(symbol: Symbol) {
+	private generateImportDeclaration(symbol: GraphSymbol) {
 		const id = T.identifier(symbol.id);
 
 		return T.importDeclaration(

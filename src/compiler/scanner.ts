@@ -1,51 +1,55 @@
-import { Config, ConfigManager } from "../config";
 import fs from "fs/promises";
-import Transformer from "./transformer";
-import { dirname, join as j } from "path";
-import Analyzer from "./analyzer";
+import { join as j } from "path";
+import Compiler from ".";
+import { Config, ModuleConfig } from "../config";
 
-enum ScanType {
+export enum ScanType {
 	Command,
 	Service
 }
 
-/** @internal */
 class Scanner {
-	async scan() {
+	async scanModule<E extends boolean = false>(path: string, opts: { external?: E } = {}) {
+		const config = await this.compiler.configManager.resolve(
+			path, 
+			{ module: opts.external }
+		) as E extends true ? ModuleConfig : Config;
+		if(!config) return;
+
+		const basePath = j(path, config.entryPath);
+
 		await Promise.all([
-			this.scanGlob(ScanType.Command),
-			this.scanGlob(ScanType.Service),
-		])
-	}
+			this.scanGlob(config.commandsPath, { cwd: basePath, type: ScanType.Command }),
+			this.scanGlob(config.servicesPath, { cwd: basePath, type: ScanType.Service }),
+		]);
 
-	private globPatternPropertyMap = {
-		[ScanType.Command]: 'commandsPath',
-		[ScanType.Service]: 'servicesPath'
-	}
-
-	async scanGlob(type: ScanType) {
-		const { cwd, entryPath } = this.config;
-		const basePath = j(cwd, entryPath);
-
-		const pattern = this.config[this.globPatternPropertyMap[type]];
-
-		for await (const path of fs.glob(pattern, { cwd: basePath })) {
-			await this.scanFile(j(entryPath, path), type);
+		return {
+			config
 		}
 	}
+
+	async scanGlob(pattern: string, opts: { type: ScanType, cwd: string }) {
+		for await (const path of fs.glob(pattern, { cwd: opts.cwd })) {
+			await this.scanFile(j(opts.cwd, path), opts.type);
+		}
+	}
+	
+	private transformMap: Record<ScanType, (path: string, source: string) => Promise<void>>
 
 	async scanFile(path: string, type: ScanType) {
 		const source = await fs.readFile(path, 'utf-8');
 
-		const transform = {
-			[ScanType.Command]: this.transformer.transformCommand,
-			[ScanType.Service]: this.transformer.transformService
-		}[type];
+		const transform = this.transformMap[type].bind(this.compiler.transformer);
 
 		await transform(path, source);
 	}
 
-	constructor(private config: Config, private transformer: Transformer, private analyzer: Analyzer) { }
+	constructor(private compiler: Compiler) {
+		this.transformMap = {
+			[ScanType.Command]: this.compiler.transformer.transformCommand,
+			[ScanType.Service]: this.compiler.transformer.transformService
+		}
+	}
 }
 
 export default Scanner;
