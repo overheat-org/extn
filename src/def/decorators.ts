@@ -2,16 +2,16 @@ import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
 import { HTTP_METHODS } from '../consts';
 import { DecoratorDefinition } from './base';
-import { FlameError, getErrorLocation } from '../reporter';
+import { ZenError, getErrorLocation } from '../reporter';
 import { resolveNodeId } from '../utils';
 import { HttpBasedErrors } from '../compiler/analyzer';
 
 export default [
     {
-        name: 'injectable',
+        name: 'Injectable',
         transform: {
-            async class({ id, analyzer, graph, targetNode: parentNode, node }) {
-                const dependencies = await analyzer.analyzeClassDependencies(id, parentNode);
+            async class({ path, graph, targetNode: parentNode, node }) {
+                const dependencies = await analyzeClassDependencies(path, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addInjectable(symbol, dependencies);
 				node.remove();
@@ -19,10 +19,10 @@ export default [
         }
     },
     {
-        name: 'service',
+        name: 'Service',
         transform: {
-            async class({ id, analyzer, graph, targetNode: parentNode, node }) {
-                const dependencies = await analyzer.analyzeClassDependencies(id, parentNode);
+            async class({ path, graph, targetNode: parentNode, node }) {
+                const dependencies = await analyzeClassDependencies(path, parentNode);
                 const symbol = graph.resolveSymbol(node);
                 graph.addService(symbol, dependencies);
 				node.remove();
@@ -30,17 +30,17 @@ export default [
         }
     },
     {
-        name: 'http',
+        name: 'Http',
         children: HTTP_METHODS.map(method => ({
             name: method,
             transform: {
-                method({ id, analyzer, graph, node, params, targetNode: methodNode }) {
-					const httpData = analyzer.analyzeHttpRoute(node, params);
+                method({ path, graph, node, params, targetNode: methodNode }) {
+					const httpData = analyzeHttpRoute(node, params);
 					
 					const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
-					const ERROR_PATTERN = (msg: string) => new FlameError(
+					const ERROR_PATTERN = (msg: string) => new ZenError(
 						`Wrong syntax for decorator: ${msg}\n\n${ERROR_EXAMPLE}`,
-						getErrorLocation(node, id)						
+						getErrorLocation(node, path)						
 					)
 
 					switch (httpData) {
@@ -69,9 +69,9 @@ export default [
         }) as DecoratorDefinition)
     },
     {
-        name: "event",
+        name: "Event",
         transform: {
-            method({ id, graph, targetNode: methodNode, node }) {
+            method({ path, graph, targetNode: methodNode, node }) {
                 const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
                 const symbol = graph.resolveSymbol(methodNode, classNode);
 
@@ -79,14 +79,14 @@ export default [
                 if (!key.isIdentifier()) {
                     const locStart = key.node.loc?.start!;
 
-                    throw new FlameError("Expected a comptime known class method name", { path: id, ...locStart });
+                    throw new ZenError("Expected a comptime known class method name", { path: path, ...locStart });
                 };
 
                 const methodName = key.node.name;
 
-                const NAME_ERROR = new FlameError(
+                const NAME_ERROR = new ZenError(
                     "The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
-                    { path: id, ...key.node.loc?.start! }
+                    { path: path, ...key.node.loc?.start! }
                 );
 
                 const matches = methodName.match(/^(On|Once)([A-Z][a-zA-Z]*)$/);
@@ -108,7 +108,7 @@ export default [
         }
     },
     {
-        name: 'serializable',
+        name: 'Serializable',
         transform: {
             class({ node, targetNode: parentNode }) {
                 const className = resolveNodeId(parentNode).node.name;
@@ -129,3 +129,11 @@ export default [
         }
     }
 ] as DecoratorDefinition[];
+
+function analyzeClassDependencies() {
+
+}
+
+function analyzeHttpRoute() {
+	
+}

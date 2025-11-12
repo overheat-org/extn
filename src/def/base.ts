@@ -1,7 +1,6 @@
 import { NodePath } from "@babel/traverse";
 import { ClassDeclaration, ClassMethod, Decorator, Identifier } from "@babel/types";
-import Graph from "../graph";
-import Analyzer from "../compiler/analyzer";
+import Graph from "../compiler/graph";
 import Transformer from "../compiler/transformer";
 
 export interface DecoratorDefinition {
@@ -23,12 +22,11 @@ type ParentNodeTypeMap<T> = T extends TransformType.Class
 		: Identifier;
 
 export interface DecoratorTransformContext<T extends TransformType> {
-	id: string;
+	path: string;
 	params: any[]
 	targetNode: NodePath<ParentNodeTypeMap<T>>;
 	node: NodePath<Decorator>;
 	graph: Graph;
-	analyzer: Analyzer;
 }
 
 export type DecoratorTransform = {

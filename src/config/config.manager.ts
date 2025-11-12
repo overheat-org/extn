@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import { ConfigEvaluator } from "./config.evaluator";
 import { fileURLToPath, pathToFileURL } from 'url';
 import { join as j } from "path";
-import { Config, ModuleConfig, ConfigResolveOptions, UserConfig } from './config.dto';
+import { UserConfig } from './config.dto';
 
 /**
  * Get config file based in cwd path and evaluate
@@ -12,16 +12,18 @@ export class ConfigManager {
 
 	regex = /^\.zenrc|zen\.config\.(j|t)s(on)?$/;
 
-	async resolve(cwd: string, options?: ConfigResolveOptions<false>): Promise<Config>;
-	async resolve(cwd: string, options?: ConfigResolveOptions<true>): Promise<ModuleConfig>;
-	async resolve(cwd: string, options?: ConfigResolveOptions): Promise<Config | ModuleConfig>;
-	async resolve(cwd: string, options: ConfigResolveOptions = {}) {
+	async resolveModule(cwd: string) {
 		const path = await this.findFile(cwd);
-		if(!path) return;
+		const data = path ? await fs.readFile(path, 'utf-8') : '{}';
+		const unresolved = await this.parseData(path ?? '.zenrc', data);
+		return this.configEvaluator.evalModule(unresolved);
+	}
 
-		const data = await fs.readFile(path, 'utf-8');
-		const unresolved = await this.parseData(path, data);
-		return this.configEvaluator.eval(unresolved, options);
+	async resolve(cwd: string) {
+		const path = await this.findFile(cwd);
+		const data = path ? await fs.readFile(path, 'utf-8') : '{}';
+		const unresolved = await this.parseData(path ?? '.zenrc', data);
+		return this.configEvaluator.eval(unresolved);
 	}
 
 	// FIXME: Provavelmente o findFile está recebendo um file:// 

@@ -1,11 +1,10 @@
-// import '@flame-oh/manager-commerce';
 import { Client } from "discord.js";
 import { useState } from "zencord/hooks";
 import { Manager, Storage } from 'zencord';
 import { Payment } from './Payment';
 const meta = new Storage('meta');
 
-@service
+@Service
 export class Init {
     @event
     async OnceReady() {

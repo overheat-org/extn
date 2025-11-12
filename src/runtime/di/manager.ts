@@ -1,13 +1,11 @@
 import { Client } from "discord.js";
-import { ClassLike, DependencyInjectorResolver } from "../utils/DependencyInjectorResolver";
-import ManifestManager from "./ManifestManager";
-import { ManifestType } from "../../consts";
+import { ClassLike, DependencyInjectorResolver } from "./resolver";
+import DependencyBridge from "./bridge";
 
-class DependencyManager extends ManifestManager {
+class DependencyManager {
     private DIResolver: DependencyInjectorResolver;
     
-    async load() {
-		const graph = this.manifest[ManifestType.DependenciesGraph];
+    async load(graph: any) {
 		await this.DIResolver.parseGraph(graph);
 		await this.DIResolver.resolve();
     }
@@ -21,7 +19,7 @@ class DependencyManager extends ManifestManager {
 	}
 
     constructor(client: Client) {
-		super();
+		DependencyBridge.connect(this.getInstanceFrom.bind(this));
         this.DIResolver = new DependencyInjectorResolver(client);
     }
 }

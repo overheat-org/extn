@@ -1,5 +1,5 @@
 import * as vite from "vite";
-import { Config, ConfigResolveOptions, ModuleConfig, UserConfig } from "./config.dto";
+import { Config, ModuleConfig, UserConfig } from "./config.dto";
 import { basename, join as j } from "path";
 import { RollupOptions } from 'rollup';
 import path from 'path';
@@ -10,25 +10,27 @@ import path from 'path';
 export class ConfigEvaluator {
 	config!: Config;
 
-	eval(config: UserConfig, options: ConfigResolveOptions) {
+	evalModule(config: UserConfig) {
 		this.config = config as Config;
 
 		this.evalPaths(config);
 
-		if(!options.module) {
-			this.evalVite(config.vite ??= {}, config.cwd!)
+		return this.config as ModuleConfig;
+	}
 
-			return this.config as Config;
-		}
-		else {
-			return this.config as ModuleConfig;
-		}
+	eval(config: UserConfig) {
+		this.config = config as Config;
+
+		this.evalPaths(config);
+		this.evalVite(config.vite ??= {}, config.cwd!);
+
+		return this.config as Config
 	}
 
 	private evalPaths(config: UserConfig) {
 		config.cwd ??= process.cwd();
 		config.entryPath ??= "src";
-		config.buildPath ??= ".flame";
+		config.buildPath ??= ".zen";
 		config.commandsPath ??= "commands/**/*.tsx";
 		config.servicesPath ??= "services/**/*.{ts,tsx}";
 	}
@@ -36,7 +38,7 @@ export class ConfigEvaluator {
 	private evalVite(config: vite.UserConfig, cwd: string) {
 		config.base = './';
 		config.build ??= {};
-		config.build.outDir = j(this.config.cwd!, this.config.buildPath!);
+		config.build.outDir = j(cwd, this.config.buildPath!);
 
 		const rollup = config.build.rollupOptions ??= {};
 

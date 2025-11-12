@@ -2,15 +2,22 @@ import { NodePath } from "@babel/traverse";
 import * as T from "@babel/types";
 import { resolveNodeId } from "../../utils";
 import { basename, dirname, join } from "path";
-import { ScanType } from "../scanner";
-import Compiler from "..";
+import Scanner, { ScanType } from "../scanner";
 import fs from 'fs';
 import { fileURLToPath } from "url";
+import Graph from "../graph";
+import NodeChannels from "../node-observer";
 
 // TODO: Talvez seja melhor fazer o scanModule retornar a lista de symbols encontrados no arquivo
 
 export class ImportAnalyzer {
-	constructor(private compiler: Compiler) {}
+	constructor(nodes: NodeChannels, private graph: Graph, private scanner: Scanner) {
+		nodes.commands.on("ImportDeclaration", this.command$analyzeImport);
+	}
+
+	async command$analyzeImport() {
+
+	}
 	
 	async analyzeTypeDeclaration(path: string, node: NodePath<T.TSTypeReference>) {
 		const typeName = resolveNodeId(node.get("typeName")).node.name;
@@ -18,7 +25,7 @@ export class ImportAnalyzer {
 
 		await this.analyzeBinding(path, binding?.path);
 
-		return this.compiler.graph.findSymbol({ id: typeName, path });
+		return this.graph.findSymbol({ id: typeName, path });
 	}
 
 	analyzeBinding(path: string, node?: NodePath<T.Node>) {
@@ -48,7 +55,7 @@ export class ImportAnalyzer {
 
 		if(!/\.\w+$/.test(fullPath)) fullPath = await this.resolveExtension(fullPath);
 		
-		await this.compiler.scanner.scanFile(fullPath, ScanType.Service);
+		await this.scanner.scanFile(fullPath, ScanType.Service);
 	}
 
 	private async resolveExtension(path: string) {
@@ -68,7 +75,7 @@ export class ImportAnalyzer {
 		const fullPath = this.importResolve(targetPath);
 		let dirPath = await this.findWorkspacePath(fullPath);
 
-		await this.compiler.scanner.scanModule(dirPath, { external: true });
+		await this.scanner.scanModule(dirPath);
 	}
 
 	private importResolve(path: string) {

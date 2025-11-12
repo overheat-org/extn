@@ -1,9 +1,7 @@
-import DependencyManager from "./DependencyManager";
-import { IPCManager } from "./IPCManager";
-import { HTTPManager } from "./HTTPManager";
-import { ClassLike } from "../utils/DependencyInjectorResolver";
-import ManifestManager from "./ManifestManager";
-import { ManifestType } from "../../consts";
+import { IPCManager } from "./ipc";
+import { HTTPManager } from "./http";
+import { ClassLike } from "../di/resolver";
+import DependencyManager from "../di/manager";
 
 export interface Endpoint {
     endpoint: string,
@@ -13,12 +11,13 @@ export interface Endpoint {
     ipc?: boolean
 }
 
-class CommunicationManager extends ManifestManager {
+class ProtocolsManager {
+    constructor(private dependencyManager: DependencyManager) {}
+
     ipcManager = new IPCManager();
     httpManager = new HTTPManager();
 
-    async load() {
-		const routes = this.manifest[ManifestType.Routes];
+    async load(routes: Endpoint[]) {
 		const grouped = Object.groupBy(routes, e => e.ipc ? 'ipc' : 'http');
 
 		const ipc = grouped.ipc ?? [];
@@ -36,10 +35,6 @@ class CommunicationManager extends ManifestManager {
             manager[e.method](e.endpoint, handler);
         });
     }
-
-    constructor(private dependencyManager: DependencyManager) {
-		super();
-	}
 }
 
-export default CommunicationManager;
+export default ProtocolsManager;

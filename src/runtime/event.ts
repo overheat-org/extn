@@ -1,9 +1,9 @@
-import { Client, Events } from "discord.js";
-import DependencyManager from "./DependencyManager";
-import CommandManager from "./CommandManager";
-import { ClassLike } from "../utils/DependencyInjectorResolver";
-import ManifestManager from "./ManifestManager";
-import { ManifestType } from "../../consts";
+import { Events } from "discord.js";
+import DependencyManager from "./di/manager";
+import CommandManager from "./command";
+import { ClassLike } from "./di/resolver";
+import Logger from "../utils/logger";
+import { ZenClient } from "../lib";
 
 export interface Event {
     type: any,
@@ -12,10 +12,14 @@ export interface Event {
     entity: ClassLike
 }
 
-class EventManager extends ManifestManager {
-    async load() {
-		const events = this.manifest[ManifestType.Events];
+class EventManager {
+	constructor(
+		private client: ZenClient, 
+		private dependencyManager: DependencyManager, 
+		private commandManager: CommandManager
+	) {}
 
+    async load(events: Event[]) {
 		events.forEach(this.loadEvent.bind(this));
     }
 
@@ -26,7 +30,10 @@ class EventManager extends ManifestManager {
             }
         });
 
-        this.client.once(Events.ClientReady, () => this.commandManager.register(this.client));
+        this.client.once(Events.ClientReady, () => {
+			Logger.ready(this.client.user?.tag ?? "unknown");
+			this.commandManager.register();
+		});
     }
 
     private loadEvent(event: Event) {
@@ -39,14 +46,6 @@ class EventManager extends ManifestManager {
 
         this.client[event.once ? 'once' : 'on'](event.type, handler);
     }
-
-    constructor(
-		private client: Client, 
-		private dependencyManager: DependencyManager, 
-		private commandManager: CommandManager
-	) {
-		super();
-	}
 }
 
 export default EventManager;

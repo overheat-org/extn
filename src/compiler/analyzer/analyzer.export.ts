@@ -1,17 +1,24 @@
 import { NodePath } from "@babel/traverse";
 import * as T from "@babel/types";
-import { NodeObserver } from ".";
-import Graph from "../../graph";
+import Graph from "../graph";
 import { resolveNodeId } from "../../utils";
+import { ZenError, getErrorLocation } from "../../reporter";
+import NodeChannels from "../node-observer";
 
 export class ExportAnalyzer {
-	constructor(observer: NodeObserver, private graph: Graph) {
-		observer.on('ExportNamedDeclaration', this.analyzeExportNamedDecl)
+	constructor(nodes: NodeChannels, private graph: Graph) {
+		nodes.services.on('ExportNamedDeclaration', this.service$analyzeExportNamed);
+		nodes.commands.on('ExportNamedDeclaration', this.command$analyzeExportNamed);
+		nodes.commands.on('ExportDefaultDeclaration', this.command$analyzeExportDefault);
 	}
 
-	analyzeExportNamedDecl(path: string, node: NodePath<T.ExportNamedDeclaration>) {
+	command$analyzeExportDefault(path: string, node: NodePath<T.ExportDefaultDeclaration>) {
+		
+	}
+
+	service$analyzeExportNamed(path: string, node: NodePath<T.ExportNamedDeclaration>) {
 		const decl = node.get('declaration');
-		if(!decl.isDeclaration()) return;
+		if(!decl.isDeclaration() || decl.isEnumDeclaration()) return;
 
 		const id = resolveNodeId(decl).node.name;
 		
@@ -21,5 +28,11 @@ export class ExportAnalyzer {
 			node,
 			kind: node.type,
 		});
+	}
+
+	command$analyzeExportNamed(path: string, node: NodePath<T.ExportNamedDeclaration>) {
+		if (node.get('specifiers').length == 0) return;
+
+		throw new ZenError('Cannot export in command', getErrorLocation(node, path));
 	}
 }

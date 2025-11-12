@@ -1,5 +1,6 @@
 import { Plugin } from 'rollup';
-import Compiler from './compiler';
+import CodeGenerator from './codegen';
+import Graph from './graph';
 
 declare const __NAME__: string;
 declare const __VERSION__: string;
@@ -7,9 +8,9 @@ declare const __VERSION__: string;
 /**
  * Intercept transformation of code in vite process
  */
-function BridgePlugin(compiler: Compiler) {
-	const { codegen } = compiler;
-	
+function BridgePlugin(graph: Graph) {
+	const codegen = new CodeGenerator(graph);
+
 	return {
 		name: __NAME__,
 		version: __VERSION__,

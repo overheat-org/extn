@@ -1,6 +1,5 @@
 import * as T from '@babel/types';
-import Graph, { GraphSymbol } from '../graph';
-import template from '@babel/template'
+import Graph, { GraphSymbol } from './graph';
 import _generate from '@babel/generator';
 import { ManifestType } from '../consts';
 import { PluginContext } from 'rollup';
@@ -10,13 +9,13 @@ const generate = ('default' in _generate ? _generate.default : _generate) as typ
 class CodeGenerator {
 	generateIndex() {
 		return `
-			import { FlameClient } from '@flame-oh/core';
+			import { ZenClient } from 'zencord';
 
 			process.env = {
 				...process.env,
 			}
 
-			const client = new FlameClient({
+			const client = new ZenClient({
 				entryUrl: import.meta.url,
 			});
 
