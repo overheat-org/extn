@@ -1,8 +1,8 @@
 import * as T from '@babel/types';
 import Graph, { GraphSymbol } from './graph';
 import _generate from '@babel/generator';
-import { ManifestType } from '../consts';
 import { PluginContext } from 'rollup';
+import { ManifestType } from '@runtime/manifest';
 
 const generate = ('default' in _generate ? _generate.default : _generate) as typeof _generate;
 
@@ -30,7 +30,7 @@ class CodeGenerator {
 				items: this.graph.routes
 			},
 			{
-				key: ManifestType.DependenciesGraph,
+				key: ManifestType.Dependencies,
 				items: [...this.graph.modules, ...this.graph.services, ...this.graph.injectables]
 			},
 			{

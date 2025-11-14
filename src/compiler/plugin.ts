@@ -21,15 +21,12 @@ function BridgePlugin(graph: Graph) {
 			return id;
 		},
 		async load(id) {
-			switch (id) {
-				case 'virtual:index': return codegen.generateIndex();
-				case 'virtual:manifest': return codegen.generateManifest();
-				// default: {
-				// 	return await transformer.transformModule(id);
-				// }
-			}
+			return {
+				'virtual:index': codegen.generateIndex(),
+				'virtual:manifest': codegen.generateManifest(),
+			}[id] ?? graph.getModule(id);
 		},
-	} satisfies Plugin
+	} satisfies Plugin;
 }
 
 export default BridgePlugin;

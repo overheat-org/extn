@@ -1,31 +1,31 @@
 import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
-import { HTTP_METHODS } from '../consts';
+import { HTTP_METHODS } from '@consts';
 import { DecoratorDefinition } from './base';
 import { ZenError, getErrorLocation } from '../reporter';
 import { resolveNodeId } from '../utils';
-import { HttpBasedErrors } from '../compiler/analyzer';
+import { HttpBasedErrors } from '@compiler/analyzer';
 
 export default [
     {
         name: 'Injectable',
         transform: {
-            async class({ path, graph, targetNode: parentNode, node }) {
-                const dependencies = await analyzeClassDependencies(path, parentNode);
-                const symbol = graph.resolveSymbol(node);
-                graph.addInjectable(symbol, dependencies);
-				node.remove();
+            async class(ctx) {
+                const dependencies = await this.analyzer.analyzeClassDependencies(ctx);
+                const symbol = this.graph.resolveSymbol(ctx.node);
+                this.graph.addInjectable(symbol, dependencies);
+				ctx.node.remove();
             }
         }
     },
     {
         name: 'Service',
         transform: {
-            async class({ path, graph, targetNode: parentNode, node }) {
-                const dependencies = await analyzeClassDependencies(path, parentNode);
-                const symbol = graph.resolveSymbol(node);
-                graph.addService(symbol, dependencies);
-				node.remove();
+            async class(ctx) {
+                const dependencies = await this.analyzer.analyzeClassDependencies(ctx);
+                const symbol = this.graph.resolveSymbol(ctx.node);
+                this.graph.addService(symbol, dependencies);
+				ctx.node.remove();
             }
         }
     },
@@ -34,13 +34,13 @@ export default [
         children: HTTP_METHODS.map(method => ({
             name: method,
             transform: {
-                method({ path, graph, node, params, targetNode: methodNode }) {
-					const httpData = analyzeHttpRoute(node, params);
+                method(ctx) {
+					const httpData = this.analyzer.analyzeHttpRoute(ctx);
 					
 					const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
 					const ERROR_PATTERN = (msg: string) => new ZenError(
 						`Wrong syntax for decorator: ${msg}\n\n${ERROR_EXAMPLE}`,
-						getErrorLocation(node, path)						
+						getErrorLocation(ctx.node, ctx.path)						
 					)
 
 					switch (httpData) {
@@ -53,17 +53,17 @@ export default [
 					
 					const { endpoint } = httpData;
 					
-                    const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
-                    const symbol = graph.resolveSymbol(methodNode, classNode);
+                    const classNode = ctx.targetNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+                    const symbol = this.graph.resolveSymbol(ctx.targetNode, classNode);
 
-                    graph.addRoute({
+                    this.graph.addRoute({
                         endpoint,
                         method,
                         symbol,
                         ipc: false
                     });
 
-					node.remove();
+					ctx.node.remove();
                 }
             }
         }) as DecoratorDefinition)
@@ -71,22 +71,22 @@ export default [
     {
         name: "Event",
         transform: {
-            method({ path, graph, targetNode: methodNode, node }) {
-                const classNode = methodNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
-                const symbol = graph.resolveSymbol(methodNode, classNode);
+            method(ctx) {
+                const classNode = ctx.targetNode.findParent(p => p.isClassDeclaration()) as NodePath<T.ClassDeclaration>;
+                const symbol = this.graph.resolveSymbol(ctx.targetNode, classNode);
 
-                const key = methodNode.get('key');
+                const key = ctx.targetNode.get('key');
                 if (!key.isIdentifier()) {
                     const locStart = key.node.loc?.start!;
 
-                    throw new ZenError("Expected a comptime known class method name", { path: path, ...locStart });
+                    throw new ZenError("Expected a comptime known class method name", { path: ctx.path, ...locStart });
                 };
 
                 const methodName = key.node.name;
 
                 const NAME_ERROR = new ZenError(
                     "The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
-                    { path: path, ...key.node.loc?.start! }
+                    { path: ctx.path, ...key.node.loc?.start! }
                 );
 
                 const matches = methodName.match(/^(On|Once)([A-Z][a-zA-Z]*)$/);
@@ -97,13 +97,13 @@ export default [
 
                 const type = matches[2].charAt(0).toLowerCase() + matches[2].slice(1);
 
-                graph.addEvent({
+                this.graph.addEvent({
                     once,
                     type,
                     symbol
                 });
 				
-				node.remove();
+				ctx.node.remove();
             }
         }
     },
@@ -129,11 +129,3 @@ export default [
         }
     }
 ] as DecoratorDefinition[];
-
-function analyzeClassDependencies() {
-
-}
-
-function analyzeHttpRoute() {
-	
-}
