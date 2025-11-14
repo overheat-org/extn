@@ -9,3 +9,8 @@ export const HTTP_METHODS = [
     "trace",
     "patch"
 ];
+
+export enum FileTypes {
+	Command,
+	Service
+} 
