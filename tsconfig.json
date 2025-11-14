@@ -18,7 +18,9 @@
 		"@compiler/*": ["./src/compiler/*"],
 		"@config/*": ["./src/config/*"],
 		"@lib/*": ["./src/lib/*"],
+		"@lib": ["./src/lib/index.ts"],
 		"@runtime/*": ["./src/runtime/*"],
+		"@runtime": ["./src/runtime/index.ts"],
 		"@utils/*": ["./src/utils/*"],
 		"@consts": ["./src/consts.ts"],
 		"@reporter": ["./src/reporter.ts"]

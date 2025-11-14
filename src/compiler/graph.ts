@@ -1,6 +1,6 @@
 import * as T from '@babel/types';
 import { NodePath } from "@babel/traverse"
-import { resolveNodeId } from "../utils"
+import { resolveNodeId } from "@utils/resolve-node-id"
 
 class Event {
 	constructor(

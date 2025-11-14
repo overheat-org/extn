@@ -2,8 +2,8 @@ import { Events } from "discord.js";
 import DependencyManager from "./di/manager";
 import CommandManager from "./command";
 import { ClassLike } from "./di/resolver";
-import Logger from "../utils/logger";
-import { ZenClient } from "../lib";
+import Logger from "@utils/logger";
+import { ZenClient } from "@lib";
 
 export interface Event {
     type: any,

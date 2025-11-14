@@ -1,7 +1,6 @@
 const Logger = {
 	startup(version: string) {
 		console.log(`   ☯ \x1b[1mZen\x1b[0mCord ${version}\n`);
-
 	},
 
 	ready(usertag: string) {

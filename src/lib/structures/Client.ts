@@ -1,6 +1,6 @@
 import { Client, ClientOptions } from "discord.js";
 import { dirname } from "path";
-import Runtime from '../../runtime';
+import Runtime from '@runtime';
 
 export class ZenClient extends Client {
 	private runtime: Runtime;

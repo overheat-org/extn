@@ -2,9 +2,9 @@ import { join as j } from "path";
 import Manifest from "./manifest";
 import CommandManager from "./command";
 import EventManager from "./event";
-import { ZenClient } from "../lib/structures/Client";
+import { ZenClient } from "@lib";
 import DependencyManager from "./di/manager";
-import Logger from "../utils/logger";
+import Logger from "@utils/logger";
 import ProtocolsManager from "./protocols";
 
 declare const VERSION: string

@@ -1,4 +1,4 @@
-import DependencyBridge from '../runtime/di/bridge';
+import DependencyBridge from '@runtime/di/bridge';
 
 export * from 'diseact/hooks';
 

@@ -1,5 +1,5 @@
 import { Client } from "discord.js";
-import { ZenClient } from "../../lib";
+import { ZenClient } from "@lib";
 
 export type ClassLike = new (...args: any[]) => any;
 type Injectable = { entity: ClassLike; dependencies: ClassLike[] };
