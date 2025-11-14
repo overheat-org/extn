@@ -1,16 +1,15 @@
 import * as T from '@babel/types';
-import { NodePath } from "@babel/traverse";
-import NodeChannels from '../node-observer';
+import { NodeObserver, ObserverContext } from '../parser';
+import { FileTypes } from '@consts';
+import { ObserveNode } from '@utils/decorators';
 
 export class CommandTransformer {
-	constructor(nodes: NodeChannels) {
-		// Don't forget, these functions losted yours context, 
-		// use "Function.prototype.bind" if you pretend to use "this".
-		nodes.commands.on("ImportDeclaration", this.transformImport);
-		nodes.commands.on("ExportDefaultDeclaration", this.transformExportDefault);
-	}
+	constructor(observer: NodeObserver) {}
 
-	transformImport(path: string, node: NodePath<T.ImportDeclaration>) {
+	@ObserveNode("ImportDeclaration")
+	transformImport({ node, type }: ObserverContext<T.ImportDeclaration>) {
+		if(type != FileTypes.Command) return;
+		
 		const source = node.node.source.value;
 		const specifiers = node.node.specifiers;
 
@@ -43,7 +42,10 @@ export class CommandTransformer {
 		node.replaceWithMultiple(importExpressions as any);
 	}
 
-	transformExportDefault(path: string, node: NodePath<T.ExportDefaultDeclaration>) {
+	@ObserveNode("ExportDefaultDeclaration")
+	transformExportDefault({ node, type }: ObserverContext<T.ExportDefaultDeclaration>) {
+		if(type != FileTypes.Command) return;
+
 		node.replaceWith(T.returnStatement(node.node.declaration as T.Expression));
 	}
 }

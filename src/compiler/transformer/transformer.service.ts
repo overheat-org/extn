@@ -3,15 +3,19 @@ import { NodePath } from "@babel/traverse";
 import { DecoratorDefinition } from "../../def/base";
 import decorators from "../../def/decorators";
 import Graph from "../graph";
-import NodeChannels from "../node-observer";
 import { throw_expr } from '../../utils';
+import { NodeObserver, ObserverContext } from '../parser';
+import { FileTypes } from '../../consts';
+import { ObserveNode } from '@utils/decorators';
+import Analyzer from '@compiler/analyzer';
 
 export class ServiceTransformer {
-	constructor(nodes: NodeChannels, private graph: Graph) {
-		nodes.services.on("Decorator", this.transformDecorator);
-	}
+	constructor(private observer: NodeObserver, private graph: Graph, private analyzer: Analyzer) {}
 	
-	transformDecorator(path: string, node: NodePath<T.Decorator>) {
+	@ObserveNode("Decorator")
+	transformDecorator({ path, node, type }: ObserverContext<T.Decorator>) {
+		if(type != FileTypes.Service) return;
+
 		let definitions = decorators;
 		let params = new Array<NodePath<T.ArgumentPlaceholder | T.SpreadElement | T.Expression>>;
 		let lastDef!: DecoratorDefinition | undefined;
@@ -46,6 +50,11 @@ export class ServiceTransformer {
 
 		const transform = lastDef.transform!;
 
+		const self = {
+			graph: this.graph,
+			analyzer: this.analyzer,
+		}
+		
 		const base = {
 			path,
 			params,
@@ -60,7 +69,7 @@ export class ServiceTransformer {
 			Identifier: "param"
 		}[targetNode.node.type] ?? throw_expr(new Error("Unknown decorator"));
 
-		if (typeof transform != "object") return void (transform.call(this, {
+		if (typeof transform != "object") return void (transform.call(self, {
 			...base,
 			node,
 			targetNode: node.parentPath as any,
@@ -69,7 +78,7 @@ export class ServiceTransformer {
 		const transformSpecific = transform[kind];
 		if (!transformSpecific) return;
 
-		return transformSpecific.call(this, {
+		return transformSpecific.call(self, {
 			...base,
 			node,
 			targetNode
