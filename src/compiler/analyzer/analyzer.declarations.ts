@@ -1,18 +1,23 @@
 import * as T from "@babel/types";
-import { NodePath } from "@babel/traverse";
-import { ZenError, getErrorLocation } from "../../reporter";
-import NodeChannels from "../node-observer";
+import { ZenError, getErrorLocation } from "@reporter";
+import { NodeObserver, ObserverContext } from "../parser";
+import { FileTypes } from "@consts";
+import { ObserveNode } from "@utils/decorators";
 
 export class DeclarationsAnalyzer {
-	constructor(observers: NodeChannels) {
-		observers.commands.on("EnumDeclaration", this.command$analyzeEnum);
-	}
+	constructor(private observers: NodeObserver) {}
 
-	command$analyzeEnum(path: string, node: NodePath<T.EnumDeclaration>) {
+	@ObserveNode("EnumDeclaration")
+	analyzeEnum({ node, path, type }: ObserverContext<T.EnumDeclaration>) {
+		if(type != FileTypes.Command) return;
+		
 		throw new ZenError('Cannot use enum in command', getErrorLocation(node, path));
 	}
 
-	command$analyzeClass(path: string, node: NodePath<T.ClassDeclaration>) {
+	@ObserveNode("ClassDeclaration")
+	analyzeClass({ node, path, type }: ObserverContext<T.ClassDeclaration>) {
+		if(type != FileTypes.Command) return;
+
 		throw new ZenError('Cannot use class in command', getErrorLocation(node, path));
 	}
 }

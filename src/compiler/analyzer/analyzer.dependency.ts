@@ -1,6 +1,6 @@
 import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
-import { ZenError, getErrorLocation } from '../../reporter';
+import { ZenError, getErrorLocation } from '@reporter';
 import { ImportAnalyzer } from './analyzer.import';
 
 export class DependencyAnalyzer {	

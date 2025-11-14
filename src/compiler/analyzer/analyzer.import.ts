@@ -1,23 +1,18 @@
 import { NodePath } from "@babel/traverse";
 import * as T from "@babel/types";
-import { resolveNodeId } from "../../utils";
+import { resolveNodeId } from "@utils/resolve-node-id";
 import { basename, dirname, join } from "path";
-import Scanner, { ScanType } from "../scanner";
+import Scanner from "../scanner";
 import fs from 'fs';
 import { fileURLToPath } from "url";
 import Graph from "../graph";
-import NodeChannels from "../node-observer";
+import { NodeObserver } from "../parser";
+import { FileTypes } from "@consts";
 
 // TODO: Talvez seja melhor fazer o scanModule retornar a lista de symbols encontrados no arquivo
 
 export class ImportAnalyzer {
-	constructor(nodes: NodeChannels, private graph: Graph, private scanner: Scanner) {
-		nodes.commands.on("ImportDeclaration", this.command$analyzeImport);
-	}
-
-	async command$analyzeImport() {
-
-	}
+	constructor(private observers: NodeObserver, private graph: Graph, private scanner: Scanner) {}
 	
 	async analyzeTypeDeclaration(path: string, node: NodePath<T.TSTypeReference>) {
 		const typeName = resolveNodeId(node.get("typeName")).node.name;
@@ -55,7 +50,7 @@ export class ImportAnalyzer {
 
 		if(!/\.\w+$/.test(fullPath)) fullPath = await this.resolveExtension(fullPath);
 		
-		await this.scanner.scanFile(fullPath, ScanType.Service);
+		await this.scanner.scanFile(fullPath, FileTypes.Service);
 	}
 
 	private async resolveExtension(path: string) {
