@@ -1,5 +1,5 @@
 {
-	"name": "extn",
+	"name": "extn.js",
 	"description": "A discord.js framework to build Discord bots using Dependency Injector and JSX",
 	"version": "0.1.0",
 	"type": "module",
