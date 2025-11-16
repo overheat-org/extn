@@ -1,0 +1,7 @@
+{
+	"name": "@extn/cli",
+	"type": "module",
+	"dependencies": {
+		"@extn/compiler": "workspace:*"
+	}
+}

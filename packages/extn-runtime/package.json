@@ -1,0 +1,11 @@
+{
+	"name": "@extn/runtime",
+	"type": "module",
+	"main": "./src/index.ts",
+	"dependencies": {
+		"@extn/shared": "workspace:*"
+	},
+	"devDependencies": {
+		"extn.js": "workspace:*"
+	}
+}
