@@ -1,5 +1,5 @@
-import fs from "fs/promises";
-import { join as j } from "path";
+import fs from "node:fs/promises";
+import { join as j } from "node:path";
 import { ConfigManager } from "./config/config.manager";
 import Graph from "./graph";
 import Transformer from "./transformer";

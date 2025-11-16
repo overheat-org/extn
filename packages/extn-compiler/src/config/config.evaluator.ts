@@ -1,8 +1,8 @@
 import * as vite from "vite";
 import { Config, ModuleConfig, UserConfig } from "./config.dto";
-import { basename, join as j } from "path";
+import { basename, join as j } from "node:path";
 import { RollupOptions } from 'rollup';
-import path from 'path';
+import path from 'node:path';
 
 /**
  * Walk around config object and execute instructions based in

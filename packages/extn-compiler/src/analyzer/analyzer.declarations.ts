@@ -1,8 +1,7 @@
 import * as T from "@babel/types";
-import { ExtnError, getErrorLocation } from "../../../shared/reporter";
+import { ExtnError, getErrorLocation, FileTypes } from "@extn/shared";
 import { NodeObserver, ObserverContext } from "../parser";
-import { FileTypes } from "../../../shared/consts";
-import { ObserveNode } from "@utils/decorators";
+import { ObserveNode } from "../utils/decorators";
 
 export class DeclarationsAnalyzer {
 	constructor(private observers: NodeObserver) {}

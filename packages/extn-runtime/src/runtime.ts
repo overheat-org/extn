@@ -1,4 +1,4 @@
-import { join as j } from "path";
+import { join as j } from "node:path";
 import Manifest from "./manifest";
 import CommandManager from "./command";
 import EventManager from "./event";

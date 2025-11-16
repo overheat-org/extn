@@ -22,11 +22,13 @@
 		}
 	},
 	"dependencies": {
-		"@extn/cli": "workspace:*",
-		"@extn/runtime": "workspace:*",
 		"@keyv/sqlite": "^4.0.6",
-		"discord.js": "*",
-		"diseact": "*",
+		"@extn/cli": "workspace:*",
+		"discord.js": "catalog:",
+		"diseact": "catalog:",
 		"keyv": "^5.5.4"
+	},
+	"devDependencies": {
+		"@extn/runtime": "workspace:*"
 	}
 }

@@ -5,7 +5,7 @@ import decorators from "../def/decorators";
 import Graph from "../graph";
 import { throw_expr, FileTypes } from '@extn/shared';
 import { NodeObserver, ObserverContext } from '../parser';
-import { ObserveNode } from '@utils/decorators';
+import { ObserveNode } from '../utils/decorators';
 import Analyzer from '../analyzer';
 
 export class ServiceTransformer {

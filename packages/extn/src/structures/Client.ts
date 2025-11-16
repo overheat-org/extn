@@ -1,5 +1,5 @@
 import { Client, ClientOptions } from "discord.js";
-import { dirname } from "path";
+import { dirname } from "node:path";
 import Runtime from '@extn/runtime';
 
 export class ExtnClient extends Client {

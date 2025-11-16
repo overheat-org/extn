@@ -1,0 +1,1 @@
+export const throw_expr = (e) => { throw e }

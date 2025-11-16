@@ -1,11 +1,6 @@
 import { Endpoint } from './protocols';
 import { Event } from './event';
-
-export enum ManifestType {
-	Routes,
-	Dependencies,
-	Events,
-}
+import { ManifestType } from '@extn/shared';
 
 class Manifest {
 	constructor(

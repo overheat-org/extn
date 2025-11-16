@@ -1,13 +1,13 @@
 import { NodePath } from "@babel/traverse";
 import * as T from "@babel/types";
-import { resolveNodeId } from "@utils/resolve-node-id";
-import { basename, dirname, join } from "path";
+import { resolveNodeId } from "../utils/id-resolver";
+import { basename, dirname, join } from "node:path";
 import Scanner from "../scanner";
-import fs from 'fs';
+import fs from 'node:fs';
 import { fileURLToPath } from "url";
 import Graph from "../graph";
 import { NodeObserver } from "../parser";
-import { FileTypes } from "../../../shared/src/consts";
+import { FileTypes } from "@extn/shared";
 
 // TODO: Talvez seja melhor fazer o scanModule retornar a lista de symbols encontrados no arquivo
 

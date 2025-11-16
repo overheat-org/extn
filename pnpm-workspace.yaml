@@ -1,2 +1,9 @@
 packages:
   - "packages/*"
+catalog:
+  '@babel/generator': ^7.28.5
+  '@babel/parser': ^7.28.5
+  '@babel/traverse': ^7.28.5
+  '@babel/types': ^7.28.5
+  discord.js: ^14.24.2
+  diseact: ^0.1.6

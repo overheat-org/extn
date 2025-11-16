@@ -1,6 +1,10 @@
 {
 	"name": "@extn/cli",
 	"type": "module",
+	"scripts": {
+		"build": "vite build"
+	},
+	"bin": "out/index.js",
 	"dependencies": {
 		"@extn/compiler": "workspace:*"
 	}

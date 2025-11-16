@@ -1,7 +1,7 @@
-import fs from 'fs/promises';
+import fs from 'node:fs/promises';
 import { ConfigEvaluator } from "./config.evaluator";
 import { fileURLToPath, pathToFileURL } from 'url';
-import { join as j } from "path";
+import { join as j } from "node:path";
 import { UserConfig } from './config.dto';
 
 /**

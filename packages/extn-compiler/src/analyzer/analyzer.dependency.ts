@@ -1,6 +1,6 @@
 import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
-import { ExtnError, getErrorLocation } from '../../../shared/src/reporter';
+import { ExtnError, getErrorLocation } from '@extn/shared';
 import { ImportAnalyzer } from './analyzer.import';
 
 export class DependencyAnalyzer {	

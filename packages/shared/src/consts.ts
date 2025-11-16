@@ -14,3 +14,9 @@ export enum FileTypes {
 	Command,
 	Service
 } 
+
+export enum ManifestType {
+	Routes,
+	Dependencies,
+	Events,
+}

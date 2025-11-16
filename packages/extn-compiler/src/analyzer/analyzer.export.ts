@@ -1,10 +1,9 @@
 import * as T from "@babel/types";
 import Graph from "../graph";
-import { resolveNodeId } from "@utils/resolve-node-id";
-import { ExtnError, getErrorLocation } from "../../../shared/src/reporter";
+import { resolveNodeId } from "../utils/id-resolver";
 import { NodeObserver, ObserverContext } from "../parser";
-import { ObserveNode } from "@utils/decorators";
-import { FileTypes } from "../../../shared/src/consts";
+import { ObserveNode } from "../utils/decorators";
+import { FileTypes, ExtnError, getErrorLocation } from "@extn/shared";
 
 export class ExportAnalyzer {
 	constructor(private observer: NodeObserver, private graph: Graph) {}

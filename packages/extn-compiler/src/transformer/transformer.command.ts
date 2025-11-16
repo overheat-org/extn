@@ -1,7 +1,7 @@
 import * as T from '@babel/types';
 import { NodeObserver, ObserverContext } from '../parser';
-import { FileTypes } from '../../../shared/src/consts';
-import { ObserveNode } from '@utils/decorators';
+import { FileTypes } from '@extn/shared';
+import { ObserveNode } from '../utils/decorators';
 
 export class CommandTransformer {
 	constructor(observer: NodeObserver) {}
