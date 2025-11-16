@@ -1,6 +1,6 @@
 dist
 node_modules
 *.env*
-test/.zen
+test/.extn
 *lock*
 types/*

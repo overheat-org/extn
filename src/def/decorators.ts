@@ -2,7 +2,7 @@ import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
 import { HTTP_METHODS } from '@consts';
 import { DecoratorDefinition } from './base';
-import { ZenError, getErrorLocation } from '../reporter';
+import { ExtnError, getErrorLocation } from '../reporter';
 import { resolveNodeId } from '../utils';
 import { HttpBasedErrors } from '@compiler/analyzer';
 
@@ -38,7 +38,7 @@ export default [
 					const httpData = this.analyzer.analyzeHttpRoute(ctx);
 					
 					const ERROR_EXAMPLE = '@http.get("/route/to/handle")\nmethod(args) {\n\t...\n}';
-					const ERROR_PATTERN = (msg: string) => new ZenError(
+					const ERROR_PATTERN = (msg: string) => new ExtnError(
 						`Wrong syntax for decorator: ${msg}\n\n${ERROR_EXAMPLE}`,
 						getErrorLocation(ctx.node, ctx.path)						
 					)
@@ -79,12 +79,12 @@ export default [
                 if (!key.isIdentifier()) {
                     const locStart = key.node.loc?.start!;
 
-                    throw new ZenError("Expected a comptime known class method name", { path: ctx.path, ...locStart });
+                    throw new ExtnError("Expected a comptime known class method name", { path: ctx.path, ...locStart });
                 };
 
                 const methodName = key.node.name;
 
-                const NAME_ERROR = new ZenError(
+                const NAME_ERROR = new ExtnError(
                     "The method name should starts with 'On' or 'Once' and continue with a discord event name\n\nlike: 'OnceReady'",
                     { path: ctx.path, ...key.node.loc?.start! }
                 );

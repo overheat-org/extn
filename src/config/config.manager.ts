@@ -10,19 +10,19 @@ import { UserConfig } from './config.dto';
 export class ConfigManager {
 	private configEvaluator = new ConfigEvaluator();
 
-	regex = /^\.zenrc|zen\.config\.(j|t)s(on)?$/;
+	regex = /^\.extnrc|extn\.config\.(j|t)s(on)?$/;
 
 	async resolveModule(cwd: string) {
 		const path = await this.findFile(cwd);
 		const data = path ? await fs.readFile(path, 'utf-8') : '{}';
-		const unresolved = await this.parseData(path ?? '.zenrc', data);
+		const unresolved = await this.parseData(path ?? '.extnrc', data);
 		return this.configEvaluator.evalModule(unresolved);
 	}
 
 	async resolve(cwd: string) {
 		const path = await this.findFile(cwd);
 		const data = path ? await fs.readFile(path, 'utf-8') : '{}';
-		const unresolved = await this.parseData(path ?? '.zenrc', data);
+		const unresolved = await this.parseData(path ?? '.extnrc', data);
 		return this.configEvaluator.eval(unresolved);
 	}
 

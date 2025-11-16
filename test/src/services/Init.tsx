@@ -1,6 +1,6 @@
 import { Client } from "discord.js";
-import { useState } from "zencord/hooks";
-import { Manager, Storage } from 'zencord';
+import { useState } from "extn/hooks";
+import { Manager, Storage } from 'extn';
 import { Payment } from './Payment';
 const meta = new Storage('meta');
 

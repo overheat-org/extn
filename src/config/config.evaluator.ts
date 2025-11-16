@@ -30,7 +30,7 @@ export class ConfigEvaluator {
 	private evalPaths(config: UserConfig) {
 		config.cwd ??= process.cwd();
 		config.entryPath ??= "src";
-		config.buildPath ??= ".zen";
+		config.buildPath ??= ".extn";
 		config.commandsPath ??= "commands/**/*.tsx";
 		config.servicesPath ??= "services/**/*.{ts,tsx}";
 	}

@@ -1,17 +1,17 @@
 import { NodePath } from "@babel/traverse";
 
-export type ZenErrorLocation = { path?: string, line?: number, column?: number }
+export type ExtnErrorLocation = { path?: string, line?: number, column?: number }
 
-export class ZenError extends Error {
-	constructor(message: string, location?: ZenErrorLocation) {
+export class ExtnError extends Error {
+	constructor(message: string, location?: ExtnErrorLocation) {
 		if (location) message += `\n    at ${location.path}:${location.line}:${location.column}`;
 		super(message);
-		Error.captureStackTrace?.(this, ZenError);
+		Error.captureStackTrace?.(this, ExtnError);
 	}
 }
 
 /** @internal */
-export function getErrorLocation(path: NodePath, id: string): ZenErrorLocation {
+export function getErrorLocation(path: NodePath, id: string): ExtnErrorLocation {
     const loc = path?.node?.loc?.start;
     return { ...(loc ?? {}), path: id };
 }

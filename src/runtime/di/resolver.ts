@@ -1,5 +1,5 @@
 import { Client } from "discord.js";
-import { ZenClient } from "@lib";
+import { ExtnClient } from "@lib";
 
 export type ClassLike = new (...args: any[]) => any;
 type Injectable = { entity: ClassLike; dependencies: ClassLike[] };
@@ -28,7 +28,7 @@ export class DependencyInjectorResolver {
 
     constructor(client: Client) {
         this.instanceFromDependency.set(Client, client);
-        this.instanceFromDependency.set(ZenClient, client);
+        this.instanceFromDependency.set(ExtnClient, client);
     }
 
     register(entity: ClassLike, dependencies: ClassLike[] = []) {

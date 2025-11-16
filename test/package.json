@@ -6,6 +6,6 @@
     "test": "node ../dist/cli.js . --hot"
   },
   "dependencies": {
-    "zencord": "file:.."
+    "extn": "file:.."
   }
 }

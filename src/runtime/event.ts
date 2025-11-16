@@ -3,7 +3,7 @@ import DependencyManager from "./di/manager";
 import CommandManager from "./command";
 import { ClassLike } from "./di/resolver";
 import Logger from "@utils/logger";
-import { ZenClient } from "@lib";
+import { ExtnClient } from "@lib";
 
 export interface Event {
     type: any,
@@ -14,7 +14,7 @@ export interface Event {
 
 class EventManager {
 	constructor(
-		private client: ZenClient, 
+		private client: ExtnClient, 
 		private dependencyManager: DependencyManager, 
 		private commandManager: CommandManager
 	) {}

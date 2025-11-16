@@ -2,7 +2,7 @@ import { join as j } from "path";
 import Manifest from "./manifest";
 import CommandManager from "./command";
 import EventManager from "./event";
-import { ZenClient } from "@lib";
+import { ExtnClient } from "@lib";
 import DependencyManager from "./di/manager";
 import Logger from "@utils/logger";
 import ProtocolsManager from "./protocols";
@@ -10,7 +10,7 @@ import ProtocolsManager from "./protocols";
 declare const VERSION: string
 
 class Runtime {
-	constructor(client: ZenClient, private entryUrl: string) {
+	constructor(client: ExtnClient, private entryUrl: string) {
 		Logger.startup(VERSION);
 
 		this.dependencyManager = new DependencyManager(client);

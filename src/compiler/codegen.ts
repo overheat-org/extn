@@ -9,13 +9,13 @@ const generate = ('default' in _generate ? _generate.default : _generate) as typ
 class CodeGenerator {
 	generateIndex() {
 		return `
-			import { ZenClient } from 'zencord';
+			import { ExtnClient } from 'extn';
 
 			process.env = {
 				...process.env,
 			}
 
-			const client = new ZenClient({
+			const client = new ExtnClient({
 				entryUrl: import.meta.url,
 			});
 

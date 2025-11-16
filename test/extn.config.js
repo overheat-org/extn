@@ -1,5 +1,5 @@
 /**
- * @type {import('zencord').Config}
+ * @type {import('extn').Config}
  */
 const config = {
 	vite: {

@@ -38,7 +38,7 @@ export default defineConfig({
                 dir: 'dist',
             },
             external: (id) => {
-				if(id.startsWith('diseact') || id == 'picomatch') return false;
+				if(id.startsWith('diseact')) return false;
 				
                 return id.startsWith('node:') || (!id.startsWith('.') && !path.isAbsolute(id));
             },

@@ -1,6 +1,6 @@
 import * as T from '@babel/types';
 import { NodePath } from '@babel/traverse';
-import { ZenError, getErrorLocation } from '@reporter';
+import { ExtnError, getErrorLocation } from '@reporter';
 import { ImportAnalyzer } from './analyzer.import';
 
 export class DependencyAnalyzer {	
@@ -22,7 +22,7 @@ export class DependencyAnalyzer {
 
 		return Promise.all(params.map(p => {
 			if (!p.isTSParameterProperty()) {
-				throw new ZenError("This parameter cannot be injectable", getErrorLocation(node, path));
+				throw new ExtnError("This parameter cannot be injectable", getErrorLocation(node, path));
 			}
 
 			return this.analyzeParameter(path, p);
@@ -34,13 +34,13 @@ export class DependencyAnalyzer {
 		const typeAnnotation = parameter.get("typeAnnotation");
 
 		if (!typeAnnotation.isTSTypeAnnotation()) {
-			throw new ZenError("Expected a type annotation for injectable parameter", getErrorLocation(node, path));
+			throw new ExtnError("Expected a type annotation for injectable parameter", getErrorLocation(node, path));
 		}
 
 		const typeRef = typeAnnotation.get("typeAnnotation");
 
 		if (!typeRef.isTSTypeReference()) {
-			throw new ZenError("Expected a injectable type reference", getErrorLocation(node, path));
+			throw new ExtnError("Expected a injectable type reference", getErrorLocation(node, path));
 		}
 
 		return this.importAnalyzer.analyzeTypeDeclaration(path, typeRef);

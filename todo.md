@@ -12,7 +12,7 @@ Scanner
 	|> Busca os managers e commands baseado na config
 	|> Analisa os imports e cria uma estrutura
 
-Há outro problema nisso que seria as importações de modulos do zencord. Teriamos que achar o node_modules e analizar os commands e os managers dos modulos também.
+Há outro problema nisso que seria as importações de modulos do extn. Teriamos que achar o node_modules e analizar os commands e os managers dos modulos também.
 
 # Conclusão
 
@@ -20,6 +20,6 @@ Primeiro, transformar managers em services.
 
 Scanner tem que receber a funcao de ler os arquivos um por um e extrair os arquivos que ele importa.
 
-Isso inclui os pacotes que sejam modulos zencord. O scanner tem que ler o diretório desses módulos e checar se existe um config file, se existir, será lido essa config para saber como aquele pacote quer que seja lido os comandos e managers.
+Isso inclui os pacotes que sejam modulos extn. O scanner tem que ler o diretório desses módulos e checar se existe um config file, se existir, será lido essa config para saber como aquele pacote quer que seja lido os comandos e managers.
 
 Todos esses arquivos tem que ser registrados no graph, e adicionados no manifest com o pattern: "./managers/@org/name" ou "./managers/name"

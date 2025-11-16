@@ -2,7 +2,7 @@ import { Client, ClientOptions } from "discord.js";
 import { dirname } from "path";
 import Runtime from '@runtime';
 
-export class ZenClient extends Client {
+export class ExtnClient extends Client {
 	private runtime: Runtime;
 
     constructor(options: ClientOptions & { entryUrl: string }) {

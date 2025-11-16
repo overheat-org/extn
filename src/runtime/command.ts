@@ -1,9 +1,9 @@
 // import { InteractionExecutor } from "diseact";
 import { AutocompleteInteraction, ChatInputCommandInteraction, Guild } from "discord.js";
-import { ZenClient, CommandContainer } from "@lib";
+import { ExtnClient, CommandContainer } from "@lib";
 
 class CommandManager {
-	constructor(private client: ZenClient) {}
+	constructor(private client: ExtnClient) {}
 	
     // private executor = new InteractionExecutor();
     private container?: CommandContainer;

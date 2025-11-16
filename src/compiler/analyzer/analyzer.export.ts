@@ -1,7 +1,7 @@
 import * as T from "@babel/types";
 import Graph from "../graph";
 import { resolveNodeId } from "@utils/resolve-node-id";
-import { ZenError, getErrorLocation } from "@reporter";
+import { ExtnError, getErrorLocation } from "@reporter";
 import { NodeObserver, ObserverContext } from "../parser";
 import { ObserveNode } from "@utils/decorators";
 import { FileTypes } from "@consts";
@@ -16,7 +16,7 @@ export class ExportAnalyzer {
 		if(type ==  FileTypes.Command) {
 			if (node.get('specifiers').length == 0) return;
 
-			throw new ZenError('Cannot export in command', getErrorLocation(node, path));
+			throw new ExtnError('Cannot export in command', getErrorLocation(node, path));
 		} else {
 			const decl = node.get('declaration');
 			if(!decl.isDeclaration() || decl.isEnumDeclaration()) return;
