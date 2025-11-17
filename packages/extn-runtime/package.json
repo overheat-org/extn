@@ -1,7 +1,11 @@
 {
 	"name": "@extn/runtime",
 	"type": "module",
-	"main": "./src/index.ts",
+	"main": "./lib/index.js",
+	"types": "./src/index.ts",
+	"scripts": {
+		"build": "tsup"
+	},
 	"dependencies": {
 		"@extn/shared": "workspace:*"
 	},

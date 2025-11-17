@@ -1,4 +1,5 @@
 src
 node_modules
-vite.config.ts
+tsup.config.ts
+.gitignore
 .npmignore

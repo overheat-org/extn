@@ -1,8 +1,9 @@
 {
 	"name": "@extn/cli",
+	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"build": "vite build"
+		"build": "tsup"
 	},
 	"bin": "out/index.js",
 	"dependencies": {

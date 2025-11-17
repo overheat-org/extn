@@ -3,9 +3,7 @@
 	"version": "0.2.0",
 	"type": "module",
 	"scripts": {
-		"watch": "vite build -w --mode development",
-		"dev": "vite build --mode development",
-		"build": "vite build"
+		"build": "tsup"
 	},
 	"exports": {
 		".": {
@@ -22,13 +20,11 @@
 		}
 	},
 	"dependencies": {
-		"@keyv/sqlite": "^4.0.6",
 		"@extn/cli": "workspace:*",
+		"@extn/runtime": "workspace:*",
+		"@keyv/sqlite": "^4.0.6",
 		"discord.js": "catalog:",
 		"diseact": "catalog:",
 		"keyv": "^5.5.4"
-	},
-	"devDependencies": {
-		"@extn/runtime": "workspace:*"
 	}
 }

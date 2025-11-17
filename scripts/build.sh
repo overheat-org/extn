@@ -1,6 +1,10 @@
 #!/usr/bin/sh
 
-cd packages/extn
-npm run build
-cd ../extn-cli
-npm run build
+cd packages
+PACKAGES=$(ls)
+
+for dir in $PACKAGES; do
+	cd $dir
+	pnpm build
+	cd ..
+done

@@ -2,7 +2,11 @@
 
 ./scripts/build.sh
 
-cd packages/extn
-pnpm publish
-cd ../extn-cli
-pnpm publish
+cd packages
+PACKAGES=$(ls)
+
+for dir in $PACKAGES; do
+	cd $dir
+	pnpm publish
+	cd ..
+done

@@ -1,8 +1,13 @@
 {
 	"name": "@extn/compiler",
 	"type": "module",
-	"main": "src/index.ts",
+	"main": "lib/index.js",
+	"types": "src/index.ts",
+	"scripts": {
+		"build": "tsup"
+	},
 	"dependencies": {
-		"@extn/shared": "workspace:*"
+		"@extn/shared": "workspace:*",
+		"vite": "^7.2.2"
 	}
 }
